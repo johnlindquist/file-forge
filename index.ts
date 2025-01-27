@@ -24,7 +24,7 @@ import { mkdirp } from "mkdirp";
 import envPaths from "env-paths";
 import Conf from "conf";
 import { execSync, spawnSync } from "node:child_process";
-import { resolve, basename, dirname, sep } from "node:path";
+import { resolve, basename } from "node:path";
 import {
 	existsSync,
 	lstatSync,
@@ -33,7 +33,6 @@ import {
 	writeFileSync,
 } from "node:fs";
 import { createHash } from "node:crypto";
-import fetch from "node-fetch";
 
 /** Constants/Helpers ******************************/
 
@@ -69,13 +68,13 @@ type EditorConfig = {
 };
 
 type IngestFlags = {
-	include?: string[];
-	exclude?: string[];
-	branch?: string;
-	commit?: string;
-	maxSize?: number;
-	pipe?: boolean;
-	debug?: boolean;
+	include?: string[] | undefined;
+	exclude?: string[] | undefined;
+	branch?: string | undefined;
+	commit?: string | undefined;
+	maxSize?: number | undefined;
+	pipe?: boolean | undefined;
+	debug?: boolean | undefined;
 };
 
 type ScanStats = {
@@ -574,7 +573,7 @@ function scanDirectory(
 			// Resolve symlink safely
 			// For brevity, skip or read real path:
 			try {
-				const real = resolve(dirname(fullPath), readFileSync(fullPath, "utf8"));
+				readFileSync(fullPath, "utf8");
 				// This is naive. Typically you'd do fs.realpathSync.
 				// We'll skip symlinks to avoid complexities:
 				if (flags.debug) console.log("[DEBUG] Skipping symlink:", fullPath);
@@ -725,11 +724,9 @@ function gatherFiles(root: TreeNode, out: TreeNode[], maxSize: number) {
 			root.content = "[Content ignored: file too large]";
 		}
 		out.push(root);
-	} else if (root.type === "directory") {
-		if (root.children) {
-			for (const c of root.children) {
-				gatherFiles(c, out, maxSize);
-			}
+	} else if (root.type === "directory" && root.children) {
+		for (const c of root.children) {
+			gatherFiles(c, out, maxSize);
 		}
 	}
 }
@@ -742,14 +739,13 @@ function isLikelyTextFile(filePath: string): boolean {
 		// If we see many non-ASCII chars in first 1024, we assume binary
 		const chunk = buffer.slice(0, 1024);
 		let nonPrintable = 0;
-		for (let i = 0; i < chunk.length; i++) {
-			const byte = chunk[i];
-			if (byte === 0) {
+		for (const currentByte of chunk) {
+			if (currentByte === 0) {
 				// definitely binary if we see a null
 				return false;
 			}
 			// if below ASCII 9 or above 127 is suspicious
-			if (byte < 9 || (byte > 127 && byte < 192)) {
+			if (currentByte < 9 || (currentByte > 127 && currentByte < 192)) {
 				nonPrintable++;
 			}
 		}
@@ -777,7 +773,7 @@ function createTree(node: TreeNode, prefix: string, isLast = true): string {
 	if (node.type === "directory" && node.children && node.children.length > 0) {
 		const newPrefix = prefix + (isLast ? "    " : "│   ");
 		node.children.forEach((child, idx) => {
-			const lastChild = idx === node.children?.length - 1 ?? false;
+			const lastChild = node.children && idx === node.children.length - 1;
 			tree += createTree(child, newPrefix, lastChild);
 		});
 	}
