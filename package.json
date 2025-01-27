@@ -18,6 +18,8 @@
     "dev": "node --experimental-strip-types index.ts",
     "build": "tsc",
     "build:check": "tsc --noEmit",
+    "lint": "eslint . --ext .ts",
+    "lint:fix": "eslint . --ext .ts --fix",
     "verify:bin": "pnpm build && [ -f dist/index.js ] || (echo 'dist/index.js not found' && exit 1)",
     "prepublishOnly": "pnpm build",
     "prepare": "husky",
@@ -42,7 +44,8 @@
       "@semantic-release/release-notes-generator",
       "@semantic-release/changelog",
       "@semantic-release/npm",
-      "@semantic-release/github"
+      "@semantic-release/github",
+      "@semantic-release/git"
     ]
   },
   "keywords": [
@@ -66,8 +69,11 @@
     "@types/node": "^22.10.10",
     "@types/node-fetch": "^2.6.11",
     "@types/yargs": "^17.0.32",
+    "@typescript-eslint/eslint-plugin": "^8.22.0",
+    "@typescript-eslint/parser": "^8.22.0",
     "commitizen": "^4.3.1",
     "cz-conventional-changelog": "^3.3.0",
+    "eslint": "^9.19.0",
     "husky": "^9.1.7",
     "semantic-release": "^24.2.1",
     "typescript": "^5.7.3"

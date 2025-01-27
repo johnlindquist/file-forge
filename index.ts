@@ -275,15 +275,21 @@ const argv = yargs(hideBin(process.argv))
 		spinner2.stop("Text digest built.");
 
 		// 3) Format final output
-		let output = `# GitIngest\n\n`;
-		output += `**Source**: \`${String(source)}\`\n\n`;
-		output += `**Timestamp**: ${new Date().toString()}\n\n`;
-		output += `## Summary\n\n`;
-		output += `${summary}\n\n`;
-		output += `## Directory Structure\n\n`;
-		output += "```\n" + treeStr + "\n```\n\n";
-		output += `## Files Content\n\n`;
-		output += "```\n" + contentStr + "\n```\n\n";
+		const output = [
+			"# GitIngest\n",
+			`**Source**: \`${String(source)}\`\n`,
+			`**Timestamp**: ${new Date().toString()}\n`,
+			"## Summary\n",
+			`${summary}\n`,
+			"## Directory Structure\n",
+			"```\n",
+			treeStr,
+			"```\n",
+			"## Files Content\n",
+			"```\n",
+			contentStr,
+			"```\n",
+		].join("\n");
 
 		// 4) If --pipe, just log it all out and save file (but skip editor)
 		writeFileSync(resultFilePath, output, "utf8");
@@ -490,7 +496,8 @@ async function ingestDirectory(basePath: string, flags: IngestFlags) {
 
 	// Collect file content
 	const fileNodes: TreeNode[] = [];
-	gatherFiles(rootNode, fileNodes, flags.maxSize!);
+	const maxSize = flags.maxSize ?? DEFAULT_MAX_SIZE;
+	gatherFiles(rootNode, fileNodes, maxSize);
 
 	// Merge into a single big string
 	let contentStr = "";
@@ -535,7 +542,7 @@ function scanDirectory(
 	}
 
 	// If directory, build node
-	let node: TreeNode = {
+	const node: TreeNode = {
 		name: basename(dirPath),
 		type: "directory",
 		size: 0,
@@ -556,7 +563,7 @@ function scanDirectory(
 		// if we have include patterns, skip if it doesn't match any
 		if (
 			(flags.include ?? []).length > 0 &&
-			!shouldInclude(fullPath, basePath, flags.include!)
+			!shouldInclude(fullPath, basePath, flags.include ?? [])
 		) {
 			continue;
 		}
@@ -588,10 +595,12 @@ function scanDirectory(
 		if (childStat.isDirectory()) {
 			const sub = scanDirectory(fullPath, basePath, flags, stats, depth + 1);
 			if (sub) {
-				node.children?.push(sub);
-				node.dir_count! += 1 + (sub.dir_count || 0);
-				node.file_count! += sub.file_count || 0;
-				node.size += sub.size;
+				if (node.children) {
+					node.children.push(sub);
+					node.dir_count = (node.dir_count ?? 0) + 1 + (sub.dir_count ?? 0);
+					node.file_count = (node.file_count ?? 0) + (sub.file_count ?? 0);
+					node.size += sub.size;
+				}
 			}
 		} else if (childStat.isFile()) {
 			// Count it
@@ -610,9 +619,11 @@ function scanDirectory(
 				size: childStat.size,
 				path: fullPath,
 			};
-			node.children?.push(childNode);
-			node.file_count! += 1;
-			node.size += childStat.size;
+			if (node.children) {
+				node.children.push(childNode);
+				node.file_count = (node.file_count ?? 0) + 1;
+				node.size += childStat.size;
+			}
 		}
 	}
 
@@ -754,13 +765,19 @@ function createTree(node: TreeNode, prefix: string, isLast = true): string {
 	let tree = "";
 
 	const branch = isLast ? "└── " : "├── ";
-	tree +=
-		prefix + branch + node.name + (node.type === "directory" ? "/" : "") + "\n";
+	const treeOutput = [
+		prefix,
+		branch,
+		node.name,
+		node.type === "directory" ? "/" : "",
+		"\n",
+	].join("");
+	tree += treeOutput;
 
 	if (node.type === "directory" && node.children && node.children.length > 0) {
 		const newPrefix = prefix + (isLast ? "    " : "│   ");
 		node.children.forEach((child, idx) => {
-			const lastChild = idx === node.children!.length - 1;
+			const lastChild = idx === node.children?.length - 1 ?? false;
 			tree += createTree(child, newPrefix, lastChild);
 		});
 	}
