@@ -34,6 +34,8 @@ import {
 } from "node:fs";
 import { createHash } from "node:crypto";
 import * as fs from "node:fs";
+import { globby } from "globby";
+import ignore from "ignore";
 
 /** Constants/Helpers ******************************/
 
@@ -77,6 +79,7 @@ type IngestFlags = {
 	pipe?: boolean | undefined;
 	debug?: boolean | undefined;
 	bulk?: boolean | undefined;
+	ignore?: boolean | undefined;
 };
 
 type ScanStats = {
@@ -198,6 +201,7 @@ const argv = yargs(hideBin(process.argv))
 		pipe: argv.pipe,
 		debug: argv.debug,
 		bulk: argv.bulk,
+		ignore: argv.ignore,
 	};
 
 	// Create log directory if needed
@@ -469,7 +473,7 @@ async function getEditorConfig(): Promise<EditorConfig> {
 }
 
 /** Core: Ingest a directory (parsed from local or just-cloned) */
-async function ingestDirectory(basePath: string, flags: IngestFlags) {
+export async function ingestDirectory(basePath: string, flags: IngestFlags) {
 	// If user specified a commit, let's do the checkout now that we've cloned
 	if (flags.commit) {
 		const spinner = p.spinner();
@@ -545,8 +549,8 @@ async function ingestDirectory(basePath: string, flags: IngestFlags) {
 	return { summary, treeStr, contentStr };
 }
 
-/** Recursively scans a directory, building a TreeNode */
-async function scanDirectory(
+/** Core: Scan a directory recursively */
+export async function scanDirectory(
 	dir: string,
 	options: IngestFlags,
 	depth = 0,
@@ -576,7 +580,45 @@ async function scanDirectory(
 		return null;
 	}
 
-	const items = readdirSync(dir);
+	// Read .gitignore if it exists and should be used
+	let gitignorePatterns: string[] = [];
+	const gitignorePath = resolve(dir, ".gitignore");
+	if (existsSync(gitignorePath) && options.ignore !== false) {
+		const ig = ignore();
+		const gitignoreContent = readFileSync(gitignorePath, "utf8");
+		ig.add(gitignoreContent);
+		gitignorePatterns = gitignoreContent
+			.split(/\r?\n/)
+			.map((line) => line.trim())
+			.filter((line) => line && !line.startsWith("#"));
+	}
+
+	// Use globby to find all files in this directory (and subdirs) matching include/exclude.
+	const patterns = options.include ?? ["**/*"];
+	const ignorePatterns = [
+		...DEFAULT_IGNORE,
+		...(options.ignore !== false ? gitignorePatterns : []),
+		...(options.exclude ?? []),
+	];
+
+	if (options.debug) {
+		console.log("[DEBUG] Globby patterns:", patterns);
+		console.log("[DEBUG] Globby ignore patterns:", ignorePatterns);
+	}
+
+	const files = await globby(patterns, {
+		cwd: dir,
+		ignore: ignorePatterns,
+		dot: false,
+		absolute: true,
+		onlyFiles: true,
+	});
+
+	if (options.debug) {
+		console.log("[DEBUG] Globby found files:", files);
+	}
+
+	// Create the root node
 	const node: TreeNode = {
 		name: basename(dir),
 		path: dir,
@@ -585,110 +627,95 @@ async function scanDirectory(
 		children: [],
 		file_count: 0,
 		dir_count: 0,
+		// parent?: TreeNode; <-- not needed on the root
 	};
 
-	for (const item of items) {
-		const fullPath = resolve(dir, item);
-		if (shouldExclude(fullPath, dir, options.exclude ?? [])) {
-			continue;
-		}
+	// For each matched file, we split its relative path segments
+	for (const file of files) {
+		const fstat = lstatSync(file);
+		stats.totalFiles++;
+		stats.totalSize += fstat.size;
 
 		if (
-			(options.include ?? []).length > 0 &&
-			!shouldInclude(fullPath, dir, options.include ?? [])
+			stats.totalFiles > DIR_MAX_FILES ||
+			stats.totalSize > DIR_MAX_TOTAL_SIZE
 		) {
-			continue;
+			if (options.debug) {
+				console.log(
+					"[DEBUG] Max files/size reached:",
+					stats.totalFiles,
+					stats.totalSize,
+				);
+			}
+			break;
 		}
 
-		const childStat = lstatSync(fullPath);
-		if (childStat.isDirectory()) {
-			const sub = await scanDirectory(fullPath, options, depth + 1, stats);
-			if (sub) {
-				node.children?.push(sub);
-				node.size += sub.size;
-				node.dir_count += 1 + (sub.dir_count ?? 0);
-				node.file_count += sub.file_count ?? 0;
-			}
-		} else if (childStat.isFile()) {
-			stats.totalFiles++;
-			stats.totalSize += childStat.size;
+		const relPath = file.slice(dir.length + 1); // relative to "dir"
+		const segments = relPath.split(/[/\\]/);
 
-			if (
-				stats.totalFiles > DIR_MAX_FILES ||
-				stats.totalSize > DIR_MAX_TOTAL_SIZE
-			) {
-				if (options.debug) {
-					console.log(
-						"[DEBUG] Max files/size reached:",
-						stats.totalFiles,
-						stats.totalSize,
-					);
-				}
-				return node;
-			}
+		let currentNode = node;
 
-			try {
-				await fs.promises.access(fullPath);
-			} catch {
-				// File doesn't exist, that's fine
+		// Traverse or create intermediate directories
+		for (let i = 0; i < segments.length - 1; i++) {
+			const segment = segments[i];
+
+			let child = currentNode.children?.find(
+				(n) => n.type === "directory" && n.name === segment,
+			);
+			if (!child) {
+				child = {
+					name: segment,
+					path: resolve(currentNode.path, segment),
+					type: "directory",
+					size: 0,
+					children: [],
+					file_count: 0,
+					dir_count: 0,
+					// parent: currentNode, // <-- ADDED THIS
+				};
+				// @ts-expect-error Add a "parent" property:
+				(child as any).parent = currentNode; // <-- ADDED THIS
+
+				currentNode.children?.push(child);
+				currentNode.dir_count++;
 			}
 
-			node.children?.push({
-				name: item,
-				path: fullPath,
-				type: "file",
-				size: childStat.size,
-				file_count: 0,
-				dir_count: 0,
-			});
-			node.size += childStat.size;
-			node.file_count += 1;
+			currentNode = child;
 		}
+
+		// Add the final file node
+		const fileName = segments[segments.length - 1];
+		const fileNode: TreeNode = {
+			name: fileName,
+			path: file,
+			type: "file",
+			size: fstat.size,
+			file_count: 0,
+			dir_count: 0,
+			// parent: currentNode, // <-- ADDED THIS
+		};
+		// @ts-expect-error Add a "parent" property:
+		fileNode.parent = currentNode; // <-- ADDED THIS
+
+		currentNode.children?.push(fileNode);
+		currentNode.file_count++;
+		currentNode.size += fstat.size;
+
+		// Walk upward to increment the sizes of parent directories
+		let p: any = currentNode; // "any" so we can read `.parent`
+		while (p && p !== node) {
+			p.size += fstat.size;
+			p = p.parent;
+		}
+
+		// And finally increment the root too
+		node.size += fstat.size;
 	}
 
-	return node;
-}
+	node.file_count = stats.totalFiles;
 
-/** Decide if path should be excluded */
-function shouldExclude(
-	fullPath: string,
-	basePath: string,
-	excludes: string[],
-): boolean {
-	const rel = fullPath.replace(basePath, "").replace(/^[/\\]+/, "");
-	for (const pattern of [...DEFAULT_IGNORE, ...excludes]) {
-		if (matchPattern(rel, pattern)) {
-			return true;
-		}
-	}
-	return false;
-}
-
-/** Decide if path should be included (if any include patterns) */
-function shouldInclude(
-	fullPath: string,
-	basePath: string,
-	includes: string[],
-): boolean {
-	const rel = fullPath.replace(basePath, "").replace(/^[/\\]+/, "");
-	for (const pattern of includes) {
-		if (matchPattern(rel, pattern)) {
-			return true;
-		}
-	}
-	return false;
-}
-
-/** Very basic pattern matching for "fnmatch"-style globs */
-function matchPattern(pathStr: string, pattern: string): boolean {
-	// Simple wildcard match, e.g. *.js or foo/*.md
-	// For brevity, do naive approach:
-	const escaped = pattern
-		.replace(/\./g, "\\.")
-		.replace(/\*/g, ".*")
-		.replace(/\?/g, ".");
-	const regex = new RegExp(`^${escaped}$`, "i");
-	return regex.test(pathStr.replace(/\\/g, "/"));
+	// Return null if no files were found
+	return node.children && node.children.length > 0 ? node : null;
 }
 
 /** Recursively traverse the tree to gather file nodes that are textual */
@@ -767,5 +794,19 @@ function createTree(node: TreeNode, prefix: string, isLast = true): string {
 
 	return tree;
 }
-// test
-// another test
+
+function getGitignorePatterns(dir: string): string[] {
+	const gitignorePath = join(dir, ".gitignore");
+	if (!existsSync(gitignorePath)) return [];
+
+	const lines = readFileSync(gitignorePath, "utf8")
+		.split(/\r?\n/)
+		.map((l) => l.trim())
+		.filter(Boolean)
+		.filter((l) => !l.startsWith("#"));
+	// Lines might be things like `*.js`, `dist`, etc.
+
+	// Optionally transform them to globby patterns
+	// or just pass them directly to globby's "ignore" array
+	return lines;
+}

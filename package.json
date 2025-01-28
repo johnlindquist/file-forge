@@ -14,7 +14,8 @@
     "dist"
   ],
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "vitest --watch false",
+    "test:watch": "vitest --watch",
     "dev": "node --experimental-strip-types index.ts",
     "build": "tsc",
     "build:check": "tsc --noEmit",
@@ -30,28 +31,60 @@
     "access": "public"
   },
   "release": {
-    "branches": ["main"],
+    "branches": [
+      "main"
+    ],
     "plugins": [
-      ["@semantic-release/commit-analyzer", {
-        "preset": "angular",
-        "releaseRules": [
-          {"type": "feat", "release": "minor"},
-          {"type": "fix", "release": "patch"},
-          {"type": "docs", "release": "patch"},
-          {"type": "style", "release": "patch"},
-          {"type": "refactor", "release": "patch"},
-          {"type": "perf", "release": "patch"},
-          {"type": "test", "release": "patch"}
-        ]
-      }],
+      [
+        "@semantic-release/commit-analyzer",
+        {
+          "preset": "angular",
+          "releaseRules": [
+            {
+              "type": "feat",
+              "release": "minor"
+            },
+            {
+              "type": "fix",
+              "release": "patch"
+            },
+            {
+              "type": "docs",
+              "release": "patch"
+            },
+            {
+              "type": "style",
+              "release": "patch"
+            },
+            {
+              "type": "refactor",
+              "release": "patch"
+            },
+            {
+              "type": "perf",
+              "release": "patch"
+            },
+            {
+              "type": "test",
+              "release": "patch"
+            }
+          ]
+        }
+      ],
       "@semantic-release/release-notes-generator",
-      ["@semantic-release/npm", {
-        "npmPublish": true,
-        "tarballDir": "dist"
-      }],
-      ["@semantic-release/github", {
-        "assets": "dist/*.tgz"
-      }]
+      [
+        "@semantic-release/npm",
+        {
+          "npmPublish": true,
+          "tarballDir": "dist"
+        }
+      ],
+      [
+        "@semantic-release/github",
+        {
+          "assets": "dist/*.tgz"
+        }
+      ]
     ]
   },
   "keywords": [
@@ -76,11 +109,13 @@
     "@types/yargs": "^17.0.32",
     "@typescript-eslint/eslint-plugin": "^8.22.0",
     "@typescript-eslint/parser": "^8.22.0",
+    "@vitest/coverage-v8": "^1.3.1",
     "eslint": "^9.19.0",
     "globals": "^15.14.0",
     "husky": "^8.0.0",
     "semantic-release": "^24.2.1",
-    "typescript": "^5.7.3"
+    "typescript": "^5.7.3",
+    "vitest": "^1.3.1"
   },
   "dependencies": {
     "@clack/prompts": "^0.9.1",
@@ -89,6 +124,8 @@
     "date-fns": "^4.1.0",
     "dotenv": "^16.4.7",
     "env-paths": "^3.0.0",
+    "globby": "^14.0.1",
+    "ignore": "^7.0.3",
     "mkdirp": "^3.0.1",
     "node-fetch": "^3.3.2",
     "sanitize-filename": "^1.6.3",
