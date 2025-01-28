@@ -458,7 +458,7 @@ function buildCloneCommand(
 }
 
 /** Utility: check if a string looks like a GitHub URL and normalize it */
-function isGitHubURL(input: string) {
+export function isGitHubURL(input: string) {
 	// Remove any leading/trailing whitespace
 	const str = input.trim();
 
@@ -470,13 +470,6 @@ function isGitHubURL(input: string) {
 	// If it starts with github.com, add https://
 	if (str.startsWith("github.com/")) {
 		const url = `https://${str}`;
-		return { isValid: true, url };
-	}
-
-	// If it's a valid owner/repo format like "microsoft/vscode"
-	// Must start with letter/number, contain one slash, and end with letter/number
-	if (/^[\w-]+\/[\w-]+$/.test(str)) {
-		const url = `https://github.com/${str}`;
 		return { isValid: true, url };
 	}
 
