@@ -15,6 +15,7 @@ describe("CLI --commit", () => {
 
 		// Initialize git repo and create branches
 		execSync("git init", { cwd: repoPath });
+		execSync("git checkout -b main", { cwd: repoPath }); // Explicitly create main branch
 		execSync("git add main.js", { cwd: repoPath });
 		execSync(
 			'git -c user.name="Test" -c user.email="test@example.com" commit -m "Initial commit"',
