@@ -3,11 +3,16 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { runCLI } from "./test-helpers";
 import { resolve } from "node:path";
 import { execSync } from "node:child_process";
+import { writeFileSync, mkdirSync } from "node:fs";
 
 describe("CLI --commit", () => {
 	const repoPath = resolve(__dirname, "fixtures/branch-fixture");
 
 	beforeEach(() => {
+		// Create test directory and files
+		mkdirSync(repoPath, { recursive: true });
+		writeFileSync(resolve(repoPath, "main.js"), "console.log('main')");
+
 		// Initialize git repo and create branches
 		execSync("git init", { cwd: repoPath });
 		execSync("git add main.js", { cwd: repoPath });
@@ -16,6 +21,9 @@ describe("CLI --commit", () => {
 			{ cwd: repoPath },
 		);
 		execSync("git checkout -b some-feature-branch", { cwd: repoPath });
+
+		// Create and commit feature file
+		writeFileSync(resolve(repoPath, "feature.js"), "console.log('feature')");
 		execSync("git add feature.js", { cwd: repoPath });
 		execSync(
 			'git -c user.name="Test" -c user.email="test@example.com" commit -m "Feature commit"',
