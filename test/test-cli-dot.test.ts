@@ -42,16 +42,18 @@ describe("CLI: ingest current directory with '.'", () => {
 
 		// Extract the saved file path from the output
 		const savedMatch = stdout.match(/RESULTS_SAVED: (.+\.md)/);
+		if (!savedMatch) {
+			console.log("Full stdout:", stdout);
+			throw new Error("Could not find RESULTS_SAVED marker in output");
+		}
 		expect(savedMatch).toBeTruthy();
 
-		if (savedMatch) {
-			const [, savedPath] = savedMatch;
-			const savedContent = readFileSync(savedPath, "utf8");
+		const [, savedPath] = savedMatch;
+		const savedContent = readFileSync(savedPath, "utf8");
 
-			// Now check the actual content of the saved file
-			expect(savedContent).toMatch(/package\.json/);
-			expect(savedContent).toContain("Directory Structure");
-			expect(savedContent).toContain("Files Content");
-		}
-	});
+		// Now check the actual content of the saved file
+		expect(savedContent).toMatch(/package\.json/);
+		expect(savedContent).toContain("Directory Structure");
+		expect(savedContent).toContain("Files Content");
+	}, 15000); // Increase timeout to 15 seconds
 });

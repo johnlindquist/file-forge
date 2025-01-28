@@ -583,7 +583,7 @@ export async function scanDirectory(
 		? options.include
 		: ["**/*", "**/.*"]; // Include dotfiles by default too
 	const ignorePatterns = [
-		...DEFAULT_IGNORE,
+		...(options.ignore !== false ? DEFAULT_IGNORE : []),
 		...(options.ignore !== false ? gitignorePatterns : []),
 		...(options.exclude ?? []),
 	];
