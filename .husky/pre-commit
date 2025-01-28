@@ -2,7 +2,7 @@
 . "$(dirname -- "$0")/_/husky.sh"
 
 # Build and lint
-pnpm install && pnpm build:check && pnpm eslint .
+pnpm install && pnpm build:check && pnpm eslint . && pnpm test
 
 # Self-test: Run gitingest on its own repo
 REPO_URL=$(gh repo view --json url -q .url)
