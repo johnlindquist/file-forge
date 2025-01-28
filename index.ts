@@ -460,21 +460,64 @@ async function getEditorConfig(): Promise<EditorConfig> {
 
 /** Core: Ingest a directory (parsed from local or just-cloned) */
 export async function ingestDirectory(basePath: string, flags: IngestFlags) {
-	// If user specified a commit, let's do the checkout now that we've cloned
-	if (flags.commit) {
+	// If user specified a branch or commit, let's do the checkout
+	if (flags.branch || flags.commit) {
 		const spinner = p.spinner();
-		spinner.start(`Checking out commit ${flags.commit}...`);
-		const checkout = spawnSync("git", ["checkout", flags.commit], {
-			cwd: basePath,
-			stdio: ["ignore", "pipe", "pipe"],
-		});
-		if (checkout.status !== 0) {
-			spinner.stop("Checkout failed");
-			throw new Error(
-				checkout.stderr.toString() || "Failed to checkout commit",
-			);
+
+		// First, check if it's a git repository
+		const isGitRepo = existsSync(resolve(basePath, ".git"));
+		if (!isGitRepo) {
+			throw new Error("Cannot checkout branch/commit: not a git repository");
 		}
-		spinner.stop("Checked out commit.");
+
+		// Clean and reset the working directory
+		spawnSync("git", ["clean", "-fdx"], { cwd: basePath });
+		spawnSync("git", ["reset", "--hard"], { cwd: basePath });
+
+		// If branch is specified, check it out
+		if (flags.branch) {
+			spinner.start(`Checking out branch ${flags.branch}...`);
+
+			// Clean and reset before checkout
+			spawnSync("git", ["clean", "-fdx"], { cwd: basePath });
+			spawnSync("git", ["reset", "--hard"], { cwd: basePath });
+
+			const checkout = spawnSync("git", ["checkout", flags.branch], {
+				cwd: basePath,
+				stdio: ["ignore", "pipe", "pipe"],
+			});
+			if (checkout.status !== 0) {
+				spinner.stop("Branch checkout failed");
+				throw new Error(
+					checkout.stderr.toString() || "Failed to checkout branch",
+				);
+			}
+			spinner.stop("Branch checked out.");
+
+			// Clean and reset after checkout to ensure we're in a clean state
+			spawnSync("git", ["clean", "-fdx"], { cwd: basePath });
+			spawnSync("git", ["reset", "--hard"], { cwd: basePath });
+		}
+
+		// If commit is specified, check it out
+		if (flags.commit) {
+			spinner.start(`Checking out commit ${flags.commit}...`);
+			const checkout = spawnSync("git", ["checkout", flags.commit], {
+				cwd: basePath,
+				stdio: ["ignore", "pipe", "pipe"],
+			});
+			if (checkout.status !== 0) {
+				spinner.stop("Checkout failed");
+				throw new Error(
+					checkout.stderr.toString() || "Failed to checkout commit",
+				);
+			}
+			spinner.stop("Checked out commit.");
+
+			// Clean and reset after checkout
+			spawnSync("git", ["clean", "-fdx"], { cwd: basePath });
+			spawnSync("git", ["reset", "--hard"], { cwd: basePath });
+		}
 	}
 
 	// We'll do a recursive scan
