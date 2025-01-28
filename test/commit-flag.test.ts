@@ -3,19 +3,21 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { runCLI } from "./test-helpers";
 import { resolve } from "node:path";
 import { execSync } from "node:child_process";
-import { writeFileSync, mkdirSync } from "node:fs";
+import { writeFileSync, mkdirSync, rmSync } from "node:fs";
 
 describe("CLI --commit", () => {
 	const repoPath = resolve(__dirname, "fixtures/branch-fixture");
 
 	beforeEach(() => {
+		// Clean up any existing directory
+		rmSync(repoPath, { recursive: true, force: true });
+
 		// Create test directory and files
 		mkdirSync(repoPath, { recursive: true });
 		writeFileSync(resolve(repoPath, "main.js"), "console.log('main')");
 
 		// Initialize git repo and create branches
 		execSync("git init", { cwd: repoPath });
-		execSync("git checkout -b main", { cwd: repoPath }); // Explicitly create main branch
 		execSync("git add main.js", { cwd: repoPath });
 		execSync(
 			'git -c user.name="Test" -c user.email="test@example.com" commit -m "Initial commit"',
