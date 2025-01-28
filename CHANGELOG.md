@@ -1,3 +1,22 @@
+# 1.0.0 (2025-01-28)
+
+
+### Bug Fixes
+
+* **deps:** add globals package for eslint ([ff90fd2](https://github.com/johnlindquist/ghi/commit/ff90fd2feb07957032f05a84c855aa3129ebd555))
+* **eslint:** allow node globals and enforce no unused vars ([49d178d](https://github.com/johnlindquist/ghi/commit/49d178d79cf79ef748878d5b33f06be72292b73a))
+* **eslint:** migrate to flat config and update husky hook ([510cebe](https://github.com/johnlindquist/ghi/commit/510cebe56798cf530d0324bc8052f28ac24546b6))
+* **hooks:** run build:check before eslint ([173792a](https://github.com/johnlindquist/ghi/commit/173792aa0cf36dbabbfba88286a98801f3ed3724))
+* **husky:** ensure deps are installed before running checks ([ce2c5db](https://github.com/johnlindquist/ghi/commit/ce2c5db591bcee4d5a79f2ab7696865ff3f90791))
+* **husky:** update eslint command for flat config ([21385c8](https://github.com/johnlindquist/ghi/commit/21385c85c40acfe6996a5b445378af6128dbea49))
+* **lint:** add eslint and fix typescript errors ([ecde738](https://github.com/johnlindquist/ghi/commit/ecde738fe8f8e4ad50dd86924b5bf046de3a345c))
+* update ESLint config to use flat config format for ignores ([bc870a4](https://github.com/johnlindquist/ghi/commit/bc870a442216f7f21661557396300d7d819d1f53))
+
+
+### Features
+
+* initial setup ([e06d36e](https://github.com/johnlindquist/ghi/commit/e06d36efbd7632f33ec03840d29b84d31eaa839c))
+
 # [1.1.0](https://github.com/johnlindquist/ghx/compare/v1.0.0...v1.1.0) (2025-01-24)
 
 
