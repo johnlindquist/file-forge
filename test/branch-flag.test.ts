@@ -1,39 +1,42 @@
-// test/branch-flag.test.ts
 import { describe, it, expect, beforeEach } from "vitest";
-import { runCLI } from "./test-helpers";
-import { resolve } from "node:path";
 import { execSync } from "node:child_process";
 import { writeFileSync, mkdirSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
+import { runCLI } from "./test-helpers";
+import { nanoid } from "nanoid"; // or just build your own random string
 
-describe("CLI --branch", () => {
-	const repoPath = resolve(__dirname, "fixtures/branch-fixture");
+describe.concurrent("CLI --branch", () => {
+	let repoPath: string;
 
 	beforeEach(() => {
-		// Clean up any existing directory
+		// Create a brand new temp directory on each test run
+		const randomFolder = `branch-test-${nanoid()}`;
+		repoPath = join(tmpdir(), randomFolder);
+
+		// Wipe if something is leftover (paranoia)
 		rmSync(repoPath, { recursive: true, force: true });
-
-		// Create test directory and files
 		mkdirSync(repoPath, { recursive: true });
-		writeFileSync(resolve(repoPath, "main.js"), "console.log('main')");
 
-		// Initialize git repo and create branches
-		execSync("git init", { cwd: repoPath });
-		execSync("git checkout -b main", { cwd: repoPath }); // Create main branch explicitly
+		// Now safely init a brand-new repo with no default template
+		execSync("git init --template=''", { cwd: repoPath });
+
+		// Create & commit main.js on "main" branch
+		execSync("git checkout -b main", { cwd: repoPath });
+		writeFileSync(resolve(repoPath, "main.js"), "console.log('main')");
 		execSync("git add main.js", { cwd: repoPath });
 		execSync(
 			'git -c user.name="Test" -c user.email="test@example.com" commit -m "Initial commit"',
 			{ cwd: repoPath },
 		);
 
-		// Remove main.js before creating feature branch
+		// Switch to a feature branch & commit a different file
 		rmSync(resolve(repoPath, "main.js"));
 		execSync("git rm main.js", { cwd: repoPath });
 		execSync(
 			'git -c user.name="Test" -c user.email="test@example.com" commit -m "Remove main.js"',
 			{ cwd: repoPath },
 		);
-
-		// Create feature branch with its own file
 		execSync("git checkout -b some-feature-branch", { cwd: repoPath });
 		writeFileSync(resolve(repoPath, "feature.js"), "console.log('feature')");
 		execSync("git add feature.js", { cwd: repoPath });
@@ -44,7 +47,7 @@ describe("CLI --branch", () => {
 	});
 
 	it("attempts to clone the specified branch from a Git repository", async () => {
-		const { stdout, stderr, exitCode } = await runCLI([
+		const { stdout, exitCode } = await runCLI([
 			repoPath,
 			"--branch",
 			"some-feature-branch",
@@ -54,7 +57,7 @@ describe("CLI --branch", () => {
 		expect(exitCode).toBe(0);
 		expect(stdout).toContain("Text digest built");
 		expect(stdout).toMatch(/Branch: some-feature-branch/i);
-		expect(stdout).toContain("feature.js"); // File only in feature branch
-		expect(stdout).not.toContain("main.js"); // File only in main branch
+		expect(stdout).toContain("feature.js");
+		expect(stdout).not.toContain("main.js");
 	});
 });

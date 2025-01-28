@@ -54,6 +54,38 @@ const DEFAULT_IGNORE = [
 	".git",
 	// etc...
 ];
+
+const ARTIFACT_FILES = [
+	// Package manager files
+	"package-lock.json",
+	"pnpm-lock.yaml",
+	"yarn.lock",
+	// Build artifacts
+	"*.min.js",
+	"*.bundle.js",
+	"*.chunk.js",
+	"*.map",
+	// Generated assets
+	"*.mp4",
+	"*.mov",
+	"*.avi",
+	"*.mkv",
+	"*.iso",
+	"*.tar",
+	"*.tar.gz",
+	"*.zip",
+	"*.rar",
+	"*.7z",
+	// Database files
+	"*.sqlite",
+	"*.db",
+	// Generated docs
+	"*.pdf",
+	"*.docx",
+	"*.xlsx",
+	"*.pptx",
+];
+
 const DIR_MAX_DEPTH = 20;
 const DIR_MAX_FILES = 10000;
 const DIR_MAX_TOTAL_SIZE = 500 * 1024 * 1024; // 500 MB
@@ -73,6 +105,7 @@ type IngestFlags = {
 	debug?: boolean | undefined;
 	bulk?: boolean | undefined;
 	ignore?: boolean | undefined;
+	skipArtifacts?: boolean | undefined;
 };
 
 type ScanStats = {
@@ -150,6 +183,11 @@ const argv = yargs(hideBin(process.argv))
 		default: true,
 		describe: "Whether to respect .gitignore files",
 	})
+	.option("skip-artifacts", {
+		type: "boolean",
+		default: true,
+		describe: "Skip dependency files, build artifacts, and generated assets",
+	})
 	.help()
 	.alias("help", "h")
 	.parseSync();
@@ -187,6 +225,7 @@ const argv = yargs(hideBin(process.argv))
 		debug: argv.debug,
 		bulk: argv.bulk,
 		ignore: Boolean(argv.ignore),
+		skipArtifacts: Boolean(argv["skip-artifacts"]),
 	};
 
 	// Create log directory if needed
@@ -639,7 +678,12 @@ export async function scanDirectory(
 	const ignorePatterns =
 		options.ignore === false
 			? [...(options.exclude ?? [])]
-			: [...DEFAULT_IGNORE, ...gitignorePatterns, ...(options.exclude ?? [])];
+			: [
+					...DEFAULT_IGNORE,
+					...(options.skipArtifacts ? ARTIFACT_FILES : []),
+					...gitignorePatterns,
+					...(options.exclude ?? []),
+				];
 
 	if (options.debug) {
 		console.log("[DEBUG] Globby patterns:", patterns);

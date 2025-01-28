@@ -127,6 +127,7 @@
     "globby": "^14.0.1",
     "ignore": "^7.0.3",
     "mkdirp": "^3.0.1",
+    "nanoid": "^5.0.9",
     "node-fetch": "^3.3.2",
     "sanitize-filename": "^1.6.3",
     "yargs": "^17.7.2",
