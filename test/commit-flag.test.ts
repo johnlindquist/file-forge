@@ -7,6 +7,7 @@ import { writeFileSync, mkdirSync, rmSync } from "node:fs";
 
 describe("CLI --commit", () => {
 	const repoPath = resolve(__dirname, "fixtures/branch-fixture");
+	let firstCommitSha: string;
 
 	beforeEach(() => {
 		// Clean up any existing directory
@@ -18,14 +19,28 @@ describe("CLI --commit", () => {
 
 		// Initialize git repo and create branches
 		execSync("git init", { cwd: repoPath });
+		execSync("git checkout -b main", { cwd: repoPath }); // Create main branch explicitly
 		execSync("git add main.js", { cwd: repoPath });
 		execSync(
 			'git -c user.name="Test" -c user.email="test@example.com" commit -m "Initial commit"',
 			{ cwd: repoPath },
 		);
-		execSync("git checkout -b some-feature-branch", { cwd: repoPath });
 
-		// Create and commit feature file
+		// Store the first commit SHA
+		firstCommitSha = execSync("git rev-parse HEAD", { cwd: repoPath })
+			.toString()
+			.trim();
+
+		// Remove main.js before creating feature branch
+		rmSync(resolve(repoPath, "main.js"));
+		execSync("git rm main.js", { cwd: repoPath });
+		execSync(
+			'git -c user.name="Test" -c user.email="test@example.com" commit -m "Remove main.js"',
+			{ cwd: repoPath },
+		);
+
+		// Create feature branch with its own file
+		execSync("git checkout -b some-feature-branch", { cwd: repoPath });
 		writeFileSync(resolve(repoPath, "feature.js"), "console.log('feature')");
 		execSync("git add feature.js", { cwd: repoPath });
 		execSync(
@@ -35,21 +50,16 @@ describe("CLI --commit", () => {
 	});
 
 	it("checks out the specified commit SHA after cloning", async () => {
-		// Get the first commit SHA (the one with main.js)
-		const commitSha = execSync("git rev-parse HEAD^", { cwd: repoPath })
-			.toString()
-			.trim();
-
 		const { stdout, stderr, exitCode } = await runCLI([
 			repoPath,
 			"--commit",
-			commitSha,
+			firstCommitSha,
 			"--pipe",
 		]);
 
 		expect(exitCode).toBe(0);
 		expect(stdout).toContain("Checked out commit");
-		expect(stdout).toMatch(new RegExp(`Commit: ${commitSha}`, "i"));
+		expect(stdout).toMatch(new RegExp(`Commit: ${firstCommitSha}`, "i"));
 		expect(stdout).toContain("main.js"); // File from first commit
 		expect(stdout).not.toContain("feature.js"); // File from second commit
 	});
