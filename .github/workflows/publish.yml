@@ -28,6 +28,7 @@ jobs:
           version: 8
       - run: pnpm install
       - run: pnpm build
+      - run: pnpm test
       - name: Verify CLI
         run: |
           pnpm link --global

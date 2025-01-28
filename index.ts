@@ -579,7 +579,9 @@ export async function scanDirectory(
 	}
 
 	// Use globby to find all files in this directory (and subdirs) matching include/exclude.
-	const patterns = options.include ?? ["**/*"];
+	const patterns = options.include?.length
+		? options.include
+		: ["**/*", "**/.*"]; // Include dotfiles by default too
 	const ignorePatterns = [
 		...DEFAULT_IGNORE,
 		...(options.ignore !== false ? gitignorePatterns : []),
@@ -594,7 +596,7 @@ export async function scanDirectory(
 	const files = await globby(patterns, {
 		cwd: dir,
 		ignore: ignorePatterns,
-		dot: false,
+		dot: true, // Enable dotfiles
 		absolute: true,
 		onlyFiles: true,
 	});
