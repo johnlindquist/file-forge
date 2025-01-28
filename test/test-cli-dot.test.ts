@@ -1,7 +1,6 @@
 // test/test-cli-dot.test.ts
 import { spawn } from "node:child_process";
 import { describe, it, expect } from "vitest";
-import { RESULTS_SAVED_MARKER } from "../constants"; // adjust path to your constants
 import { readFileSync } from "node:fs";
 
 // Helper to spawn the CLI and capture output
@@ -36,6 +35,7 @@ describe("CLI: ingest current directory with '.'", () => {
 		const { stdout, stderr, exitCode } = await runCLI([
 			"test/fixtures/sample-project",
 			"--debug",
+			"--pipe",
 		]);
 
 		console.log("CLI STDOUT:\n", stdout);

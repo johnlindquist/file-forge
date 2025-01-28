@@ -60,7 +60,7 @@ describe("CLI flags", () => {
 				return files;
 			}
 
-			const tsFiles = collectTsFiles(result!);
+			const tsFiles = collectTsFiles(result as TreeNode);
 			console.log("All found .ts files:", tsFiles);
 
 			// Should find both test.ts and src/math.ts
@@ -89,7 +89,7 @@ describe("exclude logic and .gitignore behavior", () => {
 
 		expect(result).not.toBeNull();
 		// Flatten out file names:
-		const allFiles = getAllFileNames(result!);
+		const allFiles = getAllFileNames(result as TreeNode);
 
 		// We expect 'ignored.js' to be missing
 		expect(allFiles).not.toContain("ignored.js");
@@ -110,7 +110,7 @@ describe("exclude logic and .gitignore behavior", () => {
 		});
 
 		expect(result).not.toBeNull();
-		const allFiles = getAllFileNames(result!);
+		const allFiles = getAllFileNames(result as TreeNode);
 
 		// Now 'ignored.js' is included, because .gitignore is skipped
 		expect(allFiles).toContain("ignored.js");
@@ -129,7 +129,7 @@ describe("exclude logic and .gitignore behavior", () => {
 		});
 
 		expect(result).not.toBeNull();
-		const allFiles = getAllFileNames(result!);
+		const allFiles = getAllFileNames(result as TreeNode);
 
 		// .gitignore says to ignore .js, so 'ignored.js' is excluded
 		expect(allFiles).not.toContain("ignored.js");
@@ -143,7 +143,7 @@ describe("exclude logic and .gitignore behavior", () => {
 });
 
 /** Helper to recursively collect file names from your scan TreeNode */
-function getAllFileNames(node: any): string[] {
+function getAllFileNames(node: TreeNode): string[] {
 	let names: string[] = [];
 	if (node.type === "file") {
 		names.push(node.name);
