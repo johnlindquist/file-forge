@@ -30,6 +30,11 @@ import { createHash } from "node:crypto";
 import { globby } from "globby";
 import ignore from "ignore";
 
+// Read package.json for version
+const packageJson = JSON.parse(
+	readFileSync(new URL("./package.json", import.meta.url), "utf8"),
+);
+
 /** Constants/Helpers ******************************/
 
 const RESULTS_SAVED_MARKER = "RESULTS_SAVED:";
@@ -134,6 +139,8 @@ const config = new Conf<{ editor: EditorConfig }>({
 const argv = yargs(hideBin(process.argv))
 	.scriptName("gitingest")
 	.usage("$0 [options] <repo-or-path>")
+	.version("version", "Show version number", packageJson.version)
+	.alias("version", "v")
 	.option("include", {
 		alias: "i",
 		array: true,
