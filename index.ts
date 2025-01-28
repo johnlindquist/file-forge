@@ -33,6 +33,7 @@ import {
 	writeFileSync,
 } from "node:fs";
 import { createHash } from "node:crypto";
+import * as fs from "node:fs";
 
 /** Constants/Helpers ******************************/
 
@@ -82,16 +83,16 @@ type ScanStats = {
 	totalSize: number;
 };
 
-type TreeNode = {
+interface TreeNode {
 	name: string;
 	type: "file" | "directory";
-	size: number;
 	path: string;
-	content?: string;
+	size: number;
 	children?: TreeNode[];
-	file_count?: number;
-	dir_count?: number;
-};
+	content?: string;
+	file_count: number;
+	dir_count: number;
+}
 
 const config = new Conf<{ editor: EditorConfig }>({
 	projectName: "gitingest-cli",
@@ -306,7 +307,7 @@ const argv = yargs(hideBin(process.argv))
 						`${RESULTS_SAVED_MARKER} ${resultFilePath}`,
 						"Opened in your configured editor.",
 					);
-				} catch (error) {
+				} catch {
 					p.note(
 						`${RESULTS_SAVED_MARKER} ${resultFilePath}`,
 						`Couldn't open with: ${editorConfig.command}`,
@@ -338,8 +339,8 @@ const argv = yargs(hideBin(process.argv))
 
 	p.outro("Done! 🎉");
 	process.exit(0);
-})().catch((error) => {
-	p.cancel(`Uncaught error: ${error?.message || String(error)}`);
+})().catch((err) => {
+	p.cancel(`Uncaught error: ${err?.message || String(err)}`);
 	process.exit(1);
 });
 
@@ -469,7 +470,7 @@ async function ingestDirectory(basePath: string, flags: IngestFlags) {
 
 	// We'll do a recursive scan
 	const stats: ScanStats = { totalFiles: 0, totalSize: 0 };
-	const rootNode = scanDirectory(basePath, basePath, flags, stats, 0);
+	const rootNode = await scanDirectory(basePath, flags, 0, stats);
 
 	if (!rootNode) {
 		throw new Error("No files found or directory is empty after scanning.");
@@ -512,123 +513,106 @@ async function ingestDirectory(basePath: string, flags: IngestFlags) {
 }
 
 /** Recursively scans a directory, building a TreeNode */
-function scanDirectory(
-	dirPath: string,
-	basePath: string,
-	flags: IngestFlags,
-	stats: ScanStats,
-	depth: number,
-): TreeNode | null {
+async function scanDirectory(
+	dir: string,
+	options: IngestFlags,
+	depth = 0,
+	stats: ScanStats = { totalFiles: 0, totalSize: 0 },
+): Promise<TreeNode | null> {
 	if (depth > DIR_MAX_DEPTH) {
-		if (flags.debug) console.log("[DEBUG] Max depth reached:", dirPath);
+		if (options.debug) console.log("[DEBUG] Max depth reached:", dir);
 		return null;
 	}
-	if (!existsSync(dirPath)) return null;
 
-	// Avoid re-scanning if we want to handle symlinks or repeated paths,
-	// but for simplicity we skip that.
-	// If you want, maintain a "seenPaths" set.
-
-	const stat = lstatSync(dirPath);
+	const stat = lstatSync(dir);
 	if (!stat.isDirectory()) {
-		// It's a file, not a directory
-		return {
-			name: basename(dirPath),
-			type: "file",
-			size: stat.size,
-			path: dirPath,
-		};
+		return null;
 	}
 
-	// If directory, build node
+	if (
+		stats.totalFiles >= DIR_MAX_FILES ||
+		stats.totalSize >= DIR_MAX_TOTAL_SIZE
+	) {
+		if (options.debug) {
+			console.log(
+				"[DEBUG] Max files/size reached:",
+				stats.totalFiles,
+				stats.totalSize,
+			);
+		}
+		return null;
+	}
+
+	const items = readdirSync(dir);
 	const node: TreeNode = {
-		name: basename(dirPath),
+		name: basename(dir),
+		path: dir,
 		type: "directory",
 		size: 0,
-		path: dirPath,
 		children: [],
 		file_count: 0,
 		dir_count: 0,
 	};
 
-	const items = readdirSync(dirPath);
 	for (const item of items) {
-		const fullPath = resolve(dirPath, item);
-		// Exclude checks
-		if (shouldExclude(fullPath, basePath, flags.exclude ?? [])) {
+		const fullPath = resolve(dir, item);
+		if (shouldExclude(fullPath, dir, options.exclude ?? [])) {
 			continue;
 		}
 
-		// if we have include patterns, skip if it doesn't match any
 		if (
-			(flags.include ?? []).length > 0 &&
-			!shouldInclude(fullPath, basePath, flags.include ?? [])
+			(options.include ?? []).length > 0 &&
+			!shouldInclude(fullPath, dir, options.include ?? [])
 		) {
 			continue;
 		}
 
-		// Recurse
 		const childStat = lstatSync(fullPath);
-		if (childStat.isSymbolicLink()) {
-			// Resolve symlink safely
-			// For brevity, skip or read real path:
-			try {
-				readFileSync(fullPath, "utf8");
-				// This is naive. Typically you'd do fs.realpathSync.
-				// We'll skip symlinks to avoid complexities:
-				if (flags.debug) console.log("[DEBUG] Skipping symlink:", fullPath);
-				continue;
-			} catch {
-				continue;
-			}
-		}
-
-		if (
-			stats.totalFiles >= DIR_MAX_FILES ||
-			stats.totalSize >= DIR_MAX_TOTAL_SIZE
-		) {
-			if (flags.debug) console.log("[DEBUG] Max file limit or size reached");
-			break;
-		}
-
 		if (childStat.isDirectory()) {
-			const sub = scanDirectory(fullPath, basePath, flags, stats, depth + 1);
+			const sub = await scanDirectory(fullPath, options, depth + 1, stats);
 			if (sub) {
-				if (node.children) {
-					node.children.push(sub);
-					node.dir_count = (node.dir_count ?? 0) + 1 + (sub.dir_count ?? 0);
-					node.file_count = (node.file_count ?? 0) + (sub.file_count ?? 0);
-					node.size += sub.size;
-				}
+				node.children?.push(sub);
+				node.size += sub.size;
+				node.dir_count += 1 + (sub.dir_count ?? 0);
+				node.file_count += sub.file_count ?? 0;
 			}
 		} else if (childStat.isFile()) {
-			// Count it
 			stats.totalFiles++;
 			stats.totalSize += childStat.size;
+
 			if (
 				stats.totalFiles > DIR_MAX_FILES ||
 				stats.totalSize > DIR_MAX_TOTAL_SIZE
 			) {
-				if (flags.debug) console.log("[DEBUG] Exceeded limits, stopping scan");
-				break;
+				if (options.debug) {
+					console.log(
+						"[DEBUG] Max files/size reached:",
+						stats.totalFiles,
+						stats.totalSize,
+					);
+				}
+				return node;
 			}
-			const childNode: TreeNode = {
+
+			try {
+				await fs.promises.access(fullPath);
+			} catch {
+				// File doesn't exist, that's fine
+			}
+
+			node.children?.push({
 				name: item,
+				path: fullPath,
 				type: "file",
 				size: childStat.size,
-				path: fullPath,
-			};
-			if (node.children) {
-				node.children.push(childNode);
-				node.file_count = (node.file_count ?? 0) + 1;
-				node.size += childStat.size;
-			}
+				file_count: 0,
+				dir_count: 0,
+			});
+			node.size += childStat.size;
+			node.file_count += 1;
 		}
 	}
 
-	// Sort children (similar to python logic: README.md first,
-	// then normal files, hidden files, normal dirs, hidden dirs)
-	node.children = sortChildren(node.children || []);
 	return node;
 }
 
@@ -672,36 +656,6 @@ function matchPattern(pathStr: string, pattern: string): boolean {
 		.replace(/\?/g, ".");
 	const regex = new RegExp(`^${escaped}$`, "i");
 	return regex.test(pathStr.replace(/\\/g, "/"));
-}
-
-/** Sort children according to the python approach (README, etc.) */
-function sortChildren(children: TreeNode[]): TreeNode[] {
-	// separate out files vs dirs
-	const files = children.filter((c) => c.type === "file");
-	const dirs = children.filter((c) => c.type === "directory");
-
-	// readme first
-	const readmeFiles = files.filter((f) => f.name.toLowerCase() === "readme.md");
-	const otherFiles = files.filter((f) => f.name.toLowerCase() !== "readme.md");
-
-	const regularFiles = otherFiles.filter((f) => !f.name.startsWith("."));
-	const hiddenFiles = otherFiles.filter((f) => f.name.startsWith("."));
-	const regularDirs = dirs.filter((d) => !d.name.startsWith("."));
-	const hiddenDirs = dirs.filter((d) => d.name.startsWith("."));
-
-	// sort each group
-	regularFiles.sort((a, b) => a.name.localeCompare(b.name));
-	hiddenFiles.sort((a, b) => a.name.localeCompare(b.name));
-	regularDirs.sort((a, b) => a.name.localeCompare(b.name));
-	hiddenDirs.sort((a, b) => a.name.localeCompare(b.name));
-
-	return [
-		...readmeFiles,
-		...regularFiles,
-		...hiddenFiles,
-		...regularDirs,
-		...hiddenDirs,
-	];
 }
 
 /** Recursively traverse the tree to gather file nodes that are textual */
@@ -781,3 +735,4 @@ function createTree(node: TreeNode, prefix: string, isLast = true): string {
 	return tree;
 }
 // test
+// another test

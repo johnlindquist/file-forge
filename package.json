@@ -22,7 +22,7 @@
     "lint:fix": "eslint . --ext .ts --fix",
     "verify:bin": "pnpm build && [ -f dist/index.js ] || (echo 'dist/index.js not found' && exit 1)",
     "prepublishOnly": "pnpm build",
-    "prepare": "husky",
+    "prepare": "husky && husky install",
     "precommit": "pnpm build:check && pnpm verify:bin",
     "commit": "cz",
     "semantic-release": "semantic-release"
@@ -58,6 +58,7 @@
   "author": "John Lindquist",
   "license": "MIT",
   "devDependencies": {
+    "@eslint/js": "^9.19.0",
     "@semantic-release/changelog": "^6.0.3",
     "@semantic-release/commit-analyzer": "^13.0.1",
     "@semantic-release/git": "^10.0.1",
@@ -75,7 +76,7 @@
     "cz-conventional-changelog": "^3.3.0",
     "eslint": "^9.19.0",
     "globals": "^15.14.0",
-    "husky": "^9.1.7",
+    "husky": "^8.0.0",
     "semantic-release": "^24.2.1",
     "typescript": "^5.7.3"
   },
