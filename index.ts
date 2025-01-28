@@ -214,7 +214,7 @@ const argv = yargs(hideBin(process.argv))
 	let finalPath: string;
 	let cleanupDir: string | null = null;
 
-	if (isGitHubURL(String(source))) {
+	if (isGitHubURL(String(source)).isValid) {
 		const spinner = p.spinner();
 		spinner.start("Cloning repository...");
 		try {
@@ -224,9 +224,12 @@ const argv = yargs(hideBin(process.argv))
 			);
 			await mkdirp(tempDir);
 
+			// Get normalized URL
+			const { url } = isGitHubURL(String(source));
+
 			// Decide how to clone:
 			const cloneCommand = buildCloneCommand(
-				String(source),
+				url,
 				tempDir,
 				flags.branch,
 				flags.commit,
@@ -367,50 +370,56 @@ function parsePatterns(input?: (string | number)[]): string[] {
 
 /** Utility: build a clone command array. 
     Returns an array: ["git", "clone", ...args].
-    We do shallow clone unless commit is specified. */
+    Always do shallow clone unless commit is specified. */
 function buildCloneCommand(
 	url: string,
 	dest: string,
 	branch?: string,
 	commit?: string,
 ) {
-	// We'll spawn "git" with some args
-	// But we wrap it in an array so we can see the final command easily
-	// The "working directory" will be "." by default, so we do:
 	const base = ".";
-	// If commit is specified, we do a full clone
+	const args = ["clone", "--single-branch"];
+
+	// If commit specified, we need full clone
 	if (commit) {
-		return [
-			base,
-			"clone",
-			"--single-branch",
-			url,
-			dest,
-			// We'll handle the checkout after
-			// but for simplicity let's do the same approach as the python code:
-			// We'll just do a full clone (no --depth=1)
-		];
+		return [base, ...args, url, dest];
 	}
-	// If branch is specified and it's not main/master, do a shallow clone
-	if (branch && !["main", "master"].includes(branch.toLowerCase())) {
-		return [
-			base,
-			"clone",
-			"--depth=1",
-			"--single-branch",
-			"--branch",
-			branch,
-			url,
-			dest,
-		];
+
+	// Otherwise always do shallow clone
+	args.push("--depth=1");
+
+	// Add branch if specified
+	if (branch) {
+		args.push("--branch", branch);
 	}
-	// Otherwise shallow clone on default branch
-	return [base, "clone", "--depth=1", "--single-branch", url, dest];
+
+	args.push(url, dest);
+	return [base, ...args];
 }
 
-/** Utility: check if a string looks like a GitHub URL */
+/** Utility: check if a string looks like a GitHub URL and normalize it */
 function isGitHubURL(str: string) {
-	return /^https?:\/\/(www\.)?github\.com\//i.test(str);
+	// Remove any leading/trailing whitespace
+	str = str.trim();
+
+	// If it starts with github.com, add https://
+	if (str.startsWith("github.com/")) {
+		str = "https://" + str;
+	}
+
+	// If it's just a path like "owner/repo", add github.com
+	if (/^[\w-]+\/[\w-]+$/.test(str)) {
+		str = "https://github.com/" + str;
+	}
+
+	// Now check if it's a valid GitHub URL
+	const isValid = /^https?:\/\/(www\.)?github\.com\//i.test(str);
+
+	// Return both the validity and the normalized URL
+	return {
+		isValid,
+		url: isValid ? str : "",
+	};
 }
 
 /** Utility: prompt for editor config if not set */
