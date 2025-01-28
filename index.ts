@@ -24,16 +24,15 @@ import { mkdirp } from "mkdirp";
 import envPaths from "env-paths";
 import Conf from "conf";
 import { execSync, spawnSync } from "node:child_process";
-import { resolve, basename } from "node:path";
+import { resolve, basename, join } from "node:path";
 import { existsSync, lstatSync, readFileSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { globby } from "globby";
 import ignore from "ignore";
 
 // Read package.json for version
-const packageJson = JSON.parse(
-	readFileSync(new URL("./package.json", import.meta.url), "utf8"),
-);
+const packagePath = join(process.cwd(), "package.json");
+const packageJson = JSON.parse(readFileSync(packagePath, "utf8"));
 
 /** Constants/Helpers ******************************/
 
