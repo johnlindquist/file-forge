@@ -25,15 +25,8 @@ import envPaths from "env-paths";
 import Conf from "conf";
 import { execSync, spawnSync } from "node:child_process";
 import { resolve, basename } from "node:path";
-import {
-	existsSync,
-	lstatSync,
-	readdirSync,
-	readFileSync,
-	writeFileSync,
-} from "node:fs";
+import { existsSync, lstatSync, readFileSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
-import * as fs from "node:fs";
 import { globby } from "globby";
 import ignore from "ignore";
 
@@ -96,6 +89,7 @@ interface TreeNode {
 	content?: string;
 	file_count: number;
 	dir_count: number;
+	parent?: TreeNode;
 }
 
 const config = new Conf<{ editor: EditorConfig }>({
@@ -151,20 +145,10 @@ const argv = yargs(hideBin(process.argv))
 		type: "boolean",
 		describe: "Add AI processing instructions to the end of the output",
 	})
-	.example([
-		[
-			"$0 https://github.com/owner/repo",
-			"Ingest a GitHub repo using default settings (exclude patterns, max size=10MB, etc.)",
-		],
-		[
-			"$0 /local/path --include *.ts --exclude *.spec.*",
-			"Ingest a local directory with custom patterns",
-		],
-		[
-			"$0 https://github.com/owner/repo --branch develop --max-size 500000 --pipe",
-			"Clone the 'develop' branch, limit file size to ~500KB, print output to stdout",
-		],
-	])
+	.option("ignore", {
+		type: "boolean",
+		describe: "Whether to respect .gitignore files",
+	})
 	.help()
 	.alias("help", "h")
 	.parseSync();
@@ -201,7 +185,7 @@ const argv = yargs(hideBin(process.argv))
 		pipe: argv.pipe,
 		debug: argv.debug,
 		bulk: argv.bulk,
-		ignore: argv.ignore,
+		ignore: Boolean(argv.ignore),
 	};
 
 	// Create log directory if needed
@@ -412,27 +396,28 @@ function buildCloneCommand(
 }
 
 /** Utility: check if a string looks like a GitHub URL and normalize it */
-function isGitHubURL(str: string) {
+function isGitHubURL(input: string) {
 	// Remove any leading/trailing whitespace
-	str = str.trim();
+	const str = input.trim();
 
 	// If it starts with github.com, add https://
+	let url = str;
 	if (str.startsWith("github.com/")) {
-		str = "https://" + str;
+		url = `https://${str}`;
 	}
 
 	// If it's just a path like "owner/repo", add github.com
 	if (/^[\w-]+\/[\w-]+$/.test(str)) {
-		str = "https://github.com/" + str;
+		url = `https://github.com/${str}`;
 	}
 
 	// Now check if it's a valid GitHub URL
-	const isValid = /^https?:\/\/(www\.)?github\.com\//i.test(str);
+	const isValid = /^https?:\/\/(www\.)?github\.com\//i.test(url);
 
 	// Return both the validity and the normalized URL
 	return {
 		isValid,
-		url: isValid ? str : "",
+		url: isValid ? url : "",
 	};
 }
 
@@ -627,7 +612,6 @@ export async function scanDirectory(
 		children: [],
 		file_count: 0,
 		dir_count: 0,
-		// parent?: TreeNode; <-- not needed on the root
 	};
 
 	// For each matched file, we split its relative path segments
@@ -658,10 +642,12 @@ export async function scanDirectory(
 		// Traverse or create intermediate directories
 		for (let i = 0; i < segments.length - 1; i++) {
 			const segment = segments[i];
+			if (!segment) continue;
 
 			let child = currentNode.children?.find(
 				(n) => n.type === "directory" && n.name === segment,
 			);
+
 			if (!child) {
 				child = {
 					name: segment,
@@ -671,12 +657,11 @@ export async function scanDirectory(
 					children: [],
 					file_count: 0,
 					dir_count: 0,
-					// parent: currentNode, // <-- ADDED THIS
-				};
-				// @ts-expect-error Add a "parent" property:
-				(child as any).parent = currentNode; // <-- ADDED THIS
+					parent: currentNode,
+				} as TreeNode;
 
-				currentNode.children?.push(child);
+				currentNode.children = currentNode.children || [];
+				currentNode.children.push(child);
 				currentNode.dir_count++;
 			}
 
@@ -685,31 +670,33 @@ export async function scanDirectory(
 
 		// Add the final file node
 		const fileName = segments[segments.length - 1];
-		const fileNode: TreeNode = {
-			name: fileName,
-			path: file,
-			type: "file",
-			size: fstat.size,
-			file_count: 0,
-			dir_count: 0,
-			// parent: currentNode, // <-- ADDED THIS
-		};
-		// @ts-expect-error Add a "parent" property:
-		fileNode.parent = currentNode; // <-- ADDED THIS
+		if (fileName) {
+			const fileNode: TreeNode = {
+				name: fileName,
+				path: file,
+				type: "file",
+				size: fstat.size,
+				file_count: 0,
+				dir_count: 0,
+				parent: currentNode,
+			};
 
-		currentNode.children?.push(fileNode);
-		currentNode.file_count++;
-		currentNode.size += fstat.size;
+			if (currentNode.children) {
+				currentNode.children.push(fileNode);
+				currentNode.file_count++;
+				currentNode.size += fstat.size;
 
-		// Walk upward to increment the sizes of parent directories
-		let p: any = currentNode; // "any" so we can read `.parent`
-		while (p && p !== node) {
-			p.size += fstat.size;
-			p = p.parent;
+				// Walk upward to increment the sizes of parent directories
+				let p = currentNode;
+				while (p && p !== node) {
+					p.size += fstat.size;
+					p = p.parent!;
+				}
+
+				// And finally increment the root too
+				node.size += fstat.size;
+			}
 		}
-
-		// And finally increment the root too
-		node.size += fstat.size;
 	}
 
 	node.file_count = stats.totalFiles;
@@ -793,20 +780,4 @@ function createTree(node: TreeNode, prefix: string, isLast = true): string {
 	}
 
 	return tree;
-}
-
-function getGitignorePatterns(dir: string): string[] {
-	const gitignorePath = join(dir, ".gitignore");
-	if (!existsSync(gitignorePath)) return [];
-
-	const lines = readFileSync(gitignorePath, "utf8")
-		.split(/\r?\n/)
-		.map((l) => l.trim())
-		.filter(Boolean)
-		.filter((l) => !l.startsWith("#"));
-	// Lines might be things like `*.js`, `dist`, etc.
-
-	// Optionally transform them to globby patterns
-	// or just pass them directly to globby's "ignore" array
-	return lines;
 }

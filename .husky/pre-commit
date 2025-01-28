@@ -1,8 +1,11 @@
 #!/usr/bin/env sh
 . "$(dirname -- "$0")/_/husky.sh"
 
-# Build and lint
-pnpm install && pnpm build:check && pnpm eslint . && pnpm test
+# Install deps, lint, type check, test
+pnpm install && \
+pnpm eslint . --max-warnings 0 && \
+pnpm tsc --noEmit --strict && \
+pnpm test
 
 # Self-test: Run gitingest on its own repo
 REPO_URL=$(gh repo view --json url -q .url)
