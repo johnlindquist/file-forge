@@ -36,7 +36,7 @@ describe("CLI --commit", () => {
 
 	it("checks out the specified commit SHA after cloning", async () => {
 		// Get the first commit SHA (the one with main.js)
-		const commitSha = execSync("git rev-parse main", { cwd: repoPath })
+		const commitSha = execSync("git rev-parse HEAD^", { cwd: repoPath })
 			.toString()
 			.trim();
 

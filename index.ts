@@ -473,6 +473,7 @@ export async function ingestDirectory(basePath: string, flags: IngestFlags) {
 		// Clean and reset the working directory
 		spawnSync("git", ["clean", "-fdx"], { cwd: basePath });
 		spawnSync("git", ["reset", "--hard"], { cwd: basePath });
+		spawnSync("git", ["checkout", "."], { cwd: basePath });
 
 		// If branch is specified, check it out
 		if (flags.branch) {
@@ -481,6 +482,7 @@ export async function ingestDirectory(basePath: string, flags: IngestFlags) {
 			// Clean and reset before checkout
 			spawnSync("git", ["clean", "-fdx"], { cwd: basePath });
 			spawnSync("git", ["reset", "--hard"], { cwd: basePath });
+			spawnSync("git", ["checkout", "."], { cwd: basePath });
 
 			const checkout = spawnSync("git", ["checkout", flags.branch], {
 				cwd: basePath,
@@ -497,11 +499,18 @@ export async function ingestDirectory(basePath: string, flags: IngestFlags) {
 			// Clean and reset after checkout to ensure we're in a clean state
 			spawnSync("git", ["clean", "-fdx"], { cwd: basePath });
 			spawnSync("git", ["reset", "--hard"], { cwd: basePath });
+			spawnSync("git", ["checkout", "."], { cwd: basePath });
 		}
 
 		// If commit is specified, check it out
 		if (flags.commit) {
 			spinner.start(`Checking out commit ${flags.commit}...`);
+
+			// Clean and reset before checkout
+			spawnSync("git", ["clean", "-fdx"], { cwd: basePath });
+			spawnSync("git", ["reset", "--hard"], { cwd: basePath });
+			spawnSync("git", ["checkout", "."], { cwd: basePath });
+
 			const checkout = spawnSync("git", ["checkout", flags.commit], {
 				cwd: basePath,
 				stdio: ["ignore", "pipe", "pipe"],
@@ -517,6 +526,7 @@ export async function ingestDirectory(basePath: string, flags: IngestFlags) {
 			// Clean and reset after checkout
 			spawnSync("git", ["clean", "-fdx"], { cwd: basePath });
 			spawnSync("git", ["reset", "--hard"], { cwd: basePath });
+			spawnSync("git", ["checkout", "."], { cwd: basePath });
 		}
 	}
 
