@@ -1,3 +1,10 @@
+## [1.0.1](https://github.com/johnlindquist/ghi/compare/v1.0.0...v1.0.1) (2025-01-28)
+
+
+### Bug Fixes
+
+* improve package description ([af6193b](https://github.com/johnlindquist/ghi/commit/af6193b642d08a15fcf43921a291922799d3d2d2))
+
 # 1.0.0 (2025-01-28)
 
 
