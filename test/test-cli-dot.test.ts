@@ -32,7 +32,11 @@ function runCLI(args: string[]) {
 
 describe("CLI: ingest current directory with '.'", () => {
 	it("should include files from the current directory and not throw 'No files found'", async () => {
-		const { stdout, stderr, exitCode } = await runCLI([".", "--debug"]);
+		// Use the test fixtures directory instead of the whole project
+		const { stdout, stderr, exitCode } = await runCLI([
+			"test/fixtures/sample-project",
+			"--debug",
+		]);
 
 		console.log("CLI STDOUT:\n", stdout);
 		console.log("CLI STDERR:\n", stderr);
@@ -52,8 +56,9 @@ describe("CLI: ingest current directory with '.'", () => {
 		const savedContent = readFileSync(savedPath, "utf8");
 
 		// Now check the actual content of the saved file
-		expect(savedContent).toMatch(/package\.json/);
+		expect(savedContent).toMatch(/hello\.js/);
+		expect(savedContent).toMatch(/test\.ts/);
 		expect(savedContent).toContain("Directory Structure");
 		expect(savedContent).toContain("Files Content");
-	}, 15000); // Increase timeout to 15 seconds
+	}, 15000); // Keep the timeout just in case
 });

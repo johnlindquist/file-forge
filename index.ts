@@ -582,11 +582,10 @@ export async function scanDirectory(
 	const patterns = options.include?.length
 		? options.include
 		: ["**/*", "**/.*"]; // Include dotfiles by default too
-	const ignorePatterns = [
-		...(options.ignore !== false ? DEFAULT_IGNORE : []),
-		...(options.ignore !== false ? gitignorePatterns : []),
-		...(options.exclude ?? []),
-	];
+	const ignorePatterns =
+		options.ignore === false
+			? [...(options.exclude ?? [])]
+			: [...DEFAULT_IGNORE, ...gitignorePatterns, ...(options.exclude ?? [])];
 
 	if (options.debug) {
 		console.log("[DEBUG] Globby patterns:", patterns);
