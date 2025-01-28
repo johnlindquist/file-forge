@@ -76,6 +76,7 @@ type IngestFlags = {
 	maxSize?: number | undefined;
 	pipe?: boolean | undefined;
 	debug?: boolean | undefined;
+	bulk?: boolean | undefined;
 };
 
 type ScanStats = {
@@ -142,6 +143,11 @@ const argv = yargs(hideBin(process.argv))
 		type: "boolean",
 		describe: "Enable debug logging",
 	})
+	.option("bulk", {
+		alias: "k",
+		type: "boolean",
+		describe: "Add AI processing instructions to the end of the output",
+	})
 	.example([
 		[
 			"$0 https://github.com/owner/repo",
@@ -191,6 +197,7 @@ const argv = yargs(hideBin(process.argv))
 		maxSize: argv["max-size"],
 		pipe: argv.pipe,
 		debug: argv.debug,
+		bulk: argv.bulk,
 	};
 
 	// Create log directory if needed
@@ -324,6 +331,9 @@ const argv = yargs(hideBin(process.argv))
 				);
 			}
 		}
+
+		// Return the results
+		return { summary, treeStr, contentStr };
 	} catch (err) {
 		spinner2.stop("Digest build failed.");
 		p.cancel(`Error: ${(err as Error).message}`);
@@ -514,6 +524,20 @@ async function ingestDirectory(basePath: string, flags: IngestFlags) {
 		contentStr += `================================\nFile: ${f.path.replace(basePath, "")}\n================================\n`;
 		contentStr += f.content ?? "[Content ignored or non-text file]\n";
 		contentStr += "\n";
+	}
+
+	// Build bulk instructions if flag is set
+	if (flags.bulk) {
+		contentStr +=
+			"\n---\nWhen I provide a set of files with paths and content, please return **one single shell script** that does the following:\n\n";
+		contentStr += "1. Creates the necessary directories for all files.\n";
+		contentStr +=
+			"2. Outputs the final content of each file using `cat << 'EOF' > path/filename` ... `EOF`.\n";
+		contentStr +=
+			"3. Ensures it's a single code fence I can copy and paste into my terminal.\n";
+		contentStr += "4. Ends with a success message.\n\n";
+		contentStr +=
+			"Use `#!/usr/bin/env bash` at the start and make sure each `cat` block ends with `EOF`.\n---\n";
 	}
 
 	// If very large, you might want to truncate, but we'll just do it as is
