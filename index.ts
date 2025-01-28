@@ -147,6 +147,7 @@ const argv = yargs(hideBin(process.argv))
 	})
 	.option("ignore", {
 		type: "boolean",
+		default: true,
 		describe: "Whether to respect .gitignore files",
 	})
 	.help()
@@ -595,7 +596,7 @@ export async function scanDirectory(
 	const files = await globby(patterns, {
 		cwd: dir,
 		ignore: ignorePatterns,
-		dot: true, // Enable dotfiles
+		dot: false,
 		absolute: true,
 		onlyFiles: true,
 	});
