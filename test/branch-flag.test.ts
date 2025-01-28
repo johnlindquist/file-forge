@@ -1,11 +1,29 @@
 // test/branch-flag.test.ts
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import { runCLI } from "./test-helpers";
 import { resolve } from "node:path";
+import { execSync } from "node:child_process";
 
 describe("CLI --branch", () => {
+	const repoPath = resolve(__dirname, "fixtures/branch-fixture");
+
+	beforeEach(() => {
+		// Initialize git repo and create branches
+		execSync("git init", { cwd: repoPath });
+		execSync("git add main.js", { cwd: repoPath });
+		execSync(
+			'git -c user.name="Test" -c user.email="test@example.com" commit -m "Initial commit"',
+			{ cwd: repoPath },
+		);
+		execSync("git checkout -b some-feature-branch", { cwd: repoPath });
+		execSync("git add feature.js", { cwd: repoPath });
+		execSync(
+			'git -c user.name="Test" -c user.email="test@example.com" commit -m "Feature commit"',
+			{ cwd: repoPath },
+		);
+	});
+
 	it("attempts to clone the specified branch from a Git repository", async () => {
-		const repoPath = resolve(__dirname, "fixtures/branch-fixture");
 		const { stdout, stderr, exitCode } = await runCLI([
 			repoPath,
 			"--branch",
