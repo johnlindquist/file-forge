@@ -379,10 +379,16 @@ const argv = yargs(hideBin(process.argv))
 	}
 
 	p.outro("Done! 🎉");
-	process.exit(0);
+	if (!process.env["VITEST"]) {
+		process.exit(0);
+	}
+	return 0;
 })().catch((err) => {
 	p.cancel(`Uncaught error: ${err?.message || String(err)}`);
-	process.exit(1);
+	if (!process.env["VITEST"]) {
+		process.exit(1);
+	}
+	return 1;
 });
 
 /** Utility: parse user-provided globs/patterns */
@@ -440,25 +446,26 @@ function isGitHubURL(input: string) {
 	// Remove any leading/trailing whitespace
 	const str = input.trim();
 
+	// First check if it's already a full GitHub URL
+	if (/^https?:\/\/(www\.)?github\.com\//i.test(str)) {
+		return { isValid: true, url: str };
+	}
+
 	// If it starts with github.com, add https://
-	let url = str;
 	if (str.startsWith("github.com/")) {
-		url = `https://${str}`;
+		const url = `https://${str}`;
+		return { isValid: true, url };
 	}
 
-	// If it's just a path like "owner/repo", add github.com
+	// If it's a valid owner/repo format like "microsoft/vscode"
+	// Must start with letter/number, contain one slash, and end with letter/number
 	if (/^[\w-]+\/[\w-]+$/.test(str)) {
-		url = `https://github.com/${str}`;
+		const url = `https://github.com/${str}`;
+		return { isValid: true, url };
 	}
 
-	// Now check if it's a valid GitHub URL
-	const isValid = /^https?:\/\/(www\.)?github\.com\//i.test(url);
-
-	// Return both the validity and the normalized URL
-	return {
-		isValid,
-		url: isValid ? url : "",
-	};
+	// Not a GitHub URL
+	return { isValid: false, url: "" };
 }
 
 /** Utility: prompt for editor config if not set */

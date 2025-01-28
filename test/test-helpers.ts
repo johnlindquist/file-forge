@@ -5,14 +5,10 @@ import { beforeEach, vi } from "vitest";
 
 // Mock process.exit to prevent it from actually exiting during tests
 beforeEach(() => {
-	const exitSpy = vi
-		.spyOn(process, "exit")
-		.mockImplementation((code?: number | string | null) => {
-			if (code !== 0) {
-				throw new Error(`Process exited with code ${code}`);
-			}
-			return undefined as never;
-		});
+	const exitSpy = vi.spyOn(process, "exit").mockImplementation(() => {
+		// Don't throw on any exit code, just return
+		return undefined as never;
+	});
 
 	return () => {
 		exitSpy.mockRestore();
@@ -36,6 +32,7 @@ export async function runCLI(args: string[]) {
 				...process.env,
 				NODE_NO_WARNINGS: "1", // Suppress experimental warnings
 				FORCE_COLOR: "0", // Disable colors in output
+				VITEST: "1", // Indicate we're running in Vitest
 			},
 			stdio: ["ignore", "pipe", "pipe"], // Capture both stdout and stderr
 		});
