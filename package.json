@@ -1,6 +1,6 @@
 {
   "name": "@johnlindquist/ghi",
-  "description": "GitHub and local directory ingestion CLI tool",
+  "description": "Ingest GitHub repositories and local directories for analysis",
   "repository": {
     "type": "git",
     "url": "https://github.com/johnlindquist/ghi.git"
