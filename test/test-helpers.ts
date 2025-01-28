@@ -1,27 +1,53 @@
 // test/test-helpers.ts
-import { spawn } from "node:child_process";
+import { execSync } from "node:child_process";
+import { resolve } from "node:path";
+import { beforeEach, vi } from "vitest";
 
-export function runCLI(args: string[]) {
-	return new Promise<{ stdout: string; stderr: string; exitCode: number }>(
-		(resolve) => {
-			const proc = spawn("pnpm", ["node", "index.ts", ...args], {
-				cwd: process.cwd(),
-			});
+// Mock process.exit to prevent it from actually exiting during tests
+beforeEach(() => {
+	const exitSpy = vi
+		.spyOn(process, "exit")
+		.mockImplementation((code?: number | string | null) => {
+			if (code !== 0) {
+				throw new Error(`Process exited with code ${code}`);
+			}
+			return undefined as never;
+		});
 
-			let stdout = "";
-			let stderr = "";
+	return () => {
+		exitSpy.mockRestore();
+	};
+});
 
-			proc.stdout.on("data", (chunk) => {
-				stdout += chunk;
-			});
+interface ExecError extends Error {
+	stdout?: Buffer;
+	stderr?: Buffer;
+	status?: number;
+}
 
-			proc.stderr.on("data", (chunk) => {
-				stderr += chunk;
-			});
+export async function runCLI(args: string[]) {
+	const cliPath = resolve(__dirname, "..", "index.ts");
+	const cmd = `pnpm node ${cliPath} ${args.join(" ")}`;
 
-			proc.on("close", (code) => {
-				resolve({ stdout, stderr, exitCode: code ?? 0 });
-			});
-		},
-	);
+	try {
+		const stdout = execSync(cmd, {
+			encoding: "utf8",
+			env: {
+				...process.env,
+				NODE_NO_WARNINGS: "1", // Suppress experimental warnings
+				FORCE_COLOR: "0", // Disable colors in output
+			},
+			stdio: ["ignore", "pipe", "pipe"], // Capture both stdout and stderr
+		});
+		return { stdout, exitCode: 0 };
+	} catch (err) {
+		if (err instanceof Error && "stdout" in err) {
+			const execErr = err as ExecError;
+			return {
+				stdout: execErr.stdout?.toString() || "",
+				exitCode: execErr.status || 1,
+			};
+		}
+		throw err;
+	}
 }

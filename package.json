@@ -19,12 +19,12 @@
     "dev": "node --experimental-strip-types index.ts",
     "build": "tsc",
     "build:check": "tsc --noEmit",
-    "lint": "eslint . --ext .ts",
-    "lint:fix": "eslint . --ext .ts --fix",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
     "verify:bin": "pnpm build && [ -f dist/index.js ] || (echo 'dist/index.js not found' && exit 1)",
     "prepublishOnly": "pnpm build",
     "prepare": "husky && husky install",
-    "precommit": "pnpm build:check && pnpm verify:bin",
+    "pre-commit": "pnpm lint && pnpm build:check && pnpm verify:bin",
     "semantic-release": "semantic-release"
   },
   "publishConfig": {

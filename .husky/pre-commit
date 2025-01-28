@@ -11,3 +11,4 @@ pnpm test
 REPO_URL=$(gh repo view --json url -q .url)
 echo "Running self-test on $REPO_URL..."
 ./dist/index.js "$REPO_URL" --pipe || exit 1
+pnpm pre-commit

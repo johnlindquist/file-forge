@@ -9,6 +9,14 @@ export default [
   },
   js.configs.recommended,
   {
+    files: ["test/fixtures/**/*.js"],
+    languageOptions: {
+      globals: {
+        ...globals.node
+      }
+    }
+  },
+  {
     files: ["**/*.ts"],
     languageOptions: {
       parser: tsParser,

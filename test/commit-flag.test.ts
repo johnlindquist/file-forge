@@ -50,7 +50,7 @@ describe("CLI --commit", () => {
 	});
 
 	it("checks out the specified commit SHA after cloning", async () => {
-		const { stdout, stderr, exitCode } = await runCLI([
+		const { stdout, exitCode } = await runCLI([
 			repoPath,
 			"--commit",
 			firstCommitSha,

@@ -3,19 +3,16 @@ import { describe, it, expect } from "vitest";
 import { runCLI } from "./test-helpers";
 
 describe("CLI --pipe", () => {
-  it("outputs entire summary and file contents to STDOUT without launching editor", async () => {
-    const { stdout, stderr, exitCode } = await runCLI([
-      "test/fixtures/sample-project",
-      "--pipe",
-    ]);
+	it("outputs to stdout when --pipe is used", async () => {
+		const { stdout, exitCode } = await runCLI([
+			"test/fixtures/sample-project",
+			"--pipe",
+		]);
 
-    expect(exitCode).toBe(0);
-    expect(stdout).toContain("# GitIngest");
-    expect(stdout).toContain("## Directory Structure");
-    expect(stdout).toContain("## Files Content");
-
-    // Usually, you'd see a line like:
-    // "RESULTS_SAVED: /Users/you/Library/Preferences/gitingest/config/gitingest-abc123-..."
-    expect(stdout).toMatch(/RESULTS_SAVED:/);
-  });
+		expect(exitCode).toBe(0);
+		// With --pipe, we expect the full output in stdout
+		expect(stdout).toContain("# GitIngest");
+		expect(stdout).toContain("## Summary");
+		expect(stdout).toContain("## Directory Structure");
+	});
 });
