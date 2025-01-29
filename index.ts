@@ -123,6 +123,7 @@ type IngestFlags = {
 	skipArtifacts?: boolean | undefined;
 	clipboard?: boolean | undefined;
 	noEditor?: boolean | undefined;
+	find?: string | undefined;
 };
 
 type ScanStats = {
@@ -166,6 +167,11 @@ const argv = yargs(hideBin(process.argv))
 		type: "string",
 		describe:
 			"Glob or path patterns to exclude. Comma or multiple flags allowed.",
+	})
+	.option("find", {
+		alias: "f",
+		type: "string",
+		describe: "Find files containing this name (case-insensitive)",
 	})
 	.option("branch", {
 		alias: "b",
@@ -257,6 +263,7 @@ const argv = yargs(hideBin(process.argv))
 		skipArtifacts: Boolean(argv["skip-artifacts"]),
 		clipboard: Boolean(argv.clipboard),
 		noEditor: Boolean(argv["no-editor"]),
+		find: argv.find,
 	};
 
 	// Create log directory if needed
@@ -718,9 +725,12 @@ export async function scanDirectory(
 	}
 
 	// Use globby to find all files in this directory (and subdirs) matching include/exclude.
-	const patterns = options.include?.length
-		? options.include
-		: ["**/*", "**/.*"]; // Include dotfiles by default too
+	const patterns = options.find
+		? ["**/*", "**/.*"] // When using find, we want to search all files
+		: options.include?.length
+			? options.include
+			: ["**/*", "**/.*"]; // Include dotfiles by default too
+
 	const ignorePatterns =
 		options.ignore === false
 			? [...(options.exclude ?? [])]
@@ -744,8 +754,15 @@ export async function scanDirectory(
 		onlyFiles: true,
 	});
 
+	// Filter by find flag if present
+	const filteredFiles = options.find
+		? files.filter((file) =>
+				basename(file).toLowerCase().includes(options.find!.toLowerCase()),
+			)
+		: files;
+
 	if (options.debug) {
-		console.log("[DEBUG] Globby found files:", files);
+		console.log("[DEBUG] Globby found files:", filteredFiles);
 	}
 
 	// Create the root node
@@ -760,7 +777,7 @@ export async function scanDirectory(
 	};
 
 	// For each matched file, we split its relative path segments
-	for (const file of files) {
+	for (const file of filteredFiles) {
 		const fstat = lstatSync(file);
 		stats.totalFiles++;
 		stats.totalSize += fstat.size;

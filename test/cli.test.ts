@@ -142,6 +142,89 @@ describe("exclude logic and .gitignore behavior", () => {
 	});
 });
 
+describe("find flag", () => {
+	const FIXTURES_DIR = resolve(__dirname, "fixtures/sample-project");
+
+	it("should find files containing the search term in their name (case-insensitive)", async () => {
+		const result = await scanDirectory(FIXTURES_DIR, {
+			find: "test",
+			debug: true,
+		});
+
+		expect(result).not.toBeNull();
+		const allFiles = getAllFileNames(result as TreeNode);
+		console.log("Files found with 'test':", allFiles);
+
+		// Should find test.ts but not hello.js or math.ts
+		expect(allFiles).toContain("test.ts");
+		expect(allFiles).not.toContain("hello.js");
+		expect(allFiles).not.toContain("math.ts");
+	});
+
+	it("should work with exclude patterns", async () => {
+		const result = await scanDirectory(FIXTURES_DIR, {
+			find: "test",
+			exclude: ["*.ts"],
+			debug: true,
+		});
+
+		// When all matching files are excluded, we expect null
+		expect(result).toBeNull();
+	});
+
+	it("should be case-insensitive", async () => {
+		// First let's scan with lowercase
+		const resultLower = await scanDirectory(FIXTURES_DIR, {
+			find: "test",
+			debug: true,
+		});
+
+		// Then with uppercase
+		const resultUpper = await scanDirectory(FIXTURES_DIR, {
+			find: "TEST",
+			debug: true,
+		});
+
+		const filesLower = getAllFileNames(resultLower as TreeNode);
+		const filesUpper = getAllFileNames(resultUpper as TreeNode);
+
+		console.log("Files found with lowercase 'test':", filesLower);
+		console.log("Files found with uppercase 'TEST':", filesUpper);
+
+		// Both searches should find the same files
+		expect(filesLower).toEqual(filesUpper);
+		expect(filesLower).toContain("test.ts");
+	});
+
+	it("should work with directory-scoped includes", async () => {
+		// First scan without include to show we have multiple matches
+		const resultAll = await scanDirectory(FIXTURES_DIR, {
+			find: "math",
+			debug: true,
+		});
+
+		expect(resultAll).not.toBeNull();
+		const allFiles = getAllFileNames(resultAll as TreeNode);
+		console.log("All files found with 'math':", allFiles);
+
+		// Now scan with include to scope to src directory
+		const resultScoped = await scanDirectory(FIXTURES_DIR, {
+			find: "math",
+			include: ["src/**"],
+			debug: true,
+		});
+
+		expect(resultScoped).not.toBeNull();
+		const scopedFiles = getAllFileNames(resultScoped as TreeNode);
+		console.log("Files found with 'math' in src/:", scopedFiles);
+
+		// Should only find math.ts in src/, not any other math files
+		expect(scopedFiles).toContain("math.ts");
+		expect(scopedFiles.length).toBe(1);
+		expect(scopedFiles.every((file) => file.startsWith("math"))).toBe(true);
+	});
+});
+
 /** Helper to recursively collect file names from your scan TreeNode */
 function getAllFileNames(node: TreeNode): string[] {
 	let names: string[] = [];
