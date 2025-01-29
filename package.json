@@ -120,6 +120,7 @@
   "dependencies": {
     "@clack/prompts": "^0.9.1",
     "@octokit/rest": "^21.1.0",
+    "clipboardy": "^4.0.0",
     "conf": "^13.1.0",
     "date-fns": "^4.1.0",
     "dotenv": "^16.4.7",

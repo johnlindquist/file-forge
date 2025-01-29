@@ -30,6 +30,7 @@ import { createHash } from "node:crypto";
 import { globby } from "globby";
 import ignore from "ignore";
 import { fileURLToPath } from "node:url";
+import clipboard from "clipboardy";
 
 // Read package.json for version
 const __filename = fileURLToPath(import.meta.url);
@@ -120,6 +121,8 @@ type IngestFlags = {
 	bulk?: boolean | undefined;
 	ignore?: boolean | undefined;
 	skipArtifacts?: boolean | undefined;
+	clipboard?: boolean | undefined;
+	noEditor?: boolean | undefined;
 };
 
 type ScanStats = {
@@ -204,6 +207,16 @@ const argv = yargs(hideBin(process.argv))
 		default: true,
 		describe: "Skip dependency files, build artifacts, and generated assets",
 	})
+	.option("clipboard", {
+		alias: "y",
+		type: "boolean",
+		describe: "Copy results to clipboard",
+	})
+	.option("no-editor", {
+		alias: "n",
+		type: "boolean",
+		describe: "Save results to file but don't open in editor",
+	})
 	.help()
 	.alias("help", "h")
 	.parseSync();
@@ -242,6 +255,8 @@ const argv = yargs(hideBin(process.argv))
 		bulk: argv.bulk,
 		ignore: Boolean(argv.ignore),
 		skipArtifacts: Boolean(argv["skip-artifacts"]),
+		clipboard: Boolean(argv.clipboard),
+		noEditor: Boolean(argv["no-editor"]),
 	};
 
 	// Create log directory if needed
@@ -348,11 +363,26 @@ const argv = yargs(hideBin(process.argv))
 		// 4) If --pipe, just log it all out and save file (but skip editor)
 		writeFileSync(resultFilePath, output, "utf8");
 
+		if (flags.clipboard) {
+			try {
+				await clipboard.write(output);
+				p.note("Results copied to clipboard!");
+			} catch (err) {
+				p.note(`Failed to copy to clipboard: ${(err as Error).message}`);
+			}
+		}
+
 		if (flags.pipe) {
 			console.log(output);
 			console.log(`\n${RESULTS_SAVED_MARKER} ${resultFilePath}`);
+		} else if (flags.noEditor) {
+			// Just save the file and notify, don't open editor
+			p.note(
+				`${RESULTS_SAVED_MARKER} ${resultFilePath}`,
+				"Results saved to file.",
+			);
 		} else {
-			// Try opening in editor if not piping
+			// Try opening in editor if not piping or no-editor
 			const editorConfig = await getEditorConfig();
 			if (!editorConfig.skipEditor && editorConfig.command) {
 				try {
