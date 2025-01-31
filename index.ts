@@ -125,6 +125,7 @@ type IngestFlags = {
 	clipboard?: boolean | undefined;
 	noEditor?: boolean | undefined;
 	find?: string[] | undefined;
+	require?: string[] | undefined;
 };
 
 type ScanStats = {
@@ -174,7 +175,14 @@ const argv = yargs(hideBin(process.argv))
 		array: true,
 		type: "string",
 		describe:
-			"Find files containing this name (case-insensitive). Multiple flags allowed.",
+			"Find files containing ANY of these terms (OR). Multiple flags or comma-separated.",
+	})
+	.option("require", {
+		alias: "r",
+		array: true,
+		type: "string",
+		describe:
+			"Find files containing ALL of these terms (AND). Multiple flags or comma-separated.",
 	})
 	.option("branch", {
 		alias: "b",
@@ -250,6 +258,7 @@ const argv = yargs(hideBin(process.argv))
 		clipboard: Boolean(argv.clipboard),
 		noEditor: Boolean(argv["no-editor"]),
 		find: parsePatterns(argv.find),
+		require: parsePatterns(argv.require),
 	};
 
 	if (!source) {
@@ -798,10 +807,11 @@ export async function scanDirectory(
 		onlyFiles: true,
 	});
 
-	// Now filter by content if find is specified
-	const filteredFiles = options.find
-		? await filterFilesByContent(files, options.find)
-		: files;
+	// Now filter by content if find/require is specified
+	const filteredFiles =
+		options.find?.length || options.require?.length
+			? await filterFilesByContent(files, options.find, options.require)
+			: files;
 
 	if (options.debug) {
 		console.log("[DEBUG] Globby found files:", filteredFiles);
@@ -916,20 +926,23 @@ export async function scanDirectory(
 /** Helper: Filter files by content */
 async function filterFilesByContent(
 	files: string[],
-	searchTerms: string | string[],
+	findTerms: string | string[] = [],
+	requireTerms: string | string[] = [],
 ): Promise<string[]> {
-	if (!searchTerms?.length) return files;
+	if (!findTerms?.length && !requireTerms?.length) return files;
 
-	const matchingFiles: string[] = [];
-	const terms = Array.isArray(searchTerms) ? searchTerms : [searchTerms];
-	const searchTermsLower = terms.map((t) => t.toLowerCase());
+	const matchingFiles: Set<string> = new Set(); // Using Set to avoid duplicates
+	const orTerms = Array.isArray(findTerms) ? findTerms : [findTerms];
+	const andTerms = Array.isArray(requireTerms) ? requireTerms : [requireTerms];
+	const orTermsLower = orTerms.map((t) => t.toLowerCase());
+	const andTermsLower = andTerms.map((t) => t.toLowerCase());
 
 	for (const file of files) {
 		try {
-			// First check if the filename contains any of the search terms
+			// First check if the filename contains any of the OR terms
 			const filenameLower = basename(file).toLowerCase();
-			if (searchTermsLower.some((term) => filenameLower.includes(term))) {
-				matchingFiles.push(file);
+			if (orTermsLower.some((term) => filenameLower.includes(term))) {
+				matchingFiles.add(file);
 				continue;
 			}
 
@@ -939,16 +952,26 @@ async function filterFilesByContent(
 			if (stat.size > DEFAULT_MAX_SIZE) continue;
 
 			const content = readFileSync(file, "utf8").toLowerCase();
-			// File must match ALL search terms to be included
-			if (searchTermsLower.every((term) => content.includes(term))) {
-				matchingFiles.push(file);
+
+			// For OR terms, match if any term is found
+			if (orTermsLower.some((term) => content.includes(term))) {
+				matchingFiles.add(file);
+				continue;
+			}
+
+			// For AND terms, match only if all terms are found
+			if (
+				andTermsLower.length &&
+				andTermsLower.every((term) => content.includes(term))
+			) {
+				matchingFiles.add(file);
 			}
 		} catch (err) {
 			console.error(`Error reading file ${file}:`, err);
 		}
 	}
 
-	return matchingFiles;
+	return Array.from(matchingFiles);
 }
 
 /** Recursively traverse the tree to gather file nodes that are textual */

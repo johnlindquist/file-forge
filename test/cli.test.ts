@@ -258,20 +258,22 @@ describe("find flag", () => {
 		expect(allFiles).not.toContain("math.ts"); // Doesn't contain console
 	});
 
-	it("should support multiple find flags to match ALL terms", async () => {
+	it("should support multiple find flags to match ANY term", async () => {
 		const result = await scanDirectory(FIXTURES_DIR, {
-			find: ["console", "log"],
+			find: ["console", "math"], // One term matches hello.js/test.ts, other matches math.ts
 			debug: true,
 		});
 
 		expect(result).not.toBeNull();
 		const allFiles = getAllFileNames(result as TreeNode);
-		console.log("Files found with both 'console' and 'log':", allFiles);
+		console.log("Files found with either 'console' or 'math':", allFiles);
 
-		// Should find test.ts and hello.js since they both have console.log
+		// Should find:
+		// - test.ts and hello.js (have console)
+		// - math.ts (has math in name)
 		expect(allFiles).toContain("test.ts");
 		expect(allFiles).toContain("hello.js");
-		expect(allFiles).not.toContain("math.ts"); // math.ts doesn't have console.log
+		expect(allFiles).toContain("math.ts");
 	});
 
 	it("should match any term in filenames but require all terms in content", async () => {
@@ -327,18 +329,83 @@ describe("find flag", () => {
 		expect(stdout).not.toContain("math.ts");
 	});
 
-	it("should support comma-separated find values", async () => {
+	it("should support comma-separated find values with OR behavior", async () => {
 		const { stdout, exitCode } = await runCLI([
 			"test/fixtures/sample-project",
-			"--find=console,log",
+			"--find=console,math",
 			"--pipe",
 		]);
 
 		expect(exitCode).toBe(0);
-		// Should give same results as multiple flags
+		// Should find both console.log files and math.ts
+		expect(stdout).toContain("test.ts");
+		expect(stdout).toContain("hello.js");
+		expect(stdout).toContain("math.ts");
+	});
+
+	it("should support require flag for AND behavior", async () => {
+		const result = await scanDirectory(FIXTURES_DIR, {
+			require: ["console", "log"], // Must have both terms
+			debug: true,
+		});
+
+		expect(result).not.toBeNull();
+		const allFiles = getAllFileNames(result as TreeNode);
+		console.log("Files found with BOTH 'console' AND 'log':", allFiles);
+
+		// Should find test.ts and hello.js since they both have console.log
+		expect(allFiles).toContain("test.ts");
+		expect(allFiles).toContain("hello.js");
+		// But not math.ts which has neither
+		expect(allFiles).not.toContain("math.ts");
+	});
+
+	it("should support both find and require flags together", async () => {
+		const result = await scanDirectory(FIXTURES_DIR, {
+			find: ["math"], // Files with math OR
+			require: ["console", "log"], // Files with both console AND log
+			debug: true,
+		});
+
+		expect(result).not.toBeNull();
+		const allFiles = getAllFileNames(result as TreeNode);
+		console.log("Files with 'math' OR (both 'console' AND 'log'):", allFiles);
+
+		// Should find:
+		// - math.ts (matches 'math')
+		// - test.ts and hello.js (have both console AND log)
+		expect(allFiles).toContain("math.ts"); // Has 'math'
+		expect(allFiles).toContain("test.ts"); // Has console.log
+		expect(allFiles).toContain("hello.js"); // Has console.log
+	});
+
+	it("should support comma-separated require values", async () => {
+		const { stdout, exitCode } = await runCLI([
+			"test/fixtures/sample-project",
+			"--require=console,log",
+			"--pipe",
+		]);
+
+		expect(exitCode).toBe(0);
+		// Should only find files with both console AND log
 		expect(stdout).toContain("test.ts");
 		expect(stdout).toContain("hello.js");
 		expect(stdout).not.toContain("math.ts");
+	});
+
+	it("should handle complex combinations of find and require", async () => {
+		const { stdout, exitCode } = await runCLI([
+			"test/fixtures/sample-project",
+			"--find=math",
+			"--require=console,log",
+			"--pipe",
+		]);
+
+		expect(exitCode).toBe(0);
+		// Should find files with 'math' OR (both 'console' AND 'log')
+		expect(stdout).toContain("math.ts"); // Has 'math'
+		expect(stdout).toContain("test.ts"); // Has console.log
+		expect(stdout).toContain("hello.js"); // Has console.log
 	});
 });
 
