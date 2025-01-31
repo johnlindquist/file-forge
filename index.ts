@@ -1,19 +1,19 @@
 #!/usr/bin/env node
 
 /* 
-  gitingest-cli.js
+  ghi
 
   Example usage:
-    $ gitingest --include "*.ts" --exclude "*.test.*,node_modules" https://github.com/owner/repo
-    $ gitingest /path/to/local/dir --max-size 500000 --pipe
-    $ gitingest --branch develop --include "src/" https://github.com/owner/repo
+    $ ghi --include "*.ts" --exclude "*.test.*,node_modules" https://github.com/owner/repo
+    $ ghi /path/to/local/dir --max-size 500000 --pipe
+    $ ghi --branch develop --include "src/" https://github.com/owner/repo
 
   1) Installs required libs:
      npm install yargs @clack/prompts conf env-paths date-fns mkdirp node-fetch
 
   2) Make executable and run:
-     chmod +x gitingest-cli.js
-     ./gitingest-cli.js [options] [repo or directory path]
+     chmod +x ghi
+     ./ghi [options] [repo or directory path]
 */
 
 import { hideBin } from "yargs/helpers";
@@ -49,8 +49,8 @@ const packageJson: PackageJson = existsSync(packagePath)
 
 const RESULTS_SAVED_MARKER = "RESULTS_SAVED:";
 const DEFAULT_MAX_SIZE = 10 * 1024 * 1024; // 10 MB
-const DEFAULT_LOG_DIR = envPaths("gitingest").log;
-const DEFAULT_SEARCHES_DIR = envPaths("gitingest").config;
+const DEFAULT_LOG_DIR = envPaths("ghi").log;
+const DEFAULT_SEARCHES_DIR = envPaths("ghi").config;
 const DEFAULT_IGNORE = [
 	// Common ignore patterns from the Python version
 	"*.pyc",
@@ -124,7 +124,7 @@ type IngestFlags = {
 	skipArtifacts?: boolean | undefined;
 	clipboard?: boolean | undefined;
 	noEditor?: boolean | undefined;
-	find?: string | undefined;
+	find?: string[] | undefined;
 };
 
 type ScanStats = {
@@ -145,13 +145,13 @@ interface TreeNode {
 }
 
 const config = new Conf<{ editor: EditorConfig }>({
-	projectName: "gitingest-cli",
+	projectName: "ghi",
 });
 
 /** YARGS Setup ************************************/
 
 const argv = yargs(hideBin(process.argv))
-	.scriptName("gitingest")
+	.scriptName("ghi")
 	.usage("$0 [options] <repo-or-path>")
 	.version("version", "Show version number", packageJson.version)
 	.alias("version", "v")
@@ -171,8 +171,10 @@ const argv = yargs(hideBin(process.argv))
 	})
 	.option("find", {
 		alias: "f",
+		array: true,
 		type: "string",
-		describe: "Find files containing this name (case-insensitive)",
+		describe:
+			"Find files containing this name (case-insensitive). Multiple flags allowed.",
 	})
 	.option("branch", {
 		alias: "b",
@@ -247,7 +249,7 @@ const argv = yargs(hideBin(process.argv))
 		skipArtifacts: Boolean(argv["skip-artifacts"]),
 		clipboard: Boolean(argv.clipboard),
 		noEditor: Boolean(argv["no-editor"]),
-		find: argv.find,
+		find: parsePatterns(argv.find),
 	};
 
 	if (!source) {
@@ -271,7 +273,7 @@ const argv = yargs(hideBin(process.argv))
 		.update(String(source))
 		.digest("hex")
 		.slice(0, 6);
-	const resultFilename = `gitingest-${hashedSource}-${timestamp}.md`;
+	const resultFilename = `ghi-${hashedSource}-${timestamp}.md`;
 	const resultFilePath = resolve(DEFAULT_SEARCHES_DIR, resultFilename);
 
 	if (flags.debug)
@@ -287,7 +289,7 @@ const argv = yargs(hideBin(process.argv))
 		spinner.start("Cloning repository...");
 		try {
 			const tempDir = resolve(
-				envPaths("gitingest").cache,
+				envPaths("ghi").cache,
 				`ingest-${hashedSource}-${Date.now()}`,
 			);
 			await mkdirp(tempDir);
@@ -876,15 +878,19 @@ export async function scanDirectory(
 /** Helper: Filter files by content */
 async function filterFilesByContent(
 	files: string[],
-	searchTerm: string,
+	searchTerms: string | string[],
 ): Promise<string[]> {
+	if (!searchTerms?.length) return files;
+
 	const matchingFiles: string[] = [];
-	const searchTermLower = searchTerm.toLowerCase();
+	const terms = Array.isArray(searchTerms) ? searchTerms : [searchTerms];
+	const searchTermsLower = terms.map((t) => t.toLowerCase());
 
 	for (const file of files) {
 		try {
-			// First check if the filename contains the search term
-			if (basename(file).toLowerCase().includes(searchTermLower)) {
+			// First check if the filename contains any of the search terms
+			const filenameLower = basename(file).toLowerCase();
+			if (searchTermsLower.some((term) => filenameLower.includes(term))) {
 				matchingFiles.push(file);
 				continue;
 			}
@@ -894,8 +900,9 @@ async function filterFilesByContent(
 			const stat = lstatSync(file);
 			if (stat.size > DEFAULT_MAX_SIZE) continue;
 
-			const content = readFileSync(file, "utf8");
-			if (content.toLowerCase().includes(searchTermLower)) {
+			const content = readFileSync(file, "utf8").toLowerCase();
+			// File must match ALL search terms to be included
+			if (searchTermsLower.every((term) => content.includes(term))) {
 				matchingFiles.push(file);
 			}
 		} catch (err) {

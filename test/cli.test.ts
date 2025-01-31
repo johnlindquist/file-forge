@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { resolve, join } from "node:path";
 import { scanDirectory } from "../index";
+import { runCLI } from "../utils/runCLI";
 
 interface TreeNode {
 	name: string;
@@ -255,6 +256,89 @@ describe("find flag", () => {
 		expect(allFiles).toContain("test.ts");
 		expect(allFiles).not.toContain("hello.js"); // Excluded by *.ts pattern
 		expect(allFiles).not.toContain("math.ts"); // Doesn't contain console
+	});
+
+	it("should support multiple find flags to match ALL terms", async () => {
+		const result = await scanDirectory(FIXTURES_DIR, {
+			find: ["console", "log"],
+			debug: true,
+		});
+
+		expect(result).not.toBeNull();
+		const allFiles = getAllFileNames(result as TreeNode);
+		console.log("Files found with both 'console' and 'log':", allFiles);
+
+		// Should find test.ts and hello.js since they both have console.log
+		expect(allFiles).toContain("test.ts");
+		expect(allFiles).toContain("hello.js");
+		expect(allFiles).not.toContain("math.ts"); // math.ts doesn't have console.log
+	});
+
+	it("should match any term in filenames but require all terms in content", async () => {
+		const result = await scanDirectory(FIXTURES_DIR, {
+			find: ["test", "nonexistent"],
+			debug: true,
+		});
+
+		expect(result).not.toBeNull();
+		const allFiles = getAllFileNames(result as TreeNode);
+		console.log(
+			"Files found with 'test' in name or all terms in content:",
+			allFiles,
+		);
+
+		// Should find test.ts because it matches in filename, even though content doesn't have 'nonexistent'
+		expect(allFiles).toContain("test.ts");
+		// But shouldn't find files that only match one term in content
+		expect(allFiles).not.toContain("hello.js");
+	});
+
+	it("should handle empty or undefined find flags", async () => {
+		const resultEmpty = await scanDirectory(FIXTURES_DIR, {
+			find: [],
+			debug: true,
+		});
+
+		const resultUndefined = await scanDirectory(FIXTURES_DIR, {
+			debug: true,
+		});
+
+		// Both should return all files since no filtering
+		expect(getAllFileNames(resultEmpty as TreeNode)).toEqual(
+			getAllFileNames(resultUndefined as TreeNode),
+		);
+	});
+
+	it("should support multiple -f flags from command line", async () => {
+		const { stdout, exitCode } = await runCLI([
+			"test/fixtures/sample-project",
+			"-f",
+			"console",
+			"-f",
+			"log",
+			"--pipe",
+		]);
+
+		expect(exitCode).toBe(0);
+		// Should find both test.ts and hello.js since they have console.log
+		expect(stdout).toContain("test.ts");
+		expect(stdout).toContain("hello.js");
+		// But not math.ts which doesn't have console.log
+		expect(stdout).not.toContain("math.ts");
+	});
+
+	it("should support comma-separated find values", async () => {
+		const { stdout, exitCode } = await runCLI([
+			"test/fixtures/sample-project",
+			"--find=console,log",
+			"--pipe",
+		]);
+
+		expect(exitCode).toBe(0);
+		// Should give same results as multiple flags
+		expect(stdout).toContain("test.ts");
+		expect(stdout).toContain("hello.js");
+		expect(stdout).not.toContain("math.ts");
 	});
 });
 

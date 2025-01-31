@@ -1,0 +1,28 @@
+import { execSync } from "node:child_process";
+import { resolve } from "node:path";
+
+export async function runCLI(
+	args: string[],
+): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+	try {
+		const cliPath = resolve(__dirname, "../index.ts");
+		const command = `pnpm node ${cliPath} ${args.join(" ")}`;
+
+		const result = execSync(command, {
+			encoding: "utf8",
+			stdio: ["pipe", "pipe", "pipe"],
+		});
+
+		return {
+			stdout: result.toString(),
+			stderr: "",
+			exitCode: 0,
+		};
+	} catch (error: any) {
+		return {
+			stdout: error.stdout?.toString() || "",
+			stderr: error.stderr?.toString() || "",
+			exitCode: error.status || 1,
+		};
+	}
+}
