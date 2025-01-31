@@ -104,6 +104,7 @@ const ARTIFACT_FILES = [
 const DIR_MAX_DEPTH = 20;
 const DIR_MAX_FILES = 10000;
 const DIR_MAX_TOTAL_SIZE = 500 * 1024 * 1024; // 500 MB
+const MAX_EDITOR_SIZE = 5 * 1024 * 1024; // 5 MB - Skip editor for files larger than this
 
 type EditorConfig = {
 	command: string | null;
@@ -369,6 +370,17 @@ const argv = yargs(hideBin(process.argv))
 
 		// 4) If --pipe, just log it all out and save file (but skip editor)
 		writeFileSync(resultFilePath, output, "utf8");
+
+		const fileSize = Buffer.byteLength(output, "utf8");
+		const skipEditorDueToSize = fileSize > MAX_EDITOR_SIZE;
+
+		if (skipEditorDueToSize) {
+			p.note(
+				`${RESULTS_SAVED_MARKER} ${resultFilePath}`,
+				`Results saved to file (${Math.round(fileSize / 1024 / 1024)}MB). File too large for editor, use your preferred text editor to open it.`,
+			);
+			return { summary, treeStr, contentStr };
+		}
 
 		if (flags.clipboard) {
 			try {
