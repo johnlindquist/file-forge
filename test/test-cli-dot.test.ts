@@ -36,6 +36,7 @@ describe("CLI: ingest current directory with '.'", () => {
 			"test/fixtures/sample-project",
 			"--debug",
 			"--pipe",
+			"--skip-artifacts=false",
 		]);
 
 		console.log("CLI STDOUT:\n", stdout);

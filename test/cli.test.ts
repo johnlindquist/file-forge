@@ -258,6 +258,37 @@ describe("find flag", () => {
 	});
 });
 
+describe("default directory behavior", () => {
+	it("should use current directory when no source is provided", async () => {
+		const cwd = process.cwd();
+		const result = await scanDirectory(cwd, {
+			debug: true,
+		});
+
+		expect(result).not.toBeNull();
+		const allFiles = getAllFileNames(result as TreeNode);
+		console.log("Files found in current directory:", allFiles);
+
+		// Should find at least the test file itself
+		expect(allFiles).toContain("cli.test.ts");
+	});
+
+	it("should work with other flags when using default directory", async () => {
+		const cwd = process.cwd();
+		const result = await scanDirectory(cwd, {
+			include: ["*.ts"],
+			debug: true,
+		});
+
+		expect(result).not.toBeNull();
+		const allFiles = getAllFileNames(result as TreeNode);
+		console.log("TypeScript files found in current directory:", allFiles);
+
+		// Should only find TypeScript files
+		expect(allFiles.every((file) => file.endsWith(".ts"))).toBe(true);
+	});
+});
+
 /** Helper to recursively collect file names from your scan TreeNode */
 function getAllFileNames(node: TreeNode): string[] {
 	let names: string[] = [];

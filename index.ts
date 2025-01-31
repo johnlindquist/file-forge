@@ -231,26 +231,9 @@ const argv = yargs(hideBin(process.argv))
 /** Main CLI Logic *********************************/
 
 (async function main() {
-	p.intro("🔎 GitIngest CLI");
+	p.intro("�� GitIngest CLI");
 
-	// Parse the leftover main argument as the source
 	let [source] = argv._;
-	if (!source) {
-		// If no argument provided, prompt for one
-		const promptSource = await p.text({
-			message: "Enter a GitHub URL or local directory to ingest:",
-			validate(value) {
-				if (!value) return "Please provide a URL or local path";
-				return undefined;
-			},
-		});
-		if (p.isCancel(promptSource)) {
-			p.cancel("Operation cancelled");
-			process.exit(0);
-		}
-		source = promptSource;
-	}
-
 	const flags: IngestFlags = {
 		include: parsePatterns(argv.include),
 		exclude: parsePatterns(argv.exclude),
@@ -266,6 +249,17 @@ const argv = yargs(hideBin(process.argv))
 		noEditor: Boolean(argv["no-editor"]),
 		find: argv.find,
 	};
+
+	if (!source) {
+		// If no argument provided, use current directory
+		source = process.cwd();
+		if (flags.debug) {
+			console.log(
+				"[DEBUG] No source provided, using current directory:",
+				source,
+			);
+		}
+	}
 
 	// Create log directory if needed
 	await mkdirp(DEFAULT_LOG_DIR);
