@@ -22,7 +22,7 @@ import ignore from "ignore";
 import { fileURLToPath } from "node:url";
 import clipboard from "clipboardy";
 import { promises as fs } from "fs";
-import simpleGit from "simple-git";
+import { simpleGit as createGit, ResetMode } from "simple-git";
 import { execSync } from "node:child_process";
 
 /** Read package.json for version info */
@@ -98,19 +98,19 @@ type EditorConfig = {
 type IngestFlags = {
 	include?: string[];
 	exclude?: string[];
-	branch?: string;
-	commit?: string;
+	branch?: string | undefined;
+	commit?: string | undefined;
 	maxSize?: number;
-	pipe?: boolean;
-	debug?: boolean;
-	bulk?: boolean;
-	ignore?: boolean;
-	skipArtifacts?: boolean;
-	clipboard?: boolean;
-	noEditor?: boolean;
+	pipe?: boolean | undefined;
+	debug?: boolean | undefined;
+	bulk?: boolean | undefined;
+	ignore?: boolean | undefined;
+	skipArtifacts?: boolean | undefined;
+	clipboard?: boolean | undefined;
+	noEditor?: boolean | undefined;
 	find?: string[];
 	require?: string[];
-	useRegularGit?: boolean;
+	useRegularGit?: boolean | undefined;
 };
 
 type ScanStats = {
@@ -283,7 +283,6 @@ if (!flags.ignore) introLines.push("Ignoring .gitignore rules");
 p.intro(introLines.join("\n"));
 
 let finalPath: string;
-let cleanupDir: string | null = null;
 
 // --- CLONE STEP ---
 if (isGitHubURL(String(source)).isValid) {
@@ -306,7 +305,7 @@ if (isGitHubURL(String(source)).isValid) {
 			cmd += ` ${url} ${tempDir}`;
 			execSync(cmd, { stdio: "pipe" });
 		} else {
-			const git = simpleGit();
+			const git = createGit();
 			if (flags.commit) {
 				await git.clone(url, tempDir);
 			} else {
@@ -319,7 +318,6 @@ if (isGitHubURL(String(source)).isValid) {
 		}
 		spinner.stop("Repository cloned successfully.");
 		finalPath = tempDir;
-		cleanupDir = tempDir;
 	} catch (err: any) {
 		spinner.stop("Clone failed.");
 		p.cancel(err.message || String(err));
@@ -335,7 +333,6 @@ if (isGitHubURL(String(source)).isValid) {
 		else throw new Error(`Local path not found: ${localPath}`);
 	}
 	finalPath = localPath;
-	cleanupDir = null;
 }
 
 // --- BUILD DIGEST ---
@@ -555,13 +552,13 @@ export async function ingestDirectory(basePath: string, flags: IngestFlags) {
 				);
 			}
 		} else {
-			const git = simpleGit(basePath);
+			const git = createGit(basePath);
 			await git.clean("f", ["-d"]);
-			await git.reset("hard");
+			await git.reset(ResetMode.HARD);
 			if (flags.branch) {
 				spinner.start(`Checking out branch ${flags.branch}...`);
 				await git.clean("f", ["-d"]);
-				await git.reset("hard");
+				await git.reset(ResetMode.HARD);
 				try {
 					await git.checkout(flags.branch);
 					spinner.stop("Branch checked out.");
@@ -570,12 +567,12 @@ export async function ingestDirectory(basePath: string, flags: IngestFlags) {
 					throw new Error(error.message || "Failed to checkout branch");
 				}
 				await git.clean("f", ["-d"]);
-				await git.reset("hard");
+				await git.reset(ResetMode.HARD);
 			}
 			if (flags.commit) {
 				spinner.start(`Checking out commit ${flags.commit}...`);
 				await git.clean("f", ["-d"]);
-				await git.reset("hard");
+				await git.reset(ResetMode.HARD);
 				try {
 					await git.checkout(flags.commit);
 					spinner.stop("Checked out commit.");
@@ -584,7 +581,7 @@ export async function ingestDirectory(basePath: string, flags: IngestFlags) {
 					throw new Error(error.message || "Failed to checkout commit");
 				}
 				await git.clean("f", ["-d"]);
-				await git.reset("hard");
+				await git.reset(ResetMode.HARD);
 			}
 		}
 	}
