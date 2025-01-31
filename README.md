@@ -28,6 +28,9 @@ ghi https://github.com/owner/repo --branch develop --max-size 500000 --pipe
 
 # Multiple include/exclude patterns
 ghi /path --include "*.ts,*.js" --exclude "*.test.*,node_modules"
+
+# Open results in editor
+ghi /path --open
 ```
 
 ### Options
@@ -38,6 +41,7 @@ ghi /path --include "*.ts,*.js" --exclude "*.test.*,node_modules"
 - `--commit, -c` - Specific commit SHA to checkout if using a repo URL
 - `--max-size, -s` - Maximum file size to process in bytes (default: 10MB)
 - `--pipe, -p` - Pipe output to stdout (still saves results file)
+- `--open, -o` - Open results in editor
 - `--debug` - Enable debug logging
 
 ### Default Excludes
@@ -65,9 +69,9 @@ The output includes:
 
 ### Editor Integration
 
-On first run, ghi will prompt you to:
-1. Choose whether to automatically open results in an editor
-2. Specify your preferred editor command (e.g., 'code', 'vim', 'nano')
+By default, results are saved to a file but not opened. Use the `--open` flag to open results in your configured editor.
+
+When opening results for the first time, you'll be prompted to specify your preferred editor command (e.g., 'code', 'vim', 'nano').
 
 Settings can be modified in your system's config directory.
 
@@ -79,7 +83,7 @@ Settings can be modified in your system's config directory.
 - File size limits and safety checks
 - Intelligent tree structure visualization
 - Automatic text/binary detection
-- Editor integration
+- Optional editor integration
 - Pipe support for automation and CI/CD
 
 ## Development

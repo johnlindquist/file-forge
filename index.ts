@@ -111,6 +111,7 @@ type IngestFlags = {
 	find?: string[];
 	require?: string[];
 	useRegularGit?: boolean | undefined;
+	open?: boolean | undefined;
 };
 
 type ScanStats = {
@@ -223,6 +224,11 @@ const argv = yargs(hideBin(process.argv))
 		describe:
 			"Use regular system Git commands (authenticated git) instead of simple-git",
 	})
+	.option("open", {
+		alias: "o",
+		type: "boolean",
+		describe: "Open results in editor",
+	})
 	.help()
 	.alias("help", "h")
 	.parseSync();
@@ -243,6 +249,7 @@ const flags: IngestFlags = {
 	find: parsePatterns(argv.find),
 	require: parsePatterns(argv.require),
 	useRegularGit: Boolean(argv["use-regular-git"]),
+	open: Boolean(argv.open),
 };
 
 let [source] = argv._;
@@ -344,9 +351,10 @@ try {
 	spinner2.stop("Text digest built.");
 } catch (err: any) {
 	spinner2.stop("Digest build failed.");
-	p.cancel(`Error: ${err.message}`);
+	const error = err as Error;
+	p.cancel(`Error: ${error.message}`);
 	if (!process.env["VITEST"]) process.exit(1);
-	else throw err;
+	else throw error;
 }
 
 const output = [
@@ -377,7 +385,8 @@ console.log(summaryOutput);
 try {
 	await fs.writeFile(resultFilePath, output, "utf8");
 } catch (err: any) {
-	p.cancel(`Error writing output file: ${err.message}`);
+	const error = err as Error;
+	p.cancel(`Error writing output file: ${error.message}`);
 	if (!process.env["VITEST"]) process.exit(1);
 }
 
@@ -394,13 +403,14 @@ if (fileSize > MAX_EDITOR_SIZE) {
 			await clipboard.write(output);
 			p.note("Results copied to clipboard!");
 		} catch (err: any) {
-			p.note(`Failed to copy to clipboard: ${err.message}`);
+			const error = err as Error;
+			p.note(`Failed to copy to clipboard: ${error.message}`);
 		}
 	}
 	if (flags.pipe) {
 		console.log(output);
 		console.log(`\n${RESULTS_SAVED_MARKER} ${resultFilePath}`);
-	} else if (flags.noEditor) {
+	} else if (!flags.open) {
 		p.note(
 			`${RESULTS_SAVED_MARKER} ${resultFilePath}`,
 			"Results saved to file.",
@@ -483,31 +493,18 @@ export function isGitHubURL(input: string) {
 async function getEditorConfig(): Promise<EditorConfig> {
 	const saved = config.get("editor");
 	if (saved) return saved;
-	const useEditor = await p.confirm({
-		message: "Would you like to open results in an editor?",
-		initialValue: true,
-	});
-	if (p.isCancel(useEditor)) {
-		p.cancel("Setup cancelled");
-		if (!process.env["VITEST"]) process.exit(1);
-		throw new Error("Editor setup cancelled");
-	}
-	if (!useEditor) {
-		const noEditor: EditorConfig = { command: null, skipEditor: true };
-		config.set("editor", noEditor);
-		return noEditor;
-	}
+
 	const editorCommand = await p.text({
 		message: "Enter editor command (e.g. 'code', 'vim', 'nano')",
 		placeholder: "code",
-		validate(value) {
+		validate(value: string) {
 			if (!value) return "Please enter a command";
 			return undefined;
 		},
 	});
 	if (p.isCancel(editorCommand)) {
 		p.cancel("Setup cancelled");
-		if (!process.env["VITEST"]) process.exit(1);
+		if (!process.env.VITEST) process.exit(1);
 		throw new Error("Editor setup cancelled");
 	}
 	const econf = { command: editorCommand, skipEditor: false };
@@ -548,7 +545,8 @@ export async function ingestDirectory(basePath: string, flags: IngestFlags) {
 			} catch (error: any) {
 				spinner.stop("Checkout failed");
 				throw new Error(
-					error.message || "Failed to checkout using regular git commands",
+					(error as Error).message ||
+						"Failed to checkout using regular git commands",
 				);
 			}
 		} else {
@@ -564,7 +562,9 @@ export async function ingestDirectory(basePath: string, flags: IngestFlags) {
 					spinner.stop("Branch checked out.");
 				} catch (error: any) {
 					spinner.stop("Branch checkout failed");
-					throw new Error(error.message || "Failed to checkout branch");
+					throw new Error(
+						(error as Error).message || "Failed to checkout branch",
+					);
 				}
 				await git.clean("f", ["-d"]);
 				await git.reset(ResetMode.HARD);
@@ -578,7 +578,9 @@ export async function ingestDirectory(basePath: string, flags: IngestFlags) {
 					spinner.stop("Checked out commit.");
 				} catch (error: any) {
 					spinner.stop("Checkout failed");
-					throw new Error(error.message || "Failed to checkout commit");
+					throw new Error(
+						(error as Error).message || "Failed to checkout commit",
+					);
 				}
 				await git.clean("f", ["-d"]);
 				await git.reset(ResetMode.HARD);
@@ -879,7 +881,7 @@ async function gatherFiles(
 			try {
 				root.content = await fs.readFile(root.path, "utf8");
 			} catch (err: any) {
-				root.content = `[Error reading file: ${err.message}]`;
+				root.content = `[Error reading file: ${(err as Error).message}]`;
 			}
 		} else {
 			root.content = "[Non-text file omitted]";
