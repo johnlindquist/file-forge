@@ -11,7 +11,7 @@ describe("CLI --pipe", () => {
 
 		expect(exitCode).toBe(0);
 		// With --pipe, we expect the full output in stdout
-		expect(stdout).toContain("# GitIngest");
+		expect(stdout).toContain("# ghi");
 		expect(stdout).toContain("## Summary");
 		expect(stdout).toContain("## Directory Structure");
 	});

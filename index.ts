@@ -233,7 +233,7 @@ const argv = yargs(hideBin(process.argv))
 /** Main CLI Logic *********************************/
 
 (async function main() {
-	p.intro("�� GitIngest CLI");
+	p.intro("🔍 ghi CLI");
 
 	let [source] = argv._;
 	const flags: IngestFlags = {
@@ -278,6 +278,44 @@ const argv = yargs(hideBin(process.argv))
 
 	if (flags.debug)
 		console.log("[DEBUG] Ingesting from:", source, "Flags:", flags);
+
+	// Build intro message based on flags
+	const introLines = ["🔍 ghi Analysis"];
+	introLines.push(`\nAnalyzing: ${source}`);
+
+	if (flags.find?.length) {
+		introLines.push(`Finding files containing: ${flags.find.join(", ")}`);
+	}
+
+	if (flags.include?.length) {
+		introLines.push(`Including patterns: ${flags.include.join(", ")}`);
+	}
+
+	if (flags.exclude?.length) {
+		introLines.push(`Excluding patterns: ${flags.exclude.join(", ")}`);
+	}
+
+	if (flags.branch) {
+		introLines.push(`Using branch: ${flags.branch}`);
+	}
+
+	if (flags.commit) {
+		introLines.push(`At commit: ${flags.commit}`);
+	}
+
+	if (flags.maxSize && flags.maxSize !== DEFAULT_MAX_SIZE) {
+		introLines.push(`Max file size: ${Math.round(flags.maxSize / 1024)}KB`);
+	}
+
+	if (flags.skipArtifacts) {
+		introLines.push("Skipping build artifacts and generated files");
+	}
+
+	if (!flags.ignore) {
+		introLines.push("Ignoring .gitignore rules");
+	}
+
+	p.intro(introLines.join("\n"));
 
 	// 1) If it's a GitHub URL, clone (with optional branch/commit).
 	//    Else if local path, verify existence.
@@ -349,7 +387,7 @@ const argv = yargs(hideBin(process.argv))
 
 		// 3) Format final output
 		const output = [
-			"# GitIngest\n",
+			"# ghi\n",
 			`**Source**: \`${String(source)}\`\n`,
 			`**Timestamp**: ${new Date().toString()}\n`,
 			"## Summary\n",

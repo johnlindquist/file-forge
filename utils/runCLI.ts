@@ -1,6 +1,12 @@
 import { execSync } from "node:child_process";
 import { resolve } from "node:path";
 
+interface ExecError extends Error {
+	stdout?: Buffer;
+	stderr?: Buffer;
+	status?: number;
+}
+
 export async function runCLI(
 	args: string[],
 ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
@@ -18,11 +24,12 @@ export async function runCLI(
 			stderr: "",
 			exitCode: 0,
 		};
-	} catch (error: any) {
+	} catch (error: unknown) {
+		const err = error as ExecError;
 		return {
-			stdout: error.stdout?.toString() || "",
-			stderr: error.stderr?.toString() || "",
-			exitCode: error.status || 1,
+			stdout: err.stdout?.toString() || "",
+			stderr: err.stderr?.toString() || "",
+			exitCode: err.status || 1,
 		};
 	}
 }
