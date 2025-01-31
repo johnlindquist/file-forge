@@ -1,5 +1,12 @@
 #!/usr/bin/env node
 
+// handle uncaught errors
+process.on("uncaughtException", (err: unknown) => {
+	console.error("Uncaught exception:", err);
+	if (process.env["VITEST"]) throw err;
+	process.exit(1);
+});
+
 /**
  * ghi – GitHub Ingest
  *
@@ -21,7 +28,7 @@ import { globby } from "globby";
 import ignore from "ignore";
 import { fileURLToPath } from "node:url";
 import clipboard from "clipboardy";
-import { promises as fs } from "fs";
+import { promises as fs } from "node:fs";
 import { simpleGit as createGit, ResetMode } from "simple-git";
 import { execSync } from "node:child_process";
 
@@ -325,11 +332,10 @@ if (isGitHubURL(String(source)).isValid) {
 		}
 		spinner.stop("Repository cloned successfully.");
 		finalPath = tempDir;
-	} catch (err: any) {
+	} catch {
 		spinner.stop("Clone failed.");
-		p.cancel(err.message || String(err));
-		if (!process.env["VITEST"]) process.exit(1);
-		else throw err;
+		p.cancel("Failed to clone repository");
+		process.exit(1);
 	}
 } else {
 	// Local directory
@@ -349,12 +355,10 @@ let digest: { summary: string; treeStr: string; contentStr: string };
 try {
 	digest = await ingestDirectory(finalPath, flags);
 	spinner2.stop("Text digest built.");
-} catch (err: any) {
+} catch {
 	spinner2.stop("Digest build failed.");
-	const error = err as Error;
-	p.cancel(`Error: ${error.message}`);
-	if (!process.env["VITEST"]) process.exit(1);
-	else throw error;
+	p.cancel("Failed to build digest");
+	process.exit(1);
 }
 
 const output = [
@@ -364,9 +368,9 @@ const output = [
 	"## Summary\n",
 	`${digest.summary}\n`,
 	"## Directory Structure\n",
-	"```\n" + digest.treeStr + "\n```\n",
+	`\`\`\`\n${digest.treeStr}\n\`\`\`\n`,
 	"## Files Content\n",
-	"```\n" + digest.contentStr + "\n```\n",
+	`\`\`\`\n${digest.contentStr}\n\`\`\`\n`,
 ].join("\n");
 
 // Log summary and tree structure to console
@@ -377,17 +381,16 @@ const summaryOutput = [
 	"## Summary\n",
 	`${digest.summary}\n`,
 	"## Directory Structure\n",
-	"```\n" + digest.treeStr + "\n```\n",
+	`\`\`\`\n${digest.treeStr}\n\`\`\`\n`,
 ].join("\n");
 
 console.log(summaryOutput);
 
 try {
 	await fs.writeFile(resultFilePath, output, "utf8");
-} catch (err: any) {
-	const error = err as Error;
-	p.cancel(`Error writing output file: ${error.message}`);
-	if (!process.env["VITEST"]) process.exit(1);
+} catch {
+	p.cancel("Failed to write output file");
+	process.exit(1);
 }
 
 const fileSize = Buffer.byteLength(output, "utf8");
@@ -396,15 +399,15 @@ if (fileSize > MAX_EDITOR_SIZE) {
 		`${RESULTS_SAVED_MARKER} ${resultFilePath}`,
 		`Results saved to file (${Math.round(fileSize / 1024 / 1024)}MB). File too large for editor, open it manually.`,
 	);
+	p.outro("Done! 🎉");
 	if (!process.env["VITEST"]) process.exit(0);
 } else {
 	if (flags.clipboard) {
 		try {
 			await clipboard.write(output);
 			p.note("Results copied to clipboard!");
-		} catch (err: any) {
-			const error = err as Error;
-			p.note(`Failed to copy to clipboard: ${error.message}`);
+		} catch {
+			p.note("Failed to copy to clipboard");
 		}
 	}
 	if (flags.pipe) {
@@ -437,17 +440,9 @@ if (fileSize > MAX_EDITOR_SIZE) {
 			);
 		}
 	}
+	p.outro("Done! 🎉");
+	if (!process.env["VITEST"]) process.exit(0);
 }
-
-p.outro("Done! 🎉");
-if (!process.env["VITEST"]) process.exit(0);
-
-// handle uncaught errors
-process.on("uncaughtException", (err) => {
-	console.error("Uncaught exception:", err);
-	if (!process.env["VITEST"]) process.exit(1);
-	else throw err;
-});
 
 /** Helper: Asynchronously check if a file/directory exists */
 async function fileExists(path: string): Promise<boolean> {
@@ -480,12 +475,14 @@ function parsePatterns(input?: (string | number)[]): string[] {
 }
 
 /** Utility: Check if a string looks like a GitHub URL */
-export function isGitHubURL(input: string) {
+export function isGitHubURL(input: string): { isValid: boolean; url: string } {
 	const str = input.trim();
-	if (/^https?:\/\/(www\.)?github\.com\//i.test(str))
+	if (/^https?:\/\/(www\.)?github\.com\//i.test(str)) {
 		return { isValid: true, url: str };
-	if (str.startsWith("github.com/"))
+	}
+	if (str.startsWith("github.com/")) {
 		return { isValid: true, url: `https://${str}` };
+	}
 	return { isValid: false, url: "" };
 }
 
@@ -504,8 +501,8 @@ async function getEditorConfig(): Promise<EditorConfig> {
 	});
 	if (p.isCancel(editorCommand)) {
 		p.cancel("Setup cancelled");
-		if (!process.env.VITEST) process.exit(1);
-		throw new Error("Editor setup cancelled");
+		if (process.env["VITEST"]) throw new Error("Editor setup cancelled");
+		process.exit(1);
 	}
 	const econf = { command: editorCommand, skipEditor: false };
 	config.set("editor", econf);
@@ -542,12 +539,9 @@ export async function ingestDirectory(basePath: string, flags: IngestFlags) {
 					execSync("git clean -fdx", { cwd: basePath });
 					execSync("git reset --hard", { cwd: basePath });
 				}
-			} catch (error: any) {
+			} catch {
 				spinner.stop("Checkout failed");
-				throw new Error(
-					(error as Error).message ||
-						"Failed to checkout using regular git commands",
-				);
+				throw new Error("Failed to checkout using regular git commands");
 			}
 		} else {
 			const git = createGit(basePath);
@@ -560,11 +554,9 @@ export async function ingestDirectory(basePath: string, flags: IngestFlags) {
 				try {
 					await git.checkout(flags.branch);
 					spinner.stop("Branch checked out.");
-				} catch (error: any) {
+				} catch {
 					spinner.stop("Branch checkout failed");
-					throw new Error(
-						(error as Error).message || "Failed to checkout branch",
-					);
+					throw new Error("Failed to checkout branch");
 				}
 				await git.clean("f", ["-d"]);
 				await git.reset(ResetMode.HARD);
@@ -576,11 +568,9 @@ export async function ingestDirectory(basePath: string, flags: IngestFlags) {
 				try {
 					await git.checkout(flags.commit);
 					spinner.stop("Checked out commit.");
-				} catch (error: any) {
+				} catch {
 					spinner.stop("Checkout failed");
-					throw new Error(
-						(error as Error).message || "Failed to checkout commit",
-					);
+					throw new Error("Failed to checkout commit");
 				}
 				await git.clean("f", ["-d"]);
 				await git.reset(ResetMode.HARD);
@@ -711,14 +701,16 @@ export async function scanDirectory(
 
 	let filteredFiles = files;
 	if (
-		(options.find && options.find.length) ||
-		(options.require && options.require.length)
+		options.find?.length ||
+		typeof options.find === "string" ||
+		options.require?.length ||
+		typeof options.require === "string"
 	) {
-		filteredFiles = await filterFilesByContent(
-			files,
-			options.find,
-			options.require,
-		);
+		const findTerms =
+			typeof options.find === "string" ? [options.find] : options.find;
+		const requireTerms =
+			typeof options.require === "string" ? [options.require] : options.require;
+		filteredFiles = await filterFilesByContent(files, findTerms, requireTerms);
 	}
 
 	if (options.debug) {
@@ -823,15 +815,13 @@ function sortTree(node: TreeNode) {
 /** Helper: Filter files by content using async file reads */
 async function filterFilesByContent(
 	files: string[],
-	findTerms: string | string[] = [],
-	requireTerms: string | string[] = [],
+	findTerms: string[] = [],
+	requireTerms: string[] = [],
 ): Promise<string[]> {
 	if (!findTerms?.length && !requireTerms?.length) return files;
 	const matchingFiles: Set<string> = new Set();
-	const orTerms = Array.isArray(findTerms) ? findTerms : [findTerms];
-	const andTerms = Array.isArray(requireTerms) ? requireTerms : [requireTerms];
-	const orTermsLower = orTerms.map((t) => t.toLowerCase());
-	const andTermsLower = andTerms.map((t) => t.toLowerCase());
+	const orTermsLower = findTerms.map((t) => t.toLowerCase());
+	const andTermsLower = requireTerms.map((t) => t.toLowerCase());
 
 	await Promise.all(
 		files.map(async (file) => {
@@ -841,28 +831,22 @@ async function filterFilesByContent(
 				return;
 			}
 			if (!(await isLikelyTextFile(file))) return;
-			let fstat;
 			try {
-				fstat = await fs.lstat(file);
+				const fstat = await fs.lstat(file);
+				if (fstat.size > DEFAULT_MAX_SIZE) return;
+				const content = (await fs.readFile(file, "utf8")).toLowerCase();
+				if (orTermsLower.some((term) => content.includes(term))) {
+					matchingFiles.add(file);
+					return;
+				}
+				if (
+					andTermsLower.length &&
+					andTermsLower.every((term) => content.includes(term))
+				) {
+					matchingFiles.add(file);
+				}
 			} catch {
 				return;
-			}
-			if (fstat.size > DEFAULT_MAX_SIZE) return;
-			let content;
-			try {
-				content = (await fs.readFile(file, "utf8")).toLowerCase();
-			} catch (err) {
-				return;
-			}
-			if (orTermsLower.some((term) => content.includes(term))) {
-				matchingFiles.add(file);
-				return;
-			}
-			if (
-				andTermsLower.length &&
-				andTermsLower.every((term) => content.includes(term))
-			) {
-				matchingFiles.add(file);
 			}
 		}),
 	);
@@ -880,19 +864,22 @@ async function gatherFiles(
 		} else if (await isLikelyTextFile(root.path)) {
 			try {
 				root.content = await fs.readFile(root.path, "utf8");
-			} catch (err: any) {
-				root.content = `[Error reading file: ${(err as Error).message}]`;
+			} catch {
+				root.content = "[Error reading file]";
 			}
 		} else {
 			root.content = "[Non-text file omitted]";
 		}
 		return [root];
-	} else if (root.type === "directory" && root.children) {
+	}
+
+	if (root.type === "directory" && root.children) {
 		const results = await Promise.all(
 			root.children.map((child) => gatherFiles(child, maxSize)),
 		);
 		return results.flat();
 	}
+
 	return [];
 }
 
@@ -903,10 +890,12 @@ async function isLikelyTextFile(filePath: string): Promise<boolean> {
 		if (!buffer.length) return false;
 		const chunk = buffer.slice(0, 1024);
 		let nonPrintable = 0;
+
 		for (const byte of chunk) {
 			if (byte === 0) return false;
 			if (byte < 9 || (byte > 127 && byte < 192)) nonPrintable++;
 		}
+
 		return nonPrintable / chunk.length < 0.3;
 	} catch {
 		return false;
@@ -916,15 +905,22 @@ async function isLikelyTextFile(filePath: string): Promise<boolean> {
 /** Create a tree-like string representation of the directory structure */
 function createTree(node: TreeNode, prefix: string, isLast = true): string {
 	const branch = isLast ? "└── " : "├── ";
-	let tree = `${prefix}${branch}${node.name}${
+	const tree = `${prefix}${branch}${node.name}${
 		node.type === "directory" ? "/" : ""
 	}\n`;
+
 	if (node.type === "directory" && node.children && node.children.length > 0) {
-		const newPrefix = prefix + (isLast ? "    " : "│   ");
-		node.children.forEach((child, idx) => {
-			const lastChild = idx === node.children!.length - 1;
-			tree += createTree(child, newPrefix, lastChild);
-		});
+		const newPrefix = `${prefix}${isLast ? "    " : "│   "}`;
+		const children = [...node.children];
+		return (
+			tree +
+			children
+				.map((child, idx) =>
+					createTree(child, newPrefix, idx === children.length - 1),
+				)
+				.join("")
+		);
 	}
+
 	return tree;
 }
