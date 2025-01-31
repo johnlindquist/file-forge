@@ -1,20 +1,12 @@
 #!/usr/bin/env node
 
-/* 
-  ghi
-
-  Example usage:
-    $ ghi --include "*.ts" --exclude "*.test.*,node_modules" https://github.com/owner/repo
-    $ ghi /path/to/local/dir --max-size 500000 --pipe
-    $ ghi --branch develop --include "src/" https://github.com/owner/repo
-
-  1) Installs required libs:
-     npm install yargs @clack/prompts conf env-paths date-fns mkdirp node-fetch
-
-  2) Make executable and run:
-     chmod +x ghi
-     ./ghi [options] [repo or directory path]
-*/
+/**
+ * ghi – GitHub Ingest
+ *
+ * This version uses async file system operations with parallelization,
+ * leverages simple‑git by default for Git operations (or, if the flag is set,
+ * uses direct system Git via execSync), and avoids top‑level return statements.
+ */
 
 import { hideBin } from "yargs/helpers";
 import yargs from "yargs";
@@ -23,36 +15,34 @@ import { format } from "date-fns";
 import { mkdirp } from "mkdirp";
 import envPaths from "env-paths";
 import Conf from "conf";
-import { execSync, spawnSync } from "node:child_process";
 import { resolve, basename, join, dirname } from "node:path";
-import { existsSync, lstatSync, readFileSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { globby } from "globby";
 import ignore from "ignore";
 import { fileURLToPath } from "node:url";
 import clipboard from "clipboardy";
+import { promises as fs } from "fs";
+import simpleGit from "simple-git";
+import { execSync } from "node:child_process";
 
-// Read package.json for version
+/** Read package.json for version info */
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const packagePath = join(__dirname, "..", "package.json");
-
-interface PackageJson {
-	version: string;
+let packageJson: { version: string } = { version: "0.0.0" };
+try {
+	const pkgContent = await fs.readFile(packagePath, "utf8");
+	packageJson = JSON.parse(pkgContent);
+} catch {
+	// fallback version
 }
 
-const packageJson: PackageJson = existsSync(packagePath)
-	? JSON.parse(readFileSync(packagePath, "utf8"))
-	: { version: "0.0.0" };
-
-/** Constants/Helpers ******************************/
-
+/** Constants */
 const RESULTS_SAVED_MARKER = "RESULTS_SAVED:";
 const DEFAULT_MAX_SIZE = 10 * 1024 * 1024; // 10 MB
 const DEFAULT_LOG_DIR = envPaths("ghi").log;
 const DEFAULT_SEARCHES_DIR = envPaths("ghi").config;
 const DEFAULT_IGNORE = [
-	// Common ignore patterns from the Python version
 	"*.pyc",
 	"*.pyo",
 	"*.pyd",
@@ -67,20 +57,15 @@ const DEFAULT_IGNORE = [
 	"venv",
 	".venv",
 	".git",
-	// etc...
 ];
-
 const ARTIFACT_FILES = [
-	// Package manager files
 	"package-lock.json",
 	"pnpm-lock.yaml",
 	"yarn.lock",
-	// Build artifacts
 	"*.min.js",
 	"*.bundle.js",
 	"*.chunk.js",
 	"*.map",
-	// Generated assets
 	"*.mp4",
 	"*.mov",
 	"*.avi",
@@ -91,10 +76,8 @@ const ARTIFACT_FILES = [
 	"*.zip",
 	"*.rar",
 	"*.7z",
-	// Database files
 	"*.sqlite",
 	"*.db",
-	// Generated docs
 	"*.pdf",
 	"*.docx",
 	"*.xlsx",
@@ -104,28 +87,30 @@ const ARTIFACT_FILES = [
 const DIR_MAX_DEPTH = 20;
 const DIR_MAX_FILES = 10000;
 const DIR_MAX_TOTAL_SIZE = 500 * 1024 * 1024; // 500 MB
-const MAX_EDITOR_SIZE = 5 * 1024 * 1024; // 5 MB - Skip editor for files larger than this
+const MAX_EDITOR_SIZE = 5 * 1024 * 1024; // 5 MB
 
+/** Types */
 type EditorConfig = {
 	command: string | null;
 	skipEditor: boolean;
 };
 
 type IngestFlags = {
-	include?: string[] | undefined;
-	exclude?: string[] | undefined;
-	branch?: string | undefined;
-	commit?: string | undefined;
-	maxSize?: number | undefined;
-	pipe?: boolean | undefined;
-	debug?: boolean | undefined;
-	bulk?: boolean | undefined;
-	ignore?: boolean | undefined;
-	skipArtifacts?: boolean | undefined;
-	clipboard?: boolean | undefined;
-	noEditor?: boolean | undefined;
-	find?: string[] | undefined;
-	require?: string[] | undefined;
+	include?: string[];
+	exclude?: string[];
+	branch?: string;
+	commit?: string;
+	maxSize?: number;
+	pipe?: boolean;
+	debug?: boolean;
+	bulk?: boolean;
+	ignore?: boolean;
+	skipArtifacts?: boolean;
+	clipboard?: boolean;
+	noEditor?: boolean;
+	find?: string[];
+	require?: string[];
+	useRegularGit?: boolean;
 };
 
 type ScanStats = {
@@ -145,12 +130,12 @@ interface TreeNode {
 	parent?: TreeNode;
 }
 
+/** Global configuration for editor settings */
 const config = new Conf<{ editor: EditorConfig }>({
 	projectName: "ghi",
 });
 
-/** YARGS Setup ************************************/
-
+/** CLI Argument Parsing */
 const argv = yargs(hideBin(process.argv))
 	.scriptName("ghi")
 	.usage("$0 [options] <repo-or-path>")
@@ -174,15 +159,13 @@ const argv = yargs(hideBin(process.argv))
 		alias: "f",
 		array: true,
 		type: "string",
-		describe:
-			"Find files containing ANY of these terms (OR). Multiple flags or comma-separated.",
+		describe: "Find files containing ANY of these terms (OR).",
 	})
 	.option("require", {
 		alias: "r",
 		array: true,
 		type: "string",
-		describe:
-			"Find files containing ALL of these terms (AND). Multiple flags or comma-separated.",
+		describe: "Find files containing ALL of these terms (AND).",
 	})
 	.option("branch", {
 		alias: "b",
@@ -234,275 +217,244 @@ const argv = yargs(hideBin(process.argv))
 		type: "boolean",
 		describe: "Save results to file but don't open in editor",
 	})
+	.option("use-regular-git", {
+		type: "boolean",
+		default: false,
+		describe:
+			"Use regular system Git commands (authenticated git) instead of simple-git",
+	})
 	.help()
 	.alias("help", "h")
 	.parseSync();
 
-/** Main CLI Logic *********************************/
+const flags: IngestFlags = {
+	include: parsePatterns(argv.include),
+	exclude: parsePatterns(argv.exclude),
+	branch: argv.branch,
+	commit: argv.commit,
+	maxSize: argv["max-size"],
+	pipe: argv.pipe,
+	debug: argv.debug,
+	bulk: argv.bulk,
+	ignore: Boolean(argv.ignore),
+	skipArtifacts: Boolean(argv["skip-artifacts"]),
+	clipboard: Boolean(argv.clipboard),
+	noEditor: Boolean(argv["no-editor"]),
+	find: parsePatterns(argv.find),
+	require: parsePatterns(argv.require),
+	useRegularGit: Boolean(argv["use-regular-git"]),
+};
 
-(async function main() {
-	p.intro("🔍 ghi CLI");
-
-	let [source] = argv._;
-	const flags: IngestFlags = {
-		include: parsePatterns(argv.include),
-		exclude: parsePatterns(argv.exclude),
-		branch: argv.branch,
-		commit: argv.commit,
-		maxSize: argv["max-size"],
-		pipe: argv.pipe,
-		debug: argv.debug,
-		bulk: argv.bulk,
-		ignore: Boolean(argv.ignore),
-		skipArtifacts: Boolean(argv["skip-artifacts"]),
-		clipboard: Boolean(argv.clipboard),
-		noEditor: Boolean(argv["no-editor"]),
-		find: parsePatterns(argv.find),
-		require: parsePatterns(argv.require),
-	};
-
-	if (!source) {
-		// If no argument provided, use current directory
-		source = process.cwd();
-		if (flags.debug) {
-			console.log(
-				"[DEBUG] No source provided, using current directory:",
-				source,
-			);
-		}
-	}
-
-	// Create log directory if needed
-	await mkdirp(DEFAULT_LOG_DIR);
-	await mkdirp(DEFAULT_SEARCHES_DIR);
-
-	// Build a timestamp for the results
-	const timestamp = format(new Date(), "yyyyMMdd-HHmmss");
-	const hashedSource = createHash("md5")
-		.update(String(source))
-		.digest("hex")
-		.slice(0, 6);
-	const resultFilename = `ghi-${hashedSource}-${timestamp}.md`;
-	const resultFilePath = resolve(DEFAULT_SEARCHES_DIR, resultFilename);
-
+let [source] = argv._;
+if (!source) {
+	source = process.cwd();
 	if (flags.debug)
-		console.log("[DEBUG] Ingesting from:", source, "Flags:", flags);
+		console.log("[DEBUG] No source provided, using current directory:", source);
+}
 
-	// Build intro message based on flags
-	const introLines = ["🔍 ghi Analysis"];
-	introLines.push(`\nAnalyzing: ${source}`);
+await mkdirp(DEFAULT_LOG_DIR);
+await mkdirp(DEFAULT_SEARCHES_DIR);
 
-	if (flags.find?.length) {
-		introLines.push(`Finding files containing: ${flags.find.join(", ")}`);
-	}
+const timestamp = format(new Date(), "yyyyMMdd-HHmmss");
+const hashedSource = createHash("md5")
+	.update(String(source))
+	.digest("hex")
+	.slice(0, 6);
+const resultFilename = `ghi-${hashedSource}-${timestamp}.md`;
+const resultFilePath = resolve(DEFAULT_SEARCHES_DIR, resultFilename);
 
-	if (flags.include?.length) {
-		introLines.push(`Including patterns: ${flags.include.join(", ")}`);
-	}
+if (flags.debug)
+	console.log("[DEBUG] Ingesting from:", source, "Flags:", flags);
 
-	if (flags.exclude?.length) {
-		introLines.push(`Excluding patterns: ${flags.exclude.join(", ")}`);
-	}
+const introLines = ["🔍 ghi Analysis", `\nAnalyzing: ${source}`];
+if (flags.find?.length)
+	introLines.push(`Finding files containing: ${flags.find.join(", ")}`);
+if (flags.include?.length)
+	introLines.push(`Including patterns: ${flags.include.join(", ")}`);
+if (flags.exclude?.length)
+	introLines.push(`Excluding patterns: ${flags.exclude.join(", ")}`);
+if (flags.branch) introLines.push(`Using branch: ${flags.branch}`);
+if (flags.commit) introLines.push(`At commit: ${flags.commit}`);
+if (flags.maxSize && flags.maxSize !== DEFAULT_MAX_SIZE)
+	introLines.push(`Max file size: ${Math.round(flags.maxSize / 1024)}KB`);
+if (flags.skipArtifacts)
+	introLines.push("Skipping build artifacts and generated files");
+if (!flags.ignore) introLines.push("Ignoring .gitignore rules");
+p.intro(introLines.join("\n"));
 
-	if (flags.branch) {
-		introLines.push(`Using branch: ${flags.branch}`);
-	}
+let finalPath: string;
+let cleanupDir: string | null = null;
 
-	if (flags.commit) {
-		introLines.push(`At commit: ${flags.commit}`);
-	}
-
-	if (flags.maxSize && flags.maxSize !== DEFAULT_MAX_SIZE) {
-		introLines.push(`Max file size: ${Math.round(flags.maxSize / 1024)}KB`);
-	}
-
-	if (flags.skipArtifacts) {
-		introLines.push("Skipping build artifacts and generated files");
-	}
-
-	if (!flags.ignore) {
-		introLines.push("Ignoring .gitignore rules");
-	}
-
-	p.intro(introLines.join("\n"));
-
-	// 1) If it's a GitHub URL, clone (with optional branch/commit).
-	//    Else if local path, verify existence.
-	let finalPath: string;
-	let cleanupDir: string | null = null;
-
-	if (isGitHubURL(String(source)).isValid) {
-		const spinner = p.spinner();
-		spinner.start("Cloning repository...");
-		try {
-			const tempDir = resolve(
-				envPaths("ghi").cache,
-				`ingest-${hashedSource}-${Date.now()}`,
-			);
-			await mkdirp(tempDir);
-
-			// Get normalized URL
-			const { url } = isGitHubURL(String(source));
-
-			// Decide how to clone:
-			const cloneCommand = buildCloneCommand(
-				url,
-				tempDir,
-				flags.branch,
-				flags.commit,
-			);
-
-			if (flags.debug)
-				console.log("[DEBUG] Running clone:", cloneCommand.join(" "));
-			const r = spawnSync("git", cloneCommand.slice(1), {
-				cwd: cloneCommand[0],
-				stdio: ["ignore", "pipe", "pipe"],
-			});
-			if (r.status !== 0) {
-				throw new Error(
-					r.stderr.toString() ||
-						"Git clone failed. Check your URL/branch/commit.",
-				);
-			}
-
-			spinner.stop("Repository cloned successfully.");
-			finalPath = tempDir;
-			cleanupDir = tempDir; // We'll remove it at the end
-		} catch (err) {
-			spinner.stop("Clone failed.");
-			p.cancel((err as Error).message || String(err));
-			process.exit(1);
-		}
-	} else {
-		// local path
-		const localPath = resolve(String(source));
-		if (!existsSync(localPath)) {
-			p.cancel(`Local path not found: ${localPath}`);
-			process.exit(1);
-		}
-		finalPath = localPath;
-		cleanupDir = null; // won't remove a local directory
-	}
-
-	// 2) Recursively scan directory and build summary
-	const spinner2 = p.spinner();
-	spinner2.start("Building text digest...");
+// --- CLONE STEP ---
+if (isGitHubURL(String(source)).isValid) {
+	const spinner = p.spinner();
+	spinner.start("Cloning repository...");
 	try {
-		const { summary, treeStr, contentStr } = await ingestDirectory(
-			finalPath,
-			flags,
+		const tempDir = resolve(
+			envPaths("ghi").cache,
+			`ingest-${hashedSource}-${Date.now()}`,
 		);
-		spinner2.stop("Text digest built.");
-
-		// 3) Format final output
-		const output = [
-			"# ghi\n",
-			`**Source**: \`${String(source)}\`\n`,
-			`**Timestamp**: ${new Date().toString()}\n`,
-			"## Summary\n",
-			`${summary}\n`,
-			"## Directory Structure\n",
-			"```\n",
-			treeStr,
-			"```\n",
-			"## Files Content\n",
-			"```\n",
-			contentStr,
-			"```\n",
-		].join("\n");
-
-		// 4) If --pipe, just log it all out and save file (but skip editor)
-		writeFileSync(resultFilePath, output, "utf8");
-
-		const fileSize = Buffer.byteLength(output, "utf8");
-		const skipEditorDueToSize = fileSize > MAX_EDITOR_SIZE;
-
-		if (skipEditorDueToSize) {
-			p.note(
-				`${RESULTS_SAVED_MARKER} ${resultFilePath}`,
-				`Results saved to file (${Math.round(fileSize / 1024 / 1024)}MB). File too large for editor, use your preferred text editor to open it.`,
-			);
-			return { summary, treeStr, contentStr };
-		}
-
-		if (flags.clipboard) {
-			try {
-				await clipboard.write(output);
-				p.note("Results copied to clipboard!");
-			} catch (err) {
-				p.note(`Failed to copy to clipboard: ${(err as Error).message}`);
+		await mkdirp(tempDir);
+		const { url } = isGitHubURL(String(source));
+		if (flags.useRegularGit) {
+			// Use direct git commands via execSync
+			let cmd = "git clone";
+			if (!flags.commit) {
+				cmd += " --depth=1";
+				if (flags.branch) cmd += ` --branch ${flags.branch}`;
+			}
+			cmd += ` ${url} ${tempDir}`;
+			execSync(cmd, { stdio: "pipe" });
+		} else {
+			const git = simpleGit();
+			if (flags.commit) {
+				await git.clone(url, tempDir);
+			} else {
+				const cloneOptions = ["--depth=1"];
+				if (flags.branch) {
+					cloneOptions.push("--branch", flags.branch);
+				}
+				await git.clone(url, tempDir, cloneOptions);
 			}
 		}
+		spinner.stop("Repository cloned successfully.");
+		finalPath = tempDir;
+		cleanupDir = tempDir;
+	} catch (err: any) {
+		spinner.stop("Clone failed.");
+		p.cancel(err.message || String(err));
+		if (!process.env["VITEST"]) process.exit(1);
+		else throw err;
+	}
+} else {
+	// Local directory
+	const localPath = resolve(String(source));
+	if (!(await fileExists(localPath))) {
+		p.cancel(`Local path not found: ${localPath}`);
+		if (!process.env["VITEST"]) process.exit(1);
+		else throw new Error(`Local path not found: ${localPath}`);
+	}
+	finalPath = localPath;
+	cleanupDir = null;
+}
 
-		if (flags.pipe) {
-			console.log(output);
-			console.log(`\n${RESULTS_SAVED_MARKER} ${resultFilePath}`);
-		} else if (flags.noEditor) {
-			// Just save the file and notify, don't open editor
-			p.note(
-				`${RESULTS_SAVED_MARKER} ${resultFilePath}`,
-				"Results saved to file.",
-			);
-		} else {
-			// Try opening in editor if not piping or no-editor
-			const editorConfig = await getEditorConfig();
-			if (!editorConfig.skipEditor && editorConfig.command) {
-				try {
-					execSync(`${editorConfig.command} "${resultFilePath}"`);
-					p.note(
-						`${RESULTS_SAVED_MARKER} ${resultFilePath}`,
-						"Opened in your configured editor.",
-					);
-				} catch {
-					p.note(
-						`${RESULTS_SAVED_MARKER} ${resultFilePath}`,
-						`Couldn't open with: ${editorConfig.command}`,
-					);
-				}
-			} else {
-				// Editor disabled or not set
+// --- BUILD DIGEST ---
+const spinner2 = p.spinner();
+spinner2.start("Building text digest...");
+let digest: { summary: string; treeStr: string; contentStr: string };
+try {
+	digest = await ingestDirectory(finalPath, flags);
+	spinner2.stop("Text digest built.");
+} catch (err: any) {
+	spinner2.stop("Digest build failed.");
+	p.cancel(`Error: ${err.message}`);
+	if (!process.env["VITEST"]) process.exit(1);
+	else throw err;
+}
+
+const output = [
+	"# ghi\n",
+	`**Source**: \`${String(source)}\`\n`,
+	`**Timestamp**: ${new Date().toString()}\n`,
+	"## Summary\n",
+	`${digest.summary}\n`,
+	"## Directory Structure\n",
+	"```\n" + digest.treeStr + "\n```\n",
+	"## Files Content\n",
+	"```\n" + digest.contentStr + "\n```\n",
+].join("\n");
+
+// Log summary and tree structure to console
+const summaryOutput = [
+	"# ghi\n",
+	`**Source**: \`${String(source)}\`\n`,
+	`**Timestamp**: ${new Date().toString()}\n`,
+	"## Summary\n",
+	`${digest.summary}\n`,
+	"## Directory Structure\n",
+	"```\n" + digest.treeStr + "\n```\n",
+].join("\n");
+
+console.log(summaryOutput);
+
+try {
+	await fs.writeFile(resultFilePath, output, "utf8");
+} catch (err: any) {
+	p.cancel(`Error writing output file: ${err.message}`);
+	if (!process.env["VITEST"]) process.exit(1);
+}
+
+const fileSize = Buffer.byteLength(output, "utf8");
+if (fileSize > MAX_EDITOR_SIZE) {
+	p.note(
+		`${RESULTS_SAVED_MARKER} ${resultFilePath}`,
+		`Results saved to file (${Math.round(fileSize / 1024 / 1024)}MB). File too large for editor, open it manually.`,
+	);
+	if (!process.env["VITEST"]) process.exit(0);
+} else {
+	if (flags.clipboard) {
+		try {
+			await clipboard.write(output);
+			p.note("Results copied to clipboard!");
+		} catch (err: any) {
+			p.note(`Failed to copy to clipboard: ${err.message}`);
+		}
+	}
+	if (flags.pipe) {
+		console.log(output);
+		console.log(`\n${RESULTS_SAVED_MARKER} ${resultFilePath}`);
+	} else if (flags.noEditor) {
+		p.note(
+			`${RESULTS_SAVED_MARKER} ${resultFilePath}`,
+			"Results saved to file.",
+		);
+	} else {
+		const editorConfig = await getEditorConfig();
+		if (!editorConfig.skipEditor && editorConfig.command) {
+			try {
+				execSync(`${editorConfig.command} "${resultFilePath}"`);
 				p.note(
 					`${RESULTS_SAVED_MARKER} ${resultFilePath}`,
-					"You can open the file manually.",
+					"Opened in your configured editor.",
+				);
+			} catch {
+				p.note(
+					`${RESULTS_SAVED_MARKER} ${resultFilePath}`,
+					`Couldn't open with: ${editorConfig.command}`,
 				);
 			}
-		}
-
-		// Return the results
-		return { summary, treeStr, contentStr };
-	} catch (err) {
-		spinner2.stop("Digest build failed.");
-		p.cancel(`Error: ${(err as Error).message}`);
-	} finally {
-		// 5) Clean up if we cloned a temp directory
-		if (cleanupDir && existsSync(cleanupDir)) {
-			try {
-				// This removes the cloned repo.
-				// Using a sync approach for simplicity:
-				execSync(`rm -rf "${cleanupDir}"`);
-				if (flags.debug)
-					console.log("[DEBUG] Removed temporary dir:", cleanupDir);
-			} catch {}
+		} else {
+			p.note(
+				`${RESULTS_SAVED_MARKER} ${resultFilePath}`,
+				"You can open the file manually.",
+			);
 		}
 	}
+}
 
-	p.outro("Done! 🎉");
-	if (!process.env["VITEST"]) {
-		process.exit(0);
-	}
-	return 0;
-})().catch((err) => {
-	p.cancel(`Uncaught error: ${err?.message || String(err)}`);
-	if (!process.env["VITEST"]) {
-		process.exit(1);
-	}
-	return 1;
+p.outro("Done! 🎉");
+if (!process.env["VITEST"]) process.exit(0);
+
+// handle uncaught errors
+process.on("uncaughtException", (err) => {
+	console.error("Uncaught exception:", err);
+	if (!process.env["VITEST"]) process.exit(1);
+	else throw err;
 });
 
-/** Utility: parse user-provided globs/patterns */
+/** Helper: Asynchronously check if a file/directory exists */
+async function fileExists(path: string): Promise<boolean> {
+	try {
+		await fs.access(path);
+		return true;
+	} catch {
+		return false;
+	}
+}
+
+/** Utility: Parse user-supplied globs/patterns */
 function parsePatterns(input?: (string | number)[]): string[] {
 	if (!input || input.length === 0) return [];
-	// Flatten comma-separated or multi-flag usage
 	const splitted: string[] = [];
 	for (const val of input) {
 		const strVal = String(val);
@@ -520,74 +472,34 @@ function parsePatterns(input?: (string | number)[]): string[] {
 	return splitted.filter(Boolean);
 }
 
-/** Utility: build a clone command array. 
-    Returns an array: ["git", "clone", ...args].
-    Always do shallow clone unless commit is specified. */
-function buildCloneCommand(
-	url: string,
-	dest: string,
-	branch?: string,
-	commit?: string,
-) {
-	const base = ".";
-	const args = ["clone", "--single-branch"];
-
-	// If commit specified, we need full clone
-	if (commit) {
-		return [base, ...args, url, dest];
-	}
-
-	// Otherwise always do shallow clone
-	args.push("--depth=1");
-
-	// Add branch if specified
-	if (branch) {
-		args.push("--branch", branch);
-	}
-
-	args.push(url, dest);
-	return [base, ...args];
-}
-
-/** Utility: check if a string looks like a GitHub URL and normalize it */
+/** Utility: Check if a string looks like a GitHub URL */
 export function isGitHubURL(input: string) {
-	// Remove any leading/trailing whitespace
 	const str = input.trim();
-
-	// First check if it's already a full GitHub URL
-	if (/^https?:\/\/(www\.)?github\.com\//i.test(str)) {
+	if (/^https?:\/\/(www\.)?github\.com\//i.test(str))
 		return { isValid: true, url: str };
-	}
-
-	// If it starts with github.com, add https://
-	if (str.startsWith("github.com/")) {
-		const url = `https://${str}`;
-		return { isValid: true, url };
-	}
-
-	// Not a GitHub URL
+	if (str.startsWith("github.com/"))
+		return { isValid: true, url: `https://${str}` };
 	return { isValid: false, url: "" };
 }
 
-/** Utility: prompt for editor config if not set */
+/** Prompt for editor configuration if not set */
 async function getEditorConfig(): Promise<EditorConfig> {
 	const saved = config.get("editor");
 	if (saved) return saved;
-
 	const useEditor = await p.confirm({
 		message: "Would you like to open results in an editor?",
 		initialValue: true,
 	});
 	if (p.isCancel(useEditor)) {
 		p.cancel("Setup cancelled");
-		return { command: null, skipEditor: true };
+		if (!process.env["VITEST"]) process.exit(1);
+		throw new Error("Editor setup cancelled");
 	}
 	if (!useEditor) {
 		const noEditor: EditorConfig = { command: null, skipEditor: true };
 		config.set("editor", noEditor);
 		return noEditor;
 	}
-
 	const editorCommand = await p.text({
 		message: "Enter editor command (e.g. 'code', 'vim', 'nano')",
 		placeholder: "code",
@@ -598,94 +510,93 @@ async function getEditorConfig(): Promise<EditorConfig> {
 	});
 	if (p.isCancel(editorCommand)) {
 		p.cancel("Setup cancelled");
-		return { command: null, skipEditor: true };
+		if (!process.env["VITEST"]) process.exit(1);
+		throw new Error("Editor setup cancelled");
 	}
 	const econf = { command: editorCommand, skipEditor: false };
 	config.set("editor", econf);
 	return econf;
 }
 
-/** Core: Ingest a directory (parsed from local or just-cloned) */
+/** Core: Ingest a directory or repository */
 export async function ingestDirectory(basePath: string, flags: IngestFlags) {
-	// If user specified a branch or commit, let's do the checkout
 	if (flags.branch || flags.commit) {
 		const spinner = p.spinner();
-
-		// First, check if it's a git repository
-		const isGitRepo = existsSync(resolve(basePath, ".git"));
-		if (!isGitRepo) {
+		if (!(await fileExists(join(basePath, ".git")))) {
 			throw new Error("Cannot checkout branch/commit: not a git repository");
 		}
-
-		// Clean and reset the working directory
-		spawnSync("git", ["clean", "-fdx"], { cwd: basePath });
-		spawnSync("git", ["reset", "--hard"], { cwd: basePath });
-		spawnSync("git", ["checkout", "."], { cwd: basePath });
-
-		// If branch is specified, check it out
-		if (flags.branch) {
-			spinner.start(`Checking out branch ${flags.branch}...`);
-
-			// Clean and reset before checkout
-			spawnSync("git", ["clean", "-fdx"], { cwd: basePath });
-			spawnSync("git", ["reset", "--hard"], { cwd: basePath });
-			spawnSync("git", ["checkout", "."], { cwd: basePath });
-
-			const checkout = spawnSync("git", ["checkout", flags.branch], {
-				cwd: basePath,
-				stdio: ["ignore", "pipe", "pipe"],
-			});
-			if (checkout.status !== 0) {
-				spinner.stop("Branch checkout failed");
-				throw new Error(
-					checkout.stderr.toString() || "Failed to checkout branch",
-				);
-			}
-			spinner.stop("Branch checked out.");
-
-			// Clean and reset after checkout to ensure we're in a clean state
-			spawnSync("git", ["clean", "-fdx"], { cwd: basePath });
-			spawnSync("git", ["reset", "--hard"], { cwd: basePath });
-			spawnSync("git", ["checkout", "."], { cwd: basePath });
-		}
-
-		// If commit is specified, check it out
-		if (flags.commit) {
-			spinner.start(`Checking out commit ${flags.commit}...`);
-
-			// Clean and reset before checkout
-			spawnSync("git", ["clean", "-fdx"], { cwd: basePath });
-			spawnSync("git", ["reset", "--hard"], { cwd: basePath });
-			spawnSync("git", ["checkout", "."], { cwd: basePath });
-
-			const checkout = spawnSync("git", ["checkout", flags.commit], {
-				cwd: basePath,
-				stdio: ["ignore", "pipe", "pipe"],
-			});
-			if (checkout.status !== 0) {
+		if (flags.useRegularGit) {
+			try {
+				spinner.start("Checking out using regular git commands...");
+				execSync("git clean -fdx", { cwd: basePath });
+				execSync("git reset --hard", { cwd: basePath });
+				if (flags.branch) {
+					spinner.start(`Checking out branch ${flags.branch}...`);
+					execSync("git clean -fdx", { cwd: basePath });
+					execSync("git reset --hard", { cwd: basePath });
+					execSync(`git checkout ${flags.branch}`, { cwd: basePath });
+					spinner.stop("Branch checked out.");
+					execSync("git clean -fdx", { cwd: basePath });
+					execSync("git reset --hard", { cwd: basePath });
+				}
+				if (flags.commit) {
+					spinner.start(`Checking out commit ${flags.commit}...`);
+					execSync("git clean -fdx", { cwd: basePath });
+					execSync("git reset --hard", { cwd: basePath });
+					execSync(`git checkout ${flags.commit}`, { cwd: basePath });
+					spinner.stop("Checked out commit.");
+					execSync("git clean -fdx", { cwd: basePath });
+					execSync("git reset --hard", { cwd: basePath });
+				}
+			} catch (error: any) {
 				spinner.stop("Checkout failed");
 				throw new Error(
-					checkout.stderr.toString() || "Failed to checkout commit",
+					error.message || "Failed to checkout using regular git commands",
 				);
 			}
-			spinner.stop("Checked out commit.");
-
-			// Clean and reset after checkout
-			spawnSync("git", ["clean", "-fdx"], { cwd: basePath });
-			spawnSync("git", ["reset", "--hard"], { cwd: basePath });
-			spawnSync("git", ["checkout", "."], { cwd: basePath });
+		} else {
+			const git = simpleGit(basePath);
+			await git.clean("f", ["-d"]);
+			await git.reset("hard");
+			if (flags.branch) {
+				spinner.start(`Checking out branch ${flags.branch}...`);
+				await git.clean("f", ["-d"]);
+				await git.reset("hard");
+				try {
+					await git.checkout(flags.branch);
+					spinner.stop("Branch checked out.");
+				} catch (error: any) {
+					spinner.stop("Branch checkout failed");
+					throw new Error(error.message || "Failed to checkout branch");
+				}
+				await git.clean("f", ["-d"]);
+				await git.reset("hard");
+			}
+			if (flags.commit) {
+				spinner.start(`Checking out commit ${flags.commit}...`);
+				await git.clean("f", ["-d"]);
+				await git.reset("hard");
+				try {
+					await git.checkout(flags.commit);
+					spinner.stop("Checked out commit.");
+				} catch (error: any) {
+					spinner.stop("Checkout failed");
+					throw new Error(error.message || "Failed to checkout commit");
+				}
+				await git.clean("f", ["-d"]);
+				await git.reset("hard");
+			}
 		}
 	}
 
-	// We'll do a recursive scan
 	const stats: ScanStats = { totalFiles: 0, totalSize: 0 };
 	const rootNode = await scanDirectory(basePath, flags, 0, stats);
-
-	if (!rootNode) {
+	if (!rootNode)
 		throw new Error("No files found or directory is empty after scanning.");
-	}
 
-	// Build summary
+	// Sort the tree for consistent ordering
+	sortTree(rootNode);
+
 	const summaryLines: string[] = [];
 	summaryLines.push(`Directory: ${basePath}`);
 	summaryLines.push(`Files analyzed: ${rootNode.file_count ?? 0}`);
@@ -696,27 +607,22 @@ export async function ingestDirectory(basePath: string, flags: IngestFlags) {
 	) {
 		summaryLines.push(`Branch: ${flags.branch}`);
 	}
-	if (flags.commit) {
-		summaryLines.push(`Commit: ${flags.commit}`);
-	}
+	if (flags.commit) summaryLines.push(`Commit: ${flags.commit}`);
 
-	// Build tree
 	const treeStr = createTree(rootNode, "");
-
-	// Collect file content
-	const fileNodes: TreeNode[] = [];
 	const maxSize = flags.maxSize ?? DEFAULT_MAX_SIZE;
-	gatherFiles(rootNode, fileNodes, maxSize);
+	const fileNodes = await gatherFiles(rootNode, maxSize);
 
-	// Merge into a single big string
 	let contentStr = "";
 	for (const f of fileNodes) {
-		contentStr += `================================\nFile: ${f.path.replace(basePath, "")}\n================================\n`;
+		contentStr += `================================\nFile: ${f.path.replace(
+			basePath,
+			"",
+		)}\n================================\n`;
 		contentStr += f.content ?? "[Content ignored or non-text file]\n";
 		contentStr += "\n";
 	}
 
-	// Build bulk instructions if flag is set
 	if (flags.bulk) {
 		contentStr +=
 			"\n---\nWhen I provide a set of files with paths and content, please return **one single shell script** that does the following:\n\n";
@@ -730,12 +636,10 @@ export async function ingestDirectory(basePath: string, flags: IngestFlags) {
 			"Use `#!/usr/bin/env bash` at the start and make sure each `cat` block ends with `EOF`.\n---\n";
 	}
 
-	// If very large, you might want to truncate, but we'll just do it as is
-	const summary = summaryLines.join("\n");
-	return { summary, treeStr, contentStr };
+	return { summary: summaryLines.join("\n"), treeStr, contentStr };
 }
 
-/** Core: Scan a directory recursively */
+/** Core: Recursively scan a directory using async fs operations */
 export async function scanDirectory(
 	dir: string,
 	options: IngestFlags,
@@ -746,44 +650,43 @@ export async function scanDirectory(
 		if (options.debug) console.log("[DEBUG] Max depth reached:", dir);
 		return null;
 	}
-
-	const stat = lstatSync(dir);
-	if (!stat.isDirectory()) {
+	let stat;
+	try {
+		stat = await fs.lstat(dir);
+	} catch {
 		return null;
 	}
-
+	if (!stat.isDirectory()) return null;
 	if (
 		stats.totalFiles >= DIR_MAX_FILES ||
 		stats.totalSize >= DIR_MAX_TOTAL_SIZE
 	) {
-		if (options.debug) {
+		if (options.debug)
 			console.log(
 				"[DEBUG] Max files/size reached:",
 				stats.totalFiles,
 				stats.totalSize,
 			);
-		}
 		return null;
 	}
 
-	// Read .gitignore if it exists and should be used
 	let gitignorePatterns: string[] = [];
-	const gitignorePath = resolve(dir, ".gitignore");
-	if (existsSync(gitignorePath) && options.ignore !== false) {
-		const ig = ignore();
-		const gitignoreContent = readFileSync(gitignorePath, "utf8");
-		ig.add(gitignoreContent);
-		gitignorePatterns = gitignoreContent
-			.split(/\r?\n/)
-			.map((line) => line.trim())
-			.filter((line) => line && !line.startsWith("#"));
+	const gitignorePath = join(dir, ".gitignore");
+	if ((await fileExists(gitignorePath)) && options.ignore !== false) {
+		try {
+			const ig = ignore();
+			const gitignoreContent = await fs.readFile(gitignorePath, "utf8");
+			ig.add(gitignoreContent);
+			gitignorePatterns = gitignoreContent
+				.split(/\r?\n/)
+				.map((line) => line.trim())
+				.filter((line) => line && !line.startsWith("#"));
+		} catch {}
 	}
 
-	// Use globby to find all files in this directory (and subdirs) matching include/exclude.
 	const patterns = options.include?.length
 		? options.include
-		: ["**/*", "**/.*"]; // Include dotfiles by default too
-
+		: ["**/*", "**/.*"];
 	const ignorePatterns =
 		options.ignore === false
 			? [...(options.exclude ?? [])]
@@ -807,21 +710,23 @@ export async function scanDirectory(
 		onlyFiles: true,
 	});
 
-	// Now filter by content if find/require is specified
-	const filteredFiles =
-		options.find?.length || options.require?.length
-			? await filterFilesByContent(files, options.find, options.require)
-			: files;
+	let filteredFiles = files;
+	if (
+		(options.find && options.find.length) ||
+		(options.require && options.require.length)
+	) {
+		filteredFiles = await filterFilesByContent(
+			files,
+			options.find,
+			options.require,
+		);
+	}
 
 	if (options.debug) {
 		console.log("[DEBUG] Globby found files:", filteredFiles);
 	}
+	if (!filteredFiles.length) return null;
 
-	if (!filteredFiles.length) {
-		return null;
-	}
-
-	// Create the root node
 	const node: TreeNode = {
 		name: basename(dir),
 		path: dir,
@@ -832,221 +737,195 @@ export async function scanDirectory(
 		dir_count: 0,
 	};
 
-	// For each matched file, we split its relative path segments
+	// Process files sequentially to preserve ordering
 	for (const file of filteredFiles) {
-		const fstat = lstatSync(file);
-		stats.totalFiles++;
-		stats.totalSize += fstat.size;
-
-		if (
-			stats.totalFiles > DIR_MAX_FILES ||
-			stats.totalSize > DIR_MAX_TOTAL_SIZE
-		) {
-			if (options.debug) {
-				console.log(
-					"[DEBUG] Max files/size reached:",
-					stats.totalFiles,
-					stats.totalSize,
-				);
+		try {
+			const fstat = await fs.lstat(file);
+			stats.totalFiles++;
+			stats.totalSize += fstat.size;
+			if (
+				stats.totalFiles > DIR_MAX_FILES ||
+				stats.totalSize > DIR_MAX_TOTAL_SIZE
+			) {
+				if (options.debug)
+					console.log(
+						"[DEBUG] Max files/size reached:",
+						stats.totalFiles,
+						stats.totalSize,
+					);
+				break;
 			}
-			break;
-		}
-
-		const relPath = file.slice(dir.length + 1); // relative to "dir"
-		const segments = relPath.split(/[/\\]/);
-
-		let currentNode = node;
-
-		// Traverse or create intermediate directories
-		for (let i = 0; i < segments.length - 1; i++) {
-			const segment = segments[i];
-			if (!segment) continue;
-
-			let child = currentNode.children?.find(
-				(n) => n.type === "directory" && n.name === segment,
-			);
-
-			if (!child) {
-				child = {
-					name: segment,
-					path: resolve(currentNode.path, segment),
-					type: "directory",
-					size: 0,
-					children: [],
+			const relPath = file.slice(dir.length + 1);
+			const segments = relPath.split(/[/\\]/);
+			let currentNode = node;
+			for (let i = 0; i < segments.length - 1; i++) {
+				const segment = segments[i];
+				if (!segment) continue;
+				let child = currentNode.children?.find(
+					(n) => n.type === "directory" && n.name === segment,
+				);
+				if (!child) {
+					child = {
+						name: segment,
+						path: resolve(currentNode.path, segment),
+						type: "directory",
+						size: 0,
+						children: [],
+						file_count: 0,
+						dir_count: 0,
+						parent: currentNode,
+					};
+					currentNode.children = currentNode.children || [];
+					currentNode.children.push(child);
+					currentNode.dir_count++;
+				}
+				currentNode = child;
+			}
+			const fileName = segments[segments.length - 1];
+			if (fileName) {
+				const fileNode: TreeNode = {
+					name: fileName,
+					path: file,
+					type: "file",
+					size: fstat.size,
 					file_count: 0,
 					dir_count: 0,
 					parent: currentNode,
-				} as TreeNode;
-
-				currentNode.children = currentNode.children || [];
-				currentNode.children.push(child);
-				currentNode.dir_count++;
-			}
-
-			currentNode = child;
-		}
-
-		// Add the final file node
-		const fileName = segments[segments.length - 1];
-		if (fileName) {
-			const fileNode: TreeNode = {
-				name: fileName,
-				path: file,
-				type: "file",
-				size: fstat.size,
-				file_count: 0,
-				dir_count: 0,
-				parent: currentNode,
-			};
-
-			if (currentNode.children) {
-				currentNode.children.push(fileNode);
+				};
+				currentNode.children?.push(fileNode);
 				currentNode.file_count++;
 				currentNode.size += fstat.size;
-
-				// Walk upward to increment the sizes of parent directories
-				let p = currentNode;
-				while (p && p !== node) {
-					p.size += fstat.size;
-					p = p.parent!;
+				let pNode = currentNode;
+				while (pNode && pNode !== node) {
+					pNode.size += fstat.size;
+					pNode = pNode.parent!;
 				}
-
-				// And finally increment the root too
 				node.size += fstat.size;
 			}
+		} catch (err) {
+			if (options.debug)
+				console.log("[DEBUG] Error processing file:", file, err);
 		}
 	}
-
 	node.file_count = stats.totalFiles;
-
-	// Return null if no files were found
 	return node.children && node.children.length > 0 ? node : null;
 }
 
-/** Helper: Filter files by content */
+/** Helper: Recursively sort the tree's children alphabetically by name */
+function sortTree(node: TreeNode) {
+	if (node.children) {
+		node.children.sort((a, b) => a.name.localeCompare(b.name));
+		for (const child of node.children) {
+			if (child.type === "directory") sortTree(child);
+		}
+	}
+}
+
+/** Helper: Filter files by content using async file reads */
 async function filterFilesByContent(
 	files: string[],
 	findTerms: string | string[] = [],
 	requireTerms: string | string[] = [],
 ): Promise<string[]> {
 	if (!findTerms?.length && !requireTerms?.length) return files;
-
-	const matchingFiles: Set<string> = new Set(); // Using Set to avoid duplicates
+	const matchingFiles: Set<string> = new Set();
 	const orTerms = Array.isArray(findTerms) ? findTerms : [findTerms];
 	const andTerms = Array.isArray(requireTerms) ? requireTerms : [requireTerms];
 	const orTermsLower = orTerms.map((t) => t.toLowerCase());
 	const andTermsLower = andTerms.map((t) => t.toLowerCase());
 
-	for (const file of files) {
-		try {
-			// First check if the filename contains any of the OR terms
+	await Promise.all(
+		files.map(async (file) => {
 			const filenameLower = basename(file).toLowerCase();
 			if (orTermsLower.some((term) => filenameLower.includes(term))) {
 				matchingFiles.add(file);
-				continue;
+				return;
 			}
-
-			// Then check the content if it's a text file and not too large
-			if (!isLikelyTextFile(file)) continue;
-			const stat = lstatSync(file);
-			if (stat.size > DEFAULT_MAX_SIZE) continue;
-
-			const content = readFileSync(file, "utf8").toLowerCase();
-
-			// For OR terms, match if any term is found
+			if (!(await isLikelyTextFile(file))) return;
+			let fstat;
+			try {
+				fstat = await fs.lstat(file);
+			} catch {
+				return;
+			}
+			if (fstat.size > DEFAULT_MAX_SIZE) return;
+			let content;
+			try {
+				content = (await fs.readFile(file, "utf8")).toLowerCase();
+			} catch (err) {
+				return;
+			}
 			if (orTermsLower.some((term) => content.includes(term))) {
 				matchingFiles.add(file);
-				continue;
+				return;
 			}
-
-			// For AND terms, match only if all terms are found
 			if (
 				andTermsLower.length &&
 				andTermsLower.every((term) => content.includes(term))
 			) {
 				matchingFiles.add(file);
 			}
-		} catch (err) {
-			console.error(`Error reading file ${file}:`, err);
-		}
-	}
-
+		}),
+	);
 	return Array.from(matchingFiles);
 }
 
-/** Recursively traverse the tree to gather file nodes that are textual */
-function gatherFiles(root: TreeNode, out: TreeNode[], maxSize: number) {
+/** Helper: Recursively gather file nodes and read their content */
+async function gatherFiles(
+	root: TreeNode,
+	maxSize: number,
+): Promise<TreeNode[]> {
 	if (root.type === "file") {
-		// Attempt to read content if size < maxSize and it's likely text
-		if (root.size <= maxSize) {
-			const likelyText = isLikelyTextFile(root.path);
-			if (likelyText) {
-				try {
-					const data = readFileSync(root.path, { encoding: "utf8" });
-					root.content = data;
-				} catch (err) {
-					root.content = `[Error reading file: ${(err as Error).message}]`;
-				}
-			} else {
-				root.content = "[Non-text file omitted]";
+		if (root.size > maxSize) {
+			root.content = "[Content ignored: file too large]";
+		} else if (await isLikelyTextFile(root.path)) {
+			try {
+				root.content = await fs.readFile(root.path, "utf8");
+			} catch (err: any) {
+				root.content = `[Error reading file: ${err.message}]`;
 			}
 		} else {
-			root.content = "[Content ignored: file too large]";
+			root.content = "[Non-text file omitted]";
 		}
-		out.push(root);
+		return [root];
 	} else if (root.type === "directory" && root.children) {
-		for (const c of root.children) {
-			gatherFiles(c, out, maxSize);
-		}
+		const results = await Promise.all(
+			root.children.map((child) => gatherFiles(child, maxSize)),
+		);
+		return results.flat();
 	}
+	return [];
 }
 
-/** Basic check if a file is likely text by checking first few bytes */
-function isLikelyTextFile(filePath: string): boolean {
+/** Helper: Check if a file is likely a text file by reading its first bytes */
+async function isLikelyTextFile(filePath: string): Promise<boolean> {
 	try {
-		const buffer = readFileSync(filePath);
+		const buffer = await fs.readFile(filePath);
 		if (!buffer.length) return false;
-		// If we see many non-ASCII chars in first 1024, we assume binary
 		const chunk = buffer.slice(0, 1024);
 		let nonPrintable = 0;
-		for (const currentByte of chunk) {
-			if (currentByte === 0) {
-				// definitely binary if we see a null
-				return false;
-			}
-			// if below ASCII 9 or above 127 is suspicious
-			if (currentByte < 9 || (currentByte > 127 && currentByte < 192)) {
-				nonPrintable++;
-			}
+		for (const byte of chunk) {
+			if (byte === 0) return false;
+			if (byte < 9 || (byte > 127 && byte < 192)) nonPrintable++;
 		}
-		// If more than 30% are non-printable, treat as binary
 		return nonPrintable / chunk.length < 0.3;
 	} catch {
 		return false;
 	}
 }
 
-/** Create a tree-like string (similar to the python `_create_tree_structure`) */
+/** Create a tree-like string representation of the directory structure */
 function createTree(node: TreeNode, prefix: string, isLast = true): string {
-	let tree = "";
-
 	const branch = isLast ? "└── " : "├── ";
-	const treeOutput = [
-		prefix,
-		branch,
-		node.name,
-		node.type === "directory" ? "/" : "",
-		"\n",
-	].join("");
-	tree += treeOutput;
-
+	let tree = `${prefix}${branch}${node.name}${
+		node.type === "directory" ? "/" : ""
+	}\n`;
 	if (node.type === "directory" && node.children && node.children.length > 0) {
 		const newPrefix = prefix + (isLast ? "    " : "│   ");
 		node.children.forEach((child, idx) => {
-			const lastChild = node.children && idx === node.children.length - 1;
+			const lastChild = idx === node.children!.length - 1;
 			tree += createTree(child, newPrefix, lastChild);
 		});
 	}
-
 	return tree;
 }

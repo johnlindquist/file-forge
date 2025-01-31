@@ -133,6 +133,7 @@
     "nanoid": "^5.0.9",
     "node-fetch": "^3.3.2",
     "sanitize-filename": "^1.6.3",
+    "simple-git": "^3.27.0",
     "yargs": "^17.7.2",
     "zx": "^8.3.0"
   }
