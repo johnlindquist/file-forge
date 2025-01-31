@@ -120,6 +120,7 @@
   "dependencies": {
     "@clack/prompts": "^0.9.1",
     "@octokit/rest": "^21.1.0",
+    "@types/micromatch": "^4.0.9",
     "clipboardy": "^4.0.0",
     "conf": "^13.1.0",
     "date-fns": "^4.1.0",
@@ -127,6 +128,7 @@
     "env-paths": "^3.0.0",
     "globby": "^14.0.1",
     "ignore": "^7.0.3",
+    "micromatch": "^4.0.8",
     "mkdirp": "^3.0.1",
     "nanoid": "^5.0.9",
     "node-fetch": "^3.3.2",

@@ -737,11 +737,9 @@ export async function scanDirectory(
 	}
 
 	// Use globby to find all files in this directory (and subdirs) matching include/exclude.
-	const patterns = options.find
-		? ["**/*", "**/.*"] // When using find, we want to search all files
-		: options.include?.length
-			? options.include
-			: ["**/*", "**/.*"]; // Include dotfiles by default too
+	const patterns = options.include?.length
+		? options.include
+		: ["**/*", "**/.*"]; // Include dotfiles by default too
 
 	const ignorePatterns =
 		options.ignore === false
@@ -766,15 +764,17 @@ export async function scanDirectory(
 		onlyFiles: true,
 	});
 
-	// Filter by find flag if present
+	// Now filter by content if find is specified
 	const filteredFiles = options.find
-		? files.filter((file) =>
-				basename(file).toLowerCase().includes(options.find!.toLowerCase()),
-			)
+		? await filterFilesByContent(files, options.find)
 		: files;
 
 	if (options.debug) {
 		console.log("[DEBUG] Globby found files:", filteredFiles);
+	}
+
+	if (!filteredFiles.length) {
+		return null;
 	}
 
 	// Create the root node
@@ -877,6 +877,39 @@ export async function scanDirectory(
 
 	// Return null if no files were found
 	return node.children && node.children.length > 0 ? node : null;
+}
+
+/** Helper: Filter files by content */
+async function filterFilesByContent(
+	files: string[],
+	searchTerm: string,
+): Promise<string[]> {
+	const matchingFiles: string[] = [];
+	const searchTermLower = searchTerm.toLowerCase();
+
+	for (const file of files) {
+		try {
+			// First check if the filename contains the search term
+			if (basename(file).toLowerCase().includes(searchTermLower)) {
+				matchingFiles.push(file);
+				continue;
+			}
+
+			// Then check the content if it's a text file and not too large
+			if (!isLikelyTextFile(file)) continue;
+			const stat = lstatSync(file);
+			if (stat.size > DEFAULT_MAX_SIZE) continue;
+
+			const content = readFileSync(file, "utf8");
+			if (content.toLowerCase().includes(searchTermLower)) {
+				matchingFiles.push(file);
+			}
+		} catch (err) {
+			console.error(`Error reading file ${file}:`, err);
+		}
+	}
+
+	return matchingFiles;
 }
 
 /** Recursively traverse the tree to gather file nodes that are textual */

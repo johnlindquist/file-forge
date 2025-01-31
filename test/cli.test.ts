@@ -223,6 +223,39 @@ describe("find flag", () => {
 		expect(scopedFiles.length).toBe(1);
 		expect(scopedFiles.every((file) => file.startsWith("math"))).toBe(true);
 	});
+
+	it("should find files containing the search term in their content", async () => {
+		const result = await scanDirectory(FIXTURES_DIR, {
+			find: "console",
+			debug: true,
+		});
+
+		expect(result).not.toBeNull();
+		const allFiles = getAllFileNames(result as TreeNode);
+		console.log("Files found with content 'console':", allFiles);
+
+		// Should find test.ts and hello.js since they both have console.log
+		expect(allFiles).toContain("test.ts");
+		expect(allFiles).toContain("hello.js");
+		expect(allFiles).not.toContain("math.ts"); // math.ts doesn't have console in it
+	});
+
+	it("should work with include patterns when searching content", async () => {
+		const result = await scanDirectory(FIXTURES_DIR, {
+			find: "console",
+			include: ["*.ts"],
+			debug: true,
+		});
+
+		expect(result).not.toBeNull();
+		const allFiles = getAllFileNames(result as TreeNode);
+		console.log("Files found with content 'console' in .ts files:", allFiles);
+
+		// Should only find test.ts since we're only including .ts files
+		expect(allFiles).toContain("test.ts");
+		expect(allFiles).not.toContain("hello.js"); // Excluded by *.ts pattern
+		expect(allFiles).not.toContain("math.ts"); // Doesn't contain console
+	});
 });
 
 /** Helper to recursively collect file names from your scan TreeNode */
