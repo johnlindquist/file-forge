@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { resolve, join } from "node:path";
-import { scanDirectory } from "../index";
+import { scanDirectory } from "../src/index";
 import { runCLI } from "../utils/runCLI";
 
 interface TreeNode {
@@ -148,7 +148,7 @@ describe("find flag", () => {
 
 	it("should find files containing the search term in their name (case-insensitive)", async () => {
 		const result = await scanDirectory(FIXTURES_DIR, {
-			find: "test",
+			find: ["test"],
 			debug: true,
 		});
 
@@ -164,7 +164,7 @@ describe("find flag", () => {
 
 	it("should work with exclude patterns", async () => {
 		const result = await scanDirectory(FIXTURES_DIR, {
-			find: "test",
+			find: ["test"],
 			exclude: ["*.ts"],
 			debug: true,
 		});
@@ -176,13 +176,13 @@ describe("find flag", () => {
 	it("should be case-insensitive", async () => {
 		// First let's scan with lowercase
 		const resultLower = await scanDirectory(FIXTURES_DIR, {
-			find: "test",
+			find: ["test"],
 			debug: true,
 		});
 
 		// Then with uppercase
 		const resultUpper = await scanDirectory(FIXTURES_DIR, {
-			find: "TEST",
+			find: ["TEST"],
 			debug: true,
 		});
 
@@ -200,7 +200,7 @@ describe("find flag", () => {
 	it("should work with directory-scoped includes", async () => {
 		// First scan without include to show we have multiple matches
 		const resultAll = await scanDirectory(FIXTURES_DIR, {
-			find: "math",
+			find: ["math"],
 			debug: true,
 		});
 
@@ -210,7 +210,7 @@ describe("find flag", () => {
 
 		// Now scan with include to scope to src directory
 		const resultScoped = await scanDirectory(FIXTURES_DIR, {
-			find: "math",
+			find: ["math"],
 			include: ["src/**"],
 			debug: true,
 		});
@@ -227,7 +227,7 @@ describe("find flag", () => {
 
 	it("should find files containing the search term in their content", async () => {
 		const result = await scanDirectory(FIXTURES_DIR, {
-			find: "console",
+			find: ["console"],
 			debug: true,
 		});
 
@@ -243,7 +243,7 @@ describe("find flag", () => {
 
 	it("should work with include patterns when searching content", async () => {
 		const result = await scanDirectory(FIXTURES_DIR, {
-			find: "console",
+			find: ["console"],
 			include: ["*.ts"],
 			debug: true,
 		});

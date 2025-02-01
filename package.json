@@ -16,7 +16,7 @@
   "scripts": {
     "test": "vitest --watch false",
     "test:watch": "vitest --watch",
-    "dev": "node --experimental-strip-types index.ts",
+    "dev": "node --experimental-strip-types src/index.ts",
     "build": "tsc",
     "build:check": "tsc --noEmit",
     "lint": "eslint .",

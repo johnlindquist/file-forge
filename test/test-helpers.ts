@@ -28,7 +28,7 @@ export async function runCLI(args: string[]): Promise<{
 	hashedSource: string;
 }> {
 	return new Promise((resolve) => {
-		const proc = spawn("pnpm", ["node", "index.ts", ...args], {
+		const proc = spawn("pnpm", ["node", "dist/index.js", ...args], {
 			env: { ...process.env, VITEST: "1" },
 		});
 
@@ -66,16 +66,16 @@ export function runCLISync(args: string[]): {
 	hashedSource: string;
 } {
 	try {
-		const stdout = execSync(`pnpm node index.ts ${args.join(" ")}`, {
+		const result = execSync(`pnpm node dist/index.js ${args.join(" ")}`, {
 			env: { ...process.env, VITEST: "1" },
-		}).toString();
+		}) as ExecResult;
 
 		const hashedSource = createHash("md5")
 			.update(String(args[0]))
 			.digest("hex")
 			.slice(0, 6);
 
-		return { stdout, stderr: "", exitCode: 0, hashedSource };
+		return { stdout: result.stdout?.toString() ?? "", stderr: result.stderr?.toString() ?? "", exitCode: result.status ?? 0, hashedSource };
 	} catch (error: unknown) {
 		const execResult = error as ExecResult;
 		return {

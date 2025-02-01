@@ -11,7 +11,7 @@ export async function runCLI(
 	args: string[],
 ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
 	try {
-		const cliPath = resolve(__dirname, "../index.ts");
+		const cliPath = resolve(__dirname, "../dist/index.js");
 		const command = `pnpm node ${cliPath} ${args.join(" ")}`;
 
 		const result = execSync(command, {

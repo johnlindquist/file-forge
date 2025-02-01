@@ -7,7 +7,7 @@ import { readFileSync } from "node:fs";
 function runCLI(args: string[]) {
 	return new Promise<{ stdout: string; stderr: string; exitCode: number }>(
 		(resolve) => {
-			const proc = spawn("pnpm", ["node", "index.ts", ...args], {
+			const proc = spawn("pnpm", ["node", "dist/index.js", ...args], {
 				cwd: process.cwd(), // or path.resolve(__dirname, "../..") if needed
 			});
 
