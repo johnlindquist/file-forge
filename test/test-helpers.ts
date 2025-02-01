@@ -1,6 +1,6 @@
 // test/test-helpers.ts
-import { execSync } from "node:child_process";
-import { resolve } from "node:path";
+import { execSync, spawn } from "node:child_process";
+import { createHash } from "node:crypto";
 import { beforeEach, vi } from "vitest";
 
 // Mock process.exit to prevent it from actually exiting during tests
@@ -15,36 +15,77 @@ beforeEach(() => {
 	};
 });
 
-interface ExecError extends Error {
+type ExecResult = {
 	stdout?: Buffer;
 	stderr?: Buffer;
 	status?: number;
+};
+
+export async function runCLI(args: string[]): Promise<{
+	stdout: string;
+	stderr: string;
+	exitCode: number;
+	hashedSource: string;
+}> {
+	return new Promise((resolve) => {
+		const proc = spawn("pnpm", ["node", "index.ts", ...args], {
+			env: { ...process.env, VITEST: "1" },
+		});
+
+		let stdout = "";
+		let stderr = "";
+
+		proc.stdout.on("data", (data) => {
+			stdout += data.toString();
+		});
+
+		proc.stderr.on("data", (data) => {
+			stderr += data.toString();
+		});
+
+		proc.on("close", (code) => {
+			const hashedSource = createHash("md5")
+				.update(String(args[0]))
+				.digest("hex")
+				.slice(0, 6);
+
+			resolve({
+				stdout,
+				stderr,
+				exitCode: code ?? 0,
+				hashedSource,
+			});
+		});
+	});
 }
 
-export async function runCLI(args: string[]) {
-	const cliPath = resolve(__dirname, "..", "index.ts");
-	const cmd = `pnpm node ${cliPath} ${args.join(" ")}`;
-
+export function runCLISync(args: string[]): {
+	stdout: string;
+	stderr: string;
+	exitCode: number;
+	hashedSource: string;
+} {
 	try {
-		const stdout = execSync(cmd, {
-			encoding: "utf8",
-			env: {
-				...process.env,
-				NODE_NO_WARNINGS: "1", // Suppress experimental warnings
-				FORCE_COLOR: "0", // Disable colors in output
-				VITEST: "1", // Indicate we're running in Vitest
-			},
-			stdio: ["ignore", "pipe", "pipe"], // Capture both stdout and stderr
-		});
-		return { stdout, exitCode: 0 };
-	} catch (err) {
-		if (err instanceof Error && "stdout" in err) {
-			const execErr = err as ExecError;
-			return {
-				stdout: execErr.stdout?.toString() || "",
-				exitCode: execErr.status || 1,
-			};
-		}
-		throw err;
+		const stdout = execSync(`pnpm node index.ts ${args.join(" ")}`, {
+			env: { ...process.env, VITEST: "1" },
+		}).toString();
+
+		const hashedSource = createHash("md5")
+			.update(String(args[0]))
+			.digest("hex")
+			.slice(0, 6);
+
+		return { stdout, stderr: "", exitCode: 0, hashedSource };
+	} catch (error: unknown) {
+		const execResult = error as ExecResult;
+		return {
+			stdout: execResult.stdout?.toString() ?? "",
+			stderr: execResult.stderr?.toString() ?? "",
+			exitCode: execResult.status ?? 1,
+			hashedSource: createHash("md5")
+				.update(String(args[0]))
+				.digest("hex")
+				.slice(0, 6),
+		};
 	}
 }

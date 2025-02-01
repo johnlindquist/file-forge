@@ -298,54 +298,125 @@ p.intro(introLines.join("\n"));
 
 let finalPath: string;
 
-// --- CLONE STEP ---
-if (isGitHubURL(String(source)).isValid) {
+/** Utility: Check if a string looks like a GitHub URL */
+export function isGitHubURL(input: string): { isValid: boolean; url: string } {
+	const str = input.trim();
+	if (/^https?:\/\/(www\.)?github\.com\//i.test(str)) {
+		return { isValid: true, url: str };
+	}
+	if (str.startsWith("github.com/")) {
+		return { isValid: true, url: `https://${str}` };
+	}
+	if (str.startsWith("file://")) {
+		return { isValid: true, url: str };
+	}
+	return { isValid: false, url: "" };
+}
+
+/** Helper: Get cached repo path or clone if needed */
+async function getRepoPath(
+	url: string,
+	hashedSource: string,
+	flags: IngestFlags,
+	isLocalPath = false,
+): Promise<string> {
+	// For local paths, just verify they exist and return
+	if (isLocalPath || url.startsWith("file://")) {
+		const localPath = resolve(url.startsWith("file://") ? url.slice(7) : url);
+		if (!(await fileExists(localPath))) {
+			throw new Error(`Local path not found: ${localPath}`);
+		}
+		return localPath;
+	}
+
+	const cacheDir = envPaths("ghi").cache;
+	const repoDir = resolve(cacheDir, `ingest-${hashedSource}`);
+
+	if (await fileExists(repoDir)) {
+		const spinner = p.spinner();
+		spinner.start("Repository exists, updating...");
+		try {
+			if (flags.useRegularGit) {
+				execSync("git fetch --all", { cwd: repoDir, stdio: "pipe" });
+				execSync("git clean -fdx", { cwd: repoDir, stdio: "pipe" });
+				execSync("git reset --hard", { cwd: repoDir, stdio: "pipe" });
+				if (flags.branch) {
+					execSync(`git checkout ${flags.branch}`, {
+						cwd: repoDir,
+						stdio: "pipe",
+					});
+					execSync(`git reset --hard origin/${flags.branch}`, {
+						cwd: repoDir,
+						stdio: "pipe",
+					});
+				}
+			} else {
+				const git = createGit(repoDir);
+				await git.fetch(["--all"]);
+				await git.clean("f", ["-d"]);
+				await git.reset(ResetMode.HARD);
+				if (flags.branch) {
+					await git.checkout(flags.branch);
+					await git.reset(["--hard", `origin/${flags.branch}`]);
+				}
+			}
+			spinner.stop("Repository updated successfully.");
+			return repoDir;
+		} catch {
+			spinner.stop("Update failed, recloning...");
+			await fs.rm(repoDir, { recursive: true, force: true });
+		}
+	}
+
 	const spinner = p.spinner();
 	spinner.start("Cloning repository...");
 	try {
-		const tempDir = resolve(
-			envPaths("ghi").cache,
-			`ingest-${hashedSource}-${Date.now()}`,
-		);
-		await mkdirp(tempDir);
-		const { url } = isGitHubURL(String(source));
+		await mkdirp(repoDir);
 		if (flags.useRegularGit) {
-			// Use direct git commands via execSync
 			let cmd = "git clone";
 			if (!flags.commit) {
 				cmd += " --depth=1";
 				if (flags.branch) cmd += ` --branch ${flags.branch}`;
 			}
-			cmd += ` ${url} ${tempDir}`;
+			cmd += ` ${url} ${repoDir}`;
 			execSync(cmd, { stdio: "pipe" });
 		} else {
 			const git = createGit();
 			if (flags.commit) {
-				await git.clone(url, tempDir);
+				await git.clone(url, repoDir);
 			} else {
 				const cloneOptions = ["--depth=1"];
 				if (flags.branch) {
 					cloneOptions.push("--branch", flags.branch);
 				}
-				await git.clone(url, tempDir, cloneOptions);
+				await git.clone(url, repoDir, cloneOptions);
 			}
 		}
 		spinner.stop("Repository cloned successfully.");
-		finalPath = tempDir;
-	} catch {
+		return repoDir;
+	} catch (err) {
 		spinner.stop("Clone failed.");
+		throw err;
+	}
+}
+
+// --- CLONE STEP ---
+if (isGitHubURL(String(source)).isValid) {
+	try {
+		const { url } = isGitHubURL(String(source));
+		finalPath = await getRepoPath(url, hashedSource, flags, false);
+	} catch {
 		p.cancel("Failed to clone repository");
 		process.exit(1);
 	}
 } else {
-	// Local directory
-	const localPath = resolve(String(source));
-	if (!(await fileExists(localPath))) {
-		p.cancel(`Local path not found: ${localPath}`);
+	try {
+		finalPath = await getRepoPath(String(source), hashedSource, flags, true);
+	} catch (err) {
+		p.cancel(err instanceof Error ? err.message : "Failed to access directory");
 		if (!process.env["VITEST"]) process.exit(1);
-		else throw new Error(`Local path not found: ${localPath}`);
+		else throw err;
 	}
-	finalPath = localPath;
 }
 
 // --- BUILD DIGEST ---
@@ -472,18 +543,6 @@ function parsePatterns(input?: (string | number)[]): string[] {
 		}
 	}
 	return splitted.filter(Boolean);
-}
-
-/** Utility: Check if a string looks like a GitHub URL */
-export function isGitHubURL(input: string): { isValid: boolean; url: string } {
-	const str = input.trim();
-	if (/^https?:\/\/(www\.)?github\.com\//i.test(str)) {
-		return { isValid: true, url: str };
-	}
-	if (str.startsWith("github.com/")) {
-		return { isValid: true, url: `https://${str}` };
-	}
-	return { isValid: false, url: "" };
 }
 
 /** Prompt for editor configuration if not set */
@@ -858,29 +917,32 @@ async function gatherFiles(
 	root: TreeNode,
 	maxSize: number,
 ): Promise<TreeNode[]> {
-	if (root.type === "file") {
-		if (root.size > maxSize) {
-			root.content = "[Content ignored: file too large]";
-		} else if (await isLikelyTextFile(root.path)) {
-			try {
-				root.content = await fs.readFile(root.path, "utf8");
-			} catch {
-				root.content = "[Error reading file]";
+	const files: TreeNode[] = [];
+
+	async function traverse(node: TreeNode) {
+		if (node.type === "file") {
+			if (node.size > maxSize) {
+				node.content = "[Content ignored: file too large]";
+				files.push(node);
+			} else if (await isLikelyTextFile(node.path)) {
+				try {
+					node.content = await fs.readFile(node.path, "utf8");
+					files.push(node);
+				} catch {
+					node.content = "[Error reading file]";
+					files.push(node);
+				}
 			}
-		} else {
-			root.content = "[Non-text file omitted]";
+			// Non-text files are completely excluded from output
+		} else if (node.children) {
+			for (const child of node.children) {
+				await traverse(child);
+			}
 		}
-		return [root];
 	}
 
-	if (root.type === "directory" && root.children) {
-		const results = await Promise.all(
-			root.children.map((child) => gatherFiles(child, maxSize)),
-		);
-		return results.flat();
-	}
-
-	return [];
+	await traverse(root);
+	return files;
 }
 
 /** Helper: Check if a file is likely a text file by reading its first bytes */
