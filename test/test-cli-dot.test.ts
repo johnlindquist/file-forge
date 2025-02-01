@@ -2,6 +2,8 @@
 import { spawn } from "node:child_process";
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import envPaths from "env-paths";
 
 // Helper to spawn the CLI and capture output
 function runCLI(args: string[]) {
@@ -54,7 +56,9 @@ describe("CLI: ingest current directory with '.'", () => {
 		expect(savedMatch).toBeTruthy();
 
 		const [, savedPath] = savedMatch;
-		const savedContent = readFileSync(savedPath, "utf8");
+		const searchesDir = envPaths("ghi").config;
+		const fullPath = resolve(searchesDir, savedPath.split("/").pop()!);
+		const savedContent = readFileSync(fullPath, "utf8");
 
 		// Now check the actual content of the saved file
 		expect(savedContent).toMatch(/hello\.js/);

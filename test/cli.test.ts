@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { resolve, join } from "node:path";
-import { scanDirectory } from "../src/index";
+import { scanDirectory } from "../src/ingest.js";
 import { runCLI } from "../utils/runCLI";
 
 interface TreeNode {

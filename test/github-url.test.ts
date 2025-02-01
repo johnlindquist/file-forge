@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { isGitHubURL } from "../src/index";
+import { isGitHubURL } from "../src/repo.js";
 
 describe("isGitHubURL", () => {
 	it("should identify full GitHub URLs", () => {

@@ -1,7 +1,7 @@
 {
   "root": true,
   "parser": "@typescript-eslint/parser",
-  "plugins": ["@typescript-eslint"],
+  "plugins": ["@typescript-eslint", "unused-imports"],
   "extends": [
     "eslint:recommended",
     "plugin:@typescript-eslint/recommended",
@@ -16,6 +16,11 @@
     "@typescript-eslint/prefer-nullish-coalescing": "error",
     "@typescript-eslint/no-unnecessary-condition": "error",
     "@typescript-eslint/strict-boolean-expressions": "error",
-    "prefer-template": "error"
+    "prefer-template": "error",
+    "unused-imports/no-unused-imports": "error",
+    "unused-imports/no-unused-vars": [
+      "warn",
+      { "vars": "all", "varsIgnorePattern": "^_", "args": "after-used", "argsIgnorePattern": "^_" }
+    ]
   }
 } 
