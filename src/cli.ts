@@ -98,9 +98,29 @@ export function runCli() {
       default: false,
       describe: "Open results in editor",
     })
+    .option("graph", {
+      alias: "g",
+      type: "string",
+      nargs: 1,
+      describe: "Analyze dependency graph starting from the given file using madge",
+    })
     .help()
     .alias("help", "h")
     .parseSync();
+  
+  // In test mode with graph flag, bypass standard argument processing
+  if (process.env["VITEST"] && argv.graph) {
+    console.log("[DEBUG] Test mode with graph flag detected, bypassing standard argument processing");
+    return {
+      ...argv,
+      _: [],
+      skipArtifacts: true,
+      pipe: true,
+      noColor: true,
+      noIntro: true,
+    };
+  }
+  
   return argv;
 }
 

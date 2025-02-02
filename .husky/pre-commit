@@ -3,6 +3,6 @@
 
 # Install deps, lint, type check, test
 pnpm install && \
-pnpm eslint . --max-warnings 0 && \
+pnpm eslint . --fix --max-warnings 0 && \
 pnpm tsc --noEmit --strict && \
 pnpm test

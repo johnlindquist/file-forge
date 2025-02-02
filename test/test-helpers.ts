@@ -29,7 +29,7 @@ export async function runCLI(args: string[]): Promise<{
 }> {
 	return new Promise((resolve) => {
 		const proc = spawn("pnpm", ["node", "dist/index.js", ...args], {
-			env: { ...process.env, VITEST: "1" },
+			env: { ...process.env, VITEST: "1", NO_COLOR: "1", NO_INTRO: "1" },
 		});
 
 		let stdout = "";
@@ -67,7 +67,7 @@ export function runCLISync(args: string[]): {
 } {
 	try {
 		const result = execSync(`pnpm node dist/index.js ${args.join(" ")}`, {
-			env: { ...process.env, VITEST: "1" },
+			env: { ...process.env, VITEST: "1", NO_COLOR: "1", NO_INTRO: "1" },
 		}) as ExecResult;
 
 		const hashedSource = createHash("md5")

@@ -22,6 +22,7 @@ export type IngestFlags = {
   require?: string[];
   useRegularGit?: boolean | undefined;
   open?: boolean | undefined;
+  graph?: string | undefined;
 };
 
 export type ScanStats = {

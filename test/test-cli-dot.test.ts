@@ -1,35 +1,9 @@
 // test/test-cli-dot.test.ts
-import { spawn } from "node:child_process";
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import envPaths from "env-paths";
-
-// Helper to spawn the CLI and capture output
-function runCLI(args: string[]) {
-	return new Promise<{ stdout: string; stderr: string; exitCode: number }>(
-		(resolve) => {
-			const proc = spawn("pnpm", ["node", "dist/index.js", ...args], {
-				cwd: process.cwd(), // or path.resolve(__dirname, "../..") if needed
-			});
-
-			let stdout = "";
-			let stderr = "";
-
-			proc.stdout.on("data", (chunk) => {
-				stdout += chunk;
-			});
-
-			proc.stderr.on("data", (chunk) => {
-				stderr += chunk;
-			});
-
-			proc.on("close", (code) => {
-				resolve({ stdout, stderr, exitCode: code ?? 0 });
-			});
-		},
-	);
-}
+import { runCLI } from "./test-helpers";
 
 describe("CLI: ingest current directory with '.'", () => {
 	it("should include files from the current directory and not throw 'No files found'", async () => {
