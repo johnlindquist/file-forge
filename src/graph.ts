@@ -117,7 +117,7 @@ export async function ingestGraph(
     contentStr += fileContents[file] + "\n\n";
   }
   
-  const summary = `Dependency Graph Analysis starting from: ${resolvedEntry}\nFiles analyzed: ${allFiles.length}`;
+  const summary = `# ghi\n\nDependency Graph Analysis starting from: ${resolvedEntry}\nFiles analyzed: ${allFiles.length}`;
   console.log("[DEBUG] Generated summary:", summary);
   
   return { summary, treeStr, contentStr };

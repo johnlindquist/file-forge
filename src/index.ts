@@ -220,7 +220,6 @@ if (fileSize > MAX_EDITOR_SIZE) {
     }
   }
   if (argv.pipe) {
-    console.log(output);
     console.log(`\n${RESULTS_SAVED_MARKER} ${resultFilePath}`);
   } else if (!argv.open) {
     p.note(`${RESULTS_SAVED_MARKER} ${resultFilePath}`, "Results saved to file.");
