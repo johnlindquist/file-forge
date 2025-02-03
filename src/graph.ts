@@ -96,25 +96,34 @@ export async function ingestGraph(
   const deps = madgeResult.obj();
   console.log("[DEBUG] Dependencies object:", JSON.stringify(deps, null, 2));
   
-  // Collect all files from the graph (keys and values)
-  const allFilesSet = new Set<string>(Object.keys(deps));
-  Object.values(deps).forEach((value) => {
-    const arr = value as string[];
-    arr.forEach((dep) => {
-      const resolvedFile = resolve(dep);
-      console.log("[DEBUG] Adding dependency:", dep, "->", resolvedFile);
-      allFilesSet.add(resolvedFile);
-    });
+  // Normalize all paths to be relative to cwd
+  const normalizedDeps: { [key: string]: string[] } = {};
+  for (const [key, value] of Object.entries(deps)) {
+    const normalizedKey = key.includes(process.cwd()) 
+      ? key.replace(process.cwd() + '/', '') 
+      : key;
+    const normalizedValues = (value as string[]).map(dep => 
+      dep.includes(process.cwd()) 
+        ? dep.replace(process.cwd() + '/', '') 
+        : dep
+    );
+    normalizedDeps[normalizedKey] = normalizedValues;
+  }
+  
+  // Collect all files from the normalized graph
+  const allFilesSet = new Set<string>(Object.keys(normalizedDeps));
+  Object.values(normalizedDeps).forEach(deps => {
+    deps.forEach(dep => allFilesSet.add(dep));
   });
   
   const allFiles = Array.from(allFilesSet);
   console.log("[DEBUG] All files found:", allFiles);
   
-  const treeStr = buildDependencyTree(deps, resolvedEntry);
+  const treeStr = buildDependencyTree(normalizedDeps, entryFile.replace(process.cwd() + '/', ''));
   console.log("[DEBUG] Generated tree structure:\n", treeStr);
   
   const fileContents = await gatherGraphFiles(
-    allFiles,
+    allFiles.map(f => resolve(f)), // Resolve for fs operations
     flags.maxSize || DEFAULT_MAX_SIZE
   );
   console.log("[DEBUG] Gathered file contents for", Object.keys(fileContents).length, "files");
@@ -122,12 +131,11 @@ export async function ingestGraph(
   let contentStr = "";
   for (const file of allFiles) {
     console.log("[DEBUG] Processing file content for:", file);
-    const relativePath = file.replace(process.cwd() + "/", "");
-    contentStr += `================================\nFile: ${relativePath}\n================================\n`;
+    contentStr += `================================\nFile: ${file}\n================================\n`;
     contentStr += fileContents[file] + "\n\n";
   }
   
-  const summary = `# ghi\n\nDependency Graph Analysis starting from: ${resolvedEntry}\nFiles analyzed: ${allFiles.length}`;
+  const summary = `# ghi\n\nDependency Graph Analysis starting from: ${entryFile}\nFiles analyzed: ${allFiles.length}`;
   console.log("[DEBUG] Generated summary:", summary);
   
   return { summary, treeStr, contentStr };

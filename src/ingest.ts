@@ -78,19 +78,19 @@ export async function ingestDirectory(
         execSync("git clean -fdx", { cwd: basePath });
         execSync("git reset --hard", { cwd: basePath });
         if (flags.branch) {
-          spinner.start(`Checking out branch \${flags.branch}...`);
+          spinner.start(`Checking out branch ${flags.branch}...`);
           execSync("git clean -fdx", { cwd: basePath });
           execSync("git reset --hard", { cwd: basePath });
-          execSync(`git checkout \${flags.branch}`, { cwd: basePath });
+          execSync(`git checkout ${flags.branch}`, { cwd: basePath });
           spinner.stop("Branch checked out.");
           execSync("git clean -fdx", { cwd: basePath });
           execSync("git reset --hard", { cwd: basePath });
         }
         if (flags.commit) {
-          spinner.start(`Checking out commit \${flags.commit}...`);
+          spinner.start(`Checking out commit ${flags.commit}...`);
           execSync("git clean -fdx", { cwd: basePath });
           execSync("git reset --hard", { cwd: basePath });
-          execSync(`git checkout \${flags.commit}`, { cwd: basePath });
+          execSync(`git checkout ${flags.commit}`, { cwd: basePath });
           spinner.stop("Checked out commit.");
           execSync("git clean -fdx", { cwd: basePath });
           execSync("git reset --hard", { cwd: basePath });
@@ -104,7 +104,7 @@ export async function ingestDirectory(
       await git.clean("f", ["-d"]);
       await git.reset(ResetMode.HARD);
       if (flags.branch) {
-        spinner.start(`Checking out branch \${flags.branch}...`);
+        spinner.start(`Checking out branch ${flags.branch}...`);
         await git.clean("f", ["-d"]);
         await git.reset(ResetMode.HARD);
         try {
@@ -118,7 +118,7 @@ export async function ingestDirectory(
         await git.reset(ResetMode.HARD);
       }
       if (flags.commit) {
-        spinner.start(`Checking out commit \${flags.commit}...`);
+        spinner.start(`Checking out commit ${flags.commit}...`);
         await git.clean("f", ["-d"]);
         await git.reset(ResetMode.HARD);
         try {
@@ -142,16 +142,16 @@ export async function ingestDirectory(
   sortTree(rootNode);
 
   const summaryLines: string[] = [];
-  summaryLines.push(`Directory: \${basePath}`);
-  summaryLines.push(`Files analyzed: \${rootNode.file_count ?? 0}`);
+  summaryLines.push(`Directory: ${basePath}`);
+  summaryLines.push(`Files analyzed: ${rootNode.file_count ?? 0}`);
   if (
     flags.branch &&
     flags.branch.toLowerCase() !== "main" &&
     flags.branch.toLowerCase() !== "master"
   ) {
-    summaryLines.push(`Branch: \${flags.branch}`);
+    summaryLines.push(`Branch: ${flags.branch}`);
   }
-  if (flags.commit) summaryLines.push(`Commit: \${flags.commit}`);
+  if (flags.commit) summaryLines.push(`Commit: ${flags.commit}`);
 
   const treeStr = createTree(rootNode, "");
   const maxSize = flags.maxSize ?? DEFAULT_MAX_SIZE;
@@ -159,7 +159,7 @@ export async function ingestDirectory(
 
   let contentStr = "";
   for (const f of fileNodes) {
-    contentStr += `================================\nFile: \${f.path.replace(
+    contentStr += `================================\nFile: ${f.path.replace(
       basePath,
       ""
     )}\n================================\n`;
@@ -377,18 +377,17 @@ export async function filterFilesByContent(
         const content = (await fs.readFile(file, "utf8")).toLowerCase();
         
         // Check content for OR terms
-        if (orTermsLower.length && orTermsLower.some((term: string) => content.includes(term))) {
-          return file;
-        }
+        const matchesFind = orTermsLower.length && orTermsLower.some((term: string) => content.includes(term));
         
-        // Check content for AND terms
-        if (andTermsLower.length && andTermsLower.every((term: string) => content.includes(term))) {
-          return file;
-        }
+        // Check content for AND terms - only if we have require terms
+        const matchesRequire = andTermsLower.length && andTermsLower.every((term: string) => content.includes(term));
         
-        return null;
+        // Return the file if it matches either condition
+        return (matchesFind || matchesRequire) ? file : null;
       } catch (error) {
-        console.error(`Error reading file ${file}:`, error);
+        if (error instanceof Error) {
+          console.error(`Error reading file ${file}:`, error.message);
+        }
         return null;
       }
     }),
