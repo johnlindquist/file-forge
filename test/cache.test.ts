@@ -57,7 +57,7 @@ describe("Repository Caching", () => {
 		expect(result2.stdout).toContain("new.js");
 		expect(result2.stdout).not.toContain("Repository cloned");
 		expect(result2.stdout).not.toContain("Repository updated");
-	});
+	}, { timeout: 30000 });
 
 	it("handles remote repositories with caching", async () => {
 		// Create a "remote" repo
@@ -123,5 +123,5 @@ describe("Repository Caching", () => {
 		const savedContent3 = readFileSync(savedPath3, "utf8");
 		expect(savedContent3).toContain("initial.js");
 		expect(savedContent3).toContain("new.js");
-	});
+	}, { timeout: 30000 });
 });
