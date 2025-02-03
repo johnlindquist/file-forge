@@ -3,12 +3,13 @@
 import { resolve } from "node:path";
 import { promises as fs } from "node:fs";
 import { execSync } from "node:child_process";
-import { simpleGit as createGit, ResetMode } from "simple-git";
+import { simpleGit as createGit } from "simple-git";
 import { mkdirp } from "mkdirp";
 import envPaths from "env-paths";
 import * as p from "@clack/prompts";
 import { fileExists } from "./utils.js";
 import { IngestFlags } from "./types.js";
+import { resetGitRepo } from "./gitUtils.js";
 
 /** Check if a string looks like a GitHub URL or a local file URL */
 export function isGitHubURL(input: string): { isValid: boolean; url: string } {
@@ -34,11 +35,13 @@ export async function getRepoPath(
   source: string,
   _hashedSource: string,
   flags: IngestFlags,
-  isLocal: boolean,
+  isLocal: boolean
 ): Promise<string> {
   // For local paths
   if (isLocal || source.startsWith("file://")) {
-    const localPath = resolve(source.startsWith("file://") ? source.slice(7) : source);
+    const localPath = resolve(
+      source.startsWith("file://") ? source.slice(7) : source
+    );
     if (!(await fileExists(localPath))) {
       throw new Error(`Local path not found: \${localPath}`);
     }
@@ -54,22 +57,17 @@ export async function getRepoPath(
     try {
       if (flags.useRegularGit) {
         execSync("git fetch --all", { cwd: repoDir, stdio: "pipe" });
-        execSync("git clean -fdx", { cwd: repoDir, stdio: "pipe" });
-        execSync("git reset --hard", { cwd: repoDir, stdio: "pipe" });
-        if (flags.branch) {
-          execSync(`git checkout \${flags.branch}`, { cwd: repoDir, stdio: "pipe" });
-          execSync(`git reset --hard origin/\${flags.branch}`, { cwd: repoDir, stdio: "pipe" });
-        }
       } else {
         const git = createGit(repoDir);
         await git.fetch(["--all"]);
-        await git.clean("f", ["-d"]);
-        await git.reset(ResetMode.HARD);
-        if (flags.branch) {
-          await git.checkout(flags.branch);
-          await git.reset(["--hard", `origin/\${flags.branch}`]);
-        }
       }
+
+      await resetGitRepo(
+        repoDir,
+        flags.branch,
+        flags.commit,
+        flags.useRegularGit
+      );
       spinner.stop("Repository updated successfully.");
       return repoDir;
     } catch {
@@ -86,9 +84,9 @@ export async function getRepoPath(
       let cmd = "git clone";
       if (!flags.commit) {
         cmd += " --depth=1";
-        if (flags.branch) cmd += ` --branch \${flags.branch}`;
+        if (flags.branch) cmd += ` --branch ${flags.branch}`;
       }
-      cmd += ` \${source} \${repoDir}`;
+      cmd += ` ${source} ${repoDir}`;
       execSync(cmd, { stdio: "pipe" });
     } else {
       const git = createGit();

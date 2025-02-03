@@ -4,11 +4,10 @@ import { promises as fs } from "node:fs";
 import { resolve, basename, join } from "node:path";
 import { globby } from "globby";
 import ignore from "ignore";
-import * as p from "@clack/prompts";
-import { execSync } from "node:child_process";
-import { simpleGit as createGit, ResetMode } from "simple-git";
 import { fileExists } from "./utils.js";
 import { IngestFlags, ScanStats, TreeNode } from "./types.js";
+import { getFileContent } from "./fileUtils.js";
+import { resetGitRepo } from "./gitUtils.js";
 
 /** Constants for ingest */
 const DEFAULT_MAX_SIZE = 10 * 1024 * 1024; // 10 MB
@@ -68,69 +67,20 @@ export async function ingestDirectory(
 ): Promise<{ summary: string; treeStr: string; contentStr: string }> {
   // Handle branch/commit checkout if needed
   if (flags.branch || flags.commit) {
-    const spinner = p.spinner();
     if (!(await fileExists(join(basePath, ".git")))) {
       throw new Error("Cannot checkout branch/commit: not a git repository");
     }
-    if (flags.useRegularGit) {
-      try {
-        spinner.start("Checking out using regular git commands...");
-        execSync("git clean -fdx", { cwd: basePath });
-        execSync("git reset --hard", { cwd: basePath });
-        if (flags.branch) {
-          spinner.start(`Checking out branch ${flags.branch}...`);
-          execSync("git clean -fdx", { cwd: basePath });
-          execSync("git reset --hard", { cwd: basePath });
-          execSync(`git checkout ${flags.branch}`, { cwd: basePath });
-          spinner.stop("Branch checked out.");
-          execSync("git clean -fdx", { cwd: basePath });
-          execSync("git reset --hard", { cwd: basePath });
-        }
-        if (flags.commit) {
-          spinner.start(`Checking out commit ${flags.commit}...`);
-          execSync("git clean -fdx", { cwd: basePath });
-          execSync("git reset --hard", { cwd: basePath });
-          execSync(`git checkout ${flags.commit}`, { cwd: basePath });
-          spinner.stop("Checked out commit.");
-          execSync("git clean -fdx", { cwd: basePath });
-          execSync("git reset --hard", { cwd: basePath });
-        }
-      } catch {
-        spinner.stop("Checkout failed");
-        throw new Error("Failed to checkout using regular git commands");
-      }
-    } else {
-      const git = createGit(basePath);
-      await git.clean("f", ["-d"]);
-      await git.reset(ResetMode.HARD);
-      if (flags.branch) {
-        spinner.start(`Checking out branch ${flags.branch}...`);
-        await git.clean("f", ["-d"]);
-        await git.reset(ResetMode.HARD);
-        try {
-          await git.checkout(flags.branch);
-          spinner.stop("Branch checked out.");
-        } catch {
-          spinner.stop("Branch checkout failed");
-          throw new Error("Failed to checkout branch");
-        }
-        await git.clean("f", ["-d"]);
-        await git.reset(ResetMode.HARD);
-      }
-      if (flags.commit) {
-        spinner.start(`Checking out commit ${flags.commit}...`);
-        await git.clean("f", ["-d"]);
-        await git.reset(ResetMode.HARD);
-        try {
-          await git.checkout(flags.commit);
-          spinner.stop("Checked out commit.");
-        } catch {
-          spinner.stop("Checkout failed");
-          throw new Error("Failed to checkout commit");
-        }
-        await git.clean("f", ["-d"]);
-        await git.reset(ResetMode.HARD);
-      }
+    try {
+      await resetGitRepo(
+        basePath,
+        flags.branch,
+        flags.commit,
+        flags.useRegularGit
+      );
+    } catch (error) {
+      throw new Error(
+        error instanceof Error ? error.message : "Failed to checkout repository"
+      );
     }
   }
 
@@ -169,21 +119,11 @@ export async function ingestDirectory(
     seenPaths.add(relativePath);
 
     try {
-      const stat = await fs.stat(file.path);
-      if (stat.size > maxSize) {
-        fileContents[
-          relativePath
-        ] = `================================\nFile: ${relativePath}\n================================\n[Content ignored: file too large]`;
-      } else if (await isLikelyTextFile(file.path)) {
-        const content = await fs.readFile(file.path, "utf8");
-        fileContents[
-          relativePath
-        ] = `================================\nFile: ${relativePath}\n================================\n${content}`;
-      } else {
-        fileContents[
-          relativePath
-        ] = `================================\nFile: ${relativePath}\n================================\n[Content ignored or non‑text file]`;
-      }
+      fileContents[relativePath] = await getFileContent(
+        file.path,
+        maxSize,
+        relativePath
+      );
     } catch (error) {
       console.error(`[DEBUG] Error reading file ${file.path}:`, error);
       fileContents[
@@ -463,19 +403,19 @@ export async function gatherFiles(
 
   async function traverse(node: TreeNode): Promise<void> {
     if (node.type === "file") {
-      if (node.size > maxSize) {
-        node.content = "[Content ignored: file too large]";
+      try {
+        const content = await getFileContent(
+          node.path,
+          maxSize,
+          basename(node.path)
+        );
+        // Always add the file, but strip the header from the content
+        node.content = content.split("\n").slice(3).join("\n");
         files.push(node);
-      } else if (await isLikelyTextFile(node.path)) {
-        try {
-          node.content = await fs.readFile(node.path, "utf8");
-          files.push(node);
-        } catch {
-          node.content = "[Error reading file]";
-          files.push(node);
-        }
+      } catch {
+        node.content = "[Error reading file]";
+        files.push(node);
       }
-      // Non‑text files are excluded
     } else if (node.children) {
       for (const child of node.children) {
         await traverse(child);

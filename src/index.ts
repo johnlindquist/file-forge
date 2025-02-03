@@ -246,6 +246,9 @@ const outputParts = [
   "```",
 ];
 
+// Include Files Content section if:
+// 1. Verbose or debug mode is on
+// 2. Or if any file exceeds max size (indicated by [Content ignored: file too large] in contentStr)
 if (
   argv.verbose ||
   argv.debug ||
@@ -272,8 +275,9 @@ if (argv.bulk) {
 
 try {
   await fs.writeFile(resultFilePath, output, "utf8");
-} catch {
-  p.cancel("Failed to write output file");
+  if (argv.debug) console.log("[DEBUG] Results saved to:", resultFilePath);
+} catch (err) {
+  console.error("[DEBUG] Failed to save results:", err);
   process.exit(1);
 }
 
@@ -287,8 +291,18 @@ if (argv.test || process.env["NO_INTRO"]) {
 }
 
 // Normal mode with pretty formatting
-console.log("[DEBUG] Normal mode, using formatted output");
-console.log(output);
+if (argv.debug) console.log("[DEBUG] Normal mode, using formatted output");
+p.intro(digest.summary);
+console.log("\nDirectory Structure:\n");
+console.log(digest.treeStr);
+if (
+  argv.verbose ||
+  argv.debug ||
+  digest.contentStr.includes("[Content ignored: file too large]")
+) {
+  console.log("\nFiles Content:\n");
+  console.log(digest.contentStr);
+}
 if (argv.pipe) {
   console.log(`\n${RESULTS_SAVED_MARKER} ${resultFilePath}`);
 }

@@ -14,13 +14,15 @@ export function runCli() {
       alias: "i",
       array: true,
       type: "string",
-      describe: "Glob or path patterns to include. Comma or multiple flags allowed.",
+      describe:
+        "Glob or path patterns to include. Comma or multiple flags allowed.",
     })
     .option("exclude", {
       alias: "e",
       array: true,
       type: "string",
-      describe: "Glob or path patterns to exclude. Comma or multiple flags allowed.",
+      describe:
+        "Glob or path patterns to exclude. Comma or multiple flags allowed.",
     })
     .option("find", {
       alias: "f",
@@ -90,7 +92,8 @@ export function runCli() {
     .option("use-regular-git", {
       type: "boolean",
       default: false,
-      describe: "Use regular system Git commands (authenticated git) instead of simple-git",
+      describe:
+        "Use regular system Git commands (authenticated git) instead of simple-git",
     })
     .option("open", {
       alias: "o",
@@ -98,19 +101,27 @@ export function runCli() {
       default: false,
       describe: "Open results in editor",
     })
+    .option("verbose", {
+      type: "boolean",
+      default: false,
+      describe: "Include detailed file contents in the output",
+    })
     .option("graph", {
       alias: "g",
       type: "string",
       nargs: 1,
-      describe: "Analyze dependency graph starting from the given file using madge",
+      describe:
+        "Analyze dependency graph starting from the given file using madge",
     })
     .help()
     .alias("help", "h")
     .parseSync();
-  
+
   // In test mode with graph flag, bypass standard argument processing
   if (process.env["VITEST"] && argv.graph) {
-    console.log("[DEBUG] Test mode with graph flag detected, bypassing standard argument processing");
+    console.log(
+      "[DEBUG] Test mode with graph flag detected, bypassing standard argument processing"
+    );
     return {
       ...argv,
       _: [],
@@ -120,7 +131,7 @@ export function runCli() {
       noIntro: true,
     };
   }
-  
+
   return argv;
 }
 

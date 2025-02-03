@@ -14,8 +14,8 @@
     "dist"
   ],
   "scripts": {
-    "test": "vitest --watch false",
-    "test:watch": "vitest --watch",
+    "test": "pnpm build && vitest --watch false",
+    "test:watch": "pnpm build && vitest --watch",
     "dev": "node --experimental-strip-types src/index.ts",
     "build": "tsc",
     "build:check": "tsc --noEmit",

@@ -1,9 +1,8 @@
 // src/graph.ts
 import madge from "madge";
-import { promises as fs } from "node:fs";
 import { resolve, dirname, basename } from "node:path";
-import { isLikelyTextFile } from "./ingest.js";
 import { IngestFlags } from "./types.js";
+import { getFileContent } from "./fileUtils.js";
 
 // Recursively build a tree string from the dependency graph
 function buildDependencyTree(
@@ -55,21 +54,11 @@ async function gatherGraphFiles(
     seenPaths.add(relativePath);
 
     try {
-      const stat = await fs.stat(file);
-      if (stat.size > maxSize) {
-        fileContents[
-          relativePath
-        ] = `================================\nFile: ${relativePath}\n================================\n[Content ignored: file too large]`;
-      } else if (await isLikelyTextFile(file)) {
-        const content = await fs.readFile(file, "utf8");
-        fileContents[
-          relativePath
-        ] = `================================\nFile: ${relativePath}\n================================\n${content}`;
-      } else {
-        fileContents[
-          relativePath
-        ] = `================================\nFile: ${relativePath}\n================================\n[Content ignored or non‑text file]`;
-      }
+      fileContents[relativePath] = await getFileContent(
+        file,
+        maxSize,
+        relativePath
+      );
     } catch (error) {
       console.error(`[DEBUG] Error reading file ${file}:`, error);
       fileContents[
