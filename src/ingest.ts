@@ -354,9 +354,19 @@ export async function filterFilesByContent(
   requireTerms: string[] = [],
 ): Promise<string[]> {
   if (!findTerms.length && !requireTerms.length) return files;
+  
+  // Split any comma-separated terms and flatten the arrays
+  const orTermsLower = findTerms
+    .flatMap(t => t.split(','))
+    .map(t => t.trim().toLowerCase())
+    .filter(t => t !== '');
+    
+  const andTermsLower = requireTerms
+    .flatMap(t => t.split(','))
+    .map(t => t.trim().toLowerCase())
+    .filter(t => t !== '');
+
   const matchingFiles: Set<string> = new Set();
-  const orTermsLower = findTerms.map((t: string) => t.toLowerCase());
-  const andTermsLower = requireTerms.map((t: string) => t.toLowerCase());
 
   const results = await Promise.allSettled(
     files.map(async (file) => {
