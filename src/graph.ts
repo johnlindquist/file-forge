@@ -1,7 +1,7 @@
 // src/graph.ts
 import madge from "madge";
 import { promises as fs } from "node:fs";
-import { resolve, dirname, isAbsolute } from "node:path";
+import { resolve, dirname, isAbsolute, basename } from "node:path";
 import { isLikelyTextFile } from "./ingest.js";
 import { IngestFlags } from "./types.js";
 
@@ -123,10 +123,7 @@ export async function ingestGraph(
   const allFiles = Array.from(allFilesSet);
   console.log("[DEBUG] All files found:", allFiles);
 
-  const treeStr = buildDependencyTree(
-    normalizedDeps,
-    entryFile.replace(process.cwd() + "/", "")
-  );
+  const treeStr = buildDependencyTree(normalizedDeps, basename(entryFile));
   console.log("[DEBUG] Generated tree structure:\n", treeStr);
 
   const fileContents = await gatherGraphFiles(
