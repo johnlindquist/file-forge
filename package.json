@@ -25,7 +25,9 @@
     "prepublishOnly": "pnpm build",
     "prepare": "husky && husky install",
     "pre-commit": "pnpm lint && pnpm build:check && pnpm verify:bin",
-    "semantic-release": "semantic-release"
+    "semantic-release": "semantic-release",
+    "check:include": "pnpm build && pnpm exec node dist/index.js -i src",
+    "check:graph": "pnpm build && pnpm exec node dist/index.js -g src/graph.ts"
   },
   "publishConfig": {
     "access": "public"

@@ -1,7 +1,7 @@
 // src/graph.ts
 import madge from "madge";
 import { promises as fs } from "node:fs";
-import { resolve } from "node:path";
+import { resolve, dirname, isAbsolute } from "node:path";
 import { isLikelyTextFile } from "./ingest.js";
 import { IngestFlags } from "./types.js";
 
@@ -27,7 +27,12 @@ function buildDependencyTree(
       treeStr +=
         prefix +
         connector +
-        buildDependencyTree(deps, child, new Set(visited), newPrefix).trimStart();
+        buildDependencyTree(
+          deps,
+          child,
+          new Set(visited),
+          newPrefix
+        ).trimStart();
     }
   });
   return treeStr;
@@ -40,16 +45,14 @@ async function gatherGraphFiles(
 ): Promise<{ [filePath: string]: string }> {
   const fileContents: { [filePath: string]: string } = {};
   const seenPaths = new Set<string>();
-  
+
   for (const file of files) {
-    // Normalize to relative path
-    const relativePath = file.includes(process.cwd()) 
-      ? file.replace(process.cwd() + '/', '')
-      : file;
-      
+    // Get the original relative path for storing in the result
+    const relativePath = file.replace(process.cwd() + "/", "");
+
     if (seenPaths.has(relativePath)) continue;
     seenPaths.add(relativePath);
-    
+
     try {
       const stat = await fs.stat(file);
       if (stat.size > maxSize) {
@@ -60,7 +63,8 @@ async function gatherGraphFiles(
       } else {
         fileContents[relativePath] = "[Content ignored or non‑text file]";
       }
-    } catch {
+    } catch (error) {
+      console.error(`[DEBUG] Error reading file ${file}:`, error);
       fileContents[relativePath] = "[Error reading file]";
     }
   }
@@ -74,17 +78,19 @@ export async function ingestGraph(
 ): Promise<{ summary: string; treeStr: string; contentStr: string }> {
   console.log("[DEBUG] Starting ingestGraph with entry file:", entryFile);
   const resolvedEntry = resolve(entryFile);
+  const baseDir = dirname(resolvedEntry);
   console.log("[DEBUG] Resolved entry path:", resolvedEntry);
-  
+  console.log("[DEBUG] Base directory:", baseDir);
+
   let madgeResult;
   try {
     console.log("[DEBUG] Running madge analysis...");
-    madgeResult = await madge(resolvedEntry, { 
+    madgeResult = await madge(resolvedEntry, {
       fileExtensions: ["js", "jsx", "ts", "tsx"],
       detectiveOptions: {
         es6: { mixedImports: true },
-        ts: { mixedImports: true }
-      }
+        ts: { mixedImports: true },
+      },
     });
     console.log("[DEBUG] Madge analysis complete");
     console.log("[DEBUG] Raw madge result:", madgeResult);
@@ -92,51 +98,64 @@ export async function ingestGraph(
     console.error("[DEBUG] Madge failed:", error);
     throw new Error(`Madge failed: ${error}`);
   }
-  
+
   const deps = madgeResult.obj();
   console.log("[DEBUG] Dependencies object:", JSON.stringify(deps, null, 2));
-  
+
   // Normalize all paths to be relative to cwd
   const normalizedDeps: { [key: string]: string[] } = {};
   for (const [key, value] of Object.entries(deps)) {
-    const normalizedKey = key.includes(process.cwd()) 
-      ? key.replace(process.cwd() + '/', '') 
+    const normalizedKey = key.includes(process.cwd())
+      ? key.replace(process.cwd() + "/", "")
       : key;
-    const normalizedValues = (value as string[]).map(dep => 
-      dep.includes(process.cwd()) 
-        ? dep.replace(process.cwd() + '/', '') 
-        : dep
+    const normalizedValues = (value as string[]).map((dep) =>
+      dep.includes(process.cwd()) ? dep.replace(process.cwd() + "/", "") : dep
     );
     normalizedDeps[normalizedKey] = normalizedValues;
   }
-  
+
   // Collect all files from the normalized graph
   const allFilesSet = new Set<string>(Object.keys(normalizedDeps));
-  Object.values(normalizedDeps).forEach(deps => {
-    deps.forEach(dep => allFilesSet.add(dep));
+  Object.values(normalizedDeps).forEach((deps) => {
+    deps.forEach((dep) => allFilesSet.add(dep));
   });
-  
+
   const allFiles = Array.from(allFilesSet);
   console.log("[DEBUG] All files found:", allFiles);
-  
-  const treeStr = buildDependencyTree(normalizedDeps, entryFile.replace(process.cwd() + '/', ''));
+
+  const treeStr = buildDependencyTree(
+    normalizedDeps,
+    entryFile.replace(process.cwd() + "/", "")
+  );
   console.log("[DEBUG] Generated tree structure:\n", treeStr);
-  
+
   const fileContents = await gatherGraphFiles(
-    allFiles.map(f => resolve(f)), // Resolve for fs operations
+    allFiles.map((f) => (isAbsolute(f) ? f : resolve(baseDir, f))),
     flags.maxSize || DEFAULT_MAX_SIZE
   );
-  console.log("[DEBUG] Gathered file contents for", Object.keys(fileContents).length, "files");
-  
+  console.log(
+    "[DEBUG] Gathered file contents for",
+    Object.keys(fileContents).length,
+    "files"
+  );
+
   let contentStr = "";
   for (const file of allFiles) {
-    console.log("[DEBUG] Processing file content for:", file);
+    const resolvedFile = isAbsolute(file) ? file : resolve(baseDir, file);
+    const relativePath = resolvedFile.replace(process.cwd() + "/", "");
+    console.log(
+      "[DEBUG] Processing file content for:",
+      file,
+      "resolved to:",
+      relativePath
+    );
     contentStr += `================================\nFile: ${file}\n================================\n`;
-    contentStr += fileContents[file] + "\n\n";
+    contentStr +=
+      (fileContents[relativePath] || "[File content not found]") + "\n\n";
   }
-  
+
   const summary = `# ghi\n\nDependency Graph Analysis starting from: ${entryFile}\nFiles analyzed: ${allFiles.length}`;
   console.log("[DEBUG] Generated summary:", summary);
-  
+
   return { summary, treeStr, contentStr };
-} 
+}
