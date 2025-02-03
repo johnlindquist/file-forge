@@ -358,30 +358,48 @@ export async function filterFilesByContent(
   const orTermsLower = findTerms.map((t: string) => t.toLowerCase());
   const andTermsLower = requireTerms.map((t: string) => t.toLowerCase());
 
-  await Promise.all(
+  const results = await Promise.allSettled(
     files.map(async (file) => {
       const fileNameLower = basename(file).toLowerCase();
+      
+      // First check filename matches for OR terms
       if (orTermsLower.some((term: string) => fileNameLower.includes(term))) {
-        matchingFiles.add(file);
-        return;
+        return file;
       }
-      if (!(await isLikelyTextFile(file))) return;
+
+      // Skip non-text files early
+      if (!(await isLikelyTextFile(file))) return null;
+
       try {
         const fstat = await fs.lstat(file);
-        if (fstat.size > DEFAULT_MAX_SIZE) return;
+        if (fstat.size > DEFAULT_MAX_SIZE) return null;
+        
         const content = (await fs.readFile(file, "utf8")).toLowerCase();
-        if (orTermsLower.some((term: string) => content.includes(term))) {
-          matchingFiles.add(file);
-          return;
+        
+        // Check content for OR terms
+        if (orTermsLower.length && orTermsLower.some((term: string) => content.includes(term))) {
+          return file;
         }
+        
+        // Check content for AND terms
         if (andTermsLower.length && andTermsLower.every((term: string) => content.includes(term))) {
-          matchingFiles.add(file);
+          return file;
         }
-      } catch {
-        return;
+        
+        return null;
+      } catch (error) {
+        console.error(`Error reading file ${file}:`, error);
+        return null;
       }
     }),
   );
+
+  results.forEach((result) => {
+    if (result.status === 'fulfilled' && result.value) {
+      matchingFiles.add(result.value);
+    }
+  });
+
   return Array.from(matchingFiles);
 }
 

@@ -39,19 +39,29 @@ async function gatherGraphFiles(
   maxSize: number
 ): Promise<{ [filePath: string]: string }> {
   const fileContents: { [filePath: string]: string } = {};
+  const seenPaths = new Set<string>();
+  
   for (const file of files) {
+    // Normalize to relative path
+    const relativePath = file.includes(process.cwd()) 
+      ? file.replace(process.cwd() + '/', '')
+      : file;
+      
+    if (seenPaths.has(relativePath)) continue;
+    seenPaths.add(relativePath);
+    
     try {
       const stat = await fs.stat(file);
       if (stat.size > maxSize) {
-        fileContents[file] = "[Content ignored: file too large]";
+        fileContents[relativePath] = "[Content ignored: file too large]";
       } else if (await isLikelyTextFile(file)) {
         const content = await fs.readFile(file, "utf8");
-        fileContents[file] = content;
+        fileContents[relativePath] = content;
       } else {
-        fileContents[file] = "[Content ignored or non‑text file]";
+        fileContents[relativePath] = "[Content ignored or non‑text file]";
       }
     } catch {
-      fileContents[file] = "[Error reading file]";
+      fileContents[relativePath] = "[Error reading file]";
     }
   }
   return fileContents;
