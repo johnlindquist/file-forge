@@ -137,18 +137,20 @@ export async function ingestGraph(
   );
 
   let contentStr = "";
-  for (const file of allFiles) {
-    const resolvedFile = isAbsolute(file) ? file : resolve(baseDir, file);
-    const relativePath = resolvedFile.replace(process.cwd() + "/", "");
-    console.log(
-      "[DEBUG] Processing file content for:",
-      file,
-      "resolved to:",
-      relativePath
-    );
-    contentStr += `================================\nFile: ${file}\n================================\n`;
-    contentStr +=
-      (fileContents[relativePath] || "[File content not found]") + "\n\n";
+  if (flags.verbose || flags.debug) {
+    for (const file of allFiles) {
+      const resolvedFile = isAbsolute(file) ? file : resolve(baseDir, file);
+      const relativePath = resolvedFile.replace(process.cwd() + "/", "");
+      console.log(
+        "[DEBUG] Processing file content for:",
+        file,
+        "resolved to:",
+        relativePath
+      );
+      contentStr += `================================\nFile: ${file}\n================================\n`;
+      contentStr +=
+        (fileContents[relativePath] || "[File content not found]") + "\n\n";
+    }
   }
 
   const summary = `# ghi\n\nDependency Graph Analysis starting from: ${entryFile}\nFiles analyzed: ${allFiles.length}`;

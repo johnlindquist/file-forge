@@ -10,7 +10,7 @@ export type IngestFlags = {
   exclude?: string[];
   branch?: string | undefined;
   commit?: string | undefined;
-  maxSize?: number;
+  maxSize?: number | undefined;
   pipe?: boolean | undefined;
   debug?: boolean | undefined;
   bulk?: boolean | undefined;
@@ -23,6 +23,8 @@ export type IngestFlags = {
   useRegularGit?: boolean | undefined;
   open?: boolean | undefined;
   graph?: string | undefined;
+  verbose?: boolean | undefined;
+  test?: boolean | undefined;
 };
 
 export type ScanStats = {

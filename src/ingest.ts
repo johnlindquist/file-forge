@@ -64,7 +64,7 @@ const DEFAULT_IGNORE = [
  */
 export async function ingestDirectory(
   basePath: string,
-  flags: IngestFlags,
+  flags: IngestFlags
 ): Promise<{ summary: string; treeStr: string; contentStr: string }> {
   // Handle branch/commit checkout if needed
   if (flags.branch || flags.commit) {
@@ -136,7 +136,8 @@ export async function ingestDirectory(
 
   const stats: ScanStats = { totalFiles: 0, totalSize: 0 };
   const rootNode = await scanDirectory(basePath, flags, 0, stats);
-  if (!rootNode) throw new Error("No files found or directory is empty after scanning.");
+  if (!rootNode)
+    throw new Error("No files found or directory is empty after scanning.");
 
   // Sort the tree for consistent ordering
   sortTree(rootNode);
@@ -157,27 +158,43 @@ export async function ingestDirectory(
   const maxSize = flags.maxSize ?? DEFAULT_MAX_SIZE;
   const fileNodes = await gatherFiles(rootNode, maxSize);
 
-  let contentStr = "";
-  for (const f of fileNodes) {
-    contentStr += `================================\nFile: ${f.path.replace(
-      basePath,
-      ""
-    )}\n================================\n`;
-    contentStr += f.content ?? "[Content ignored or non‑text file]\n";
-    contentStr += "\n";
+  const fileContents: { [filePath: string]: string } = {};
+  const seenPaths = new Set<string>();
+
+  for (const file of fileNodes) {
+    // Get the original relative path for storing in the result
+    const relativePath = file.path.replace(process.cwd() + "/", "");
+
+    if (seenPaths.has(relativePath)) continue;
+    seenPaths.add(relativePath);
+
+    try {
+      const stat = await fs.stat(file.path);
+      if (stat.size > maxSize) {
+        fileContents[
+          relativePath
+        ] = `================================\nFile: ${relativePath}\n================================\n[Content ignored: file too large]`;
+      } else if (await isLikelyTextFile(file.path)) {
+        const content = await fs.readFile(file.path, "utf8");
+        fileContents[
+          relativePath
+        ] = `================================\nFile: ${relativePath}\n================================\n${content}`;
+      } else {
+        fileContents[
+          relativePath
+        ] = `================================\nFile: ${relativePath}\n================================\n[Content ignored or non‑text file]`;
+      }
+    } catch (error) {
+      console.error(`[DEBUG] Error reading file ${file.path}:`, error);
+      fileContents[
+        relativePath
+      ] = `================================\nFile: ${relativePath}\n================================\n[Error reading file]`;
+    }
   }
 
-  if (flags.bulk) {
-    contentStr +=
-      "\n---\nWhen I provide a set of files with paths and content, please return **one single shell script** that does the following:\n\n";
-    contentStr += "1. Creates the necessary directories for all files.\n";
-    contentStr +=
-      "2. Outputs the final content of each file using `cat << 'EOF' > path/filename` ... `EOF`.\n";
-    contentStr +=
-      "3. Ensures it's a single code fence I can copy and paste into my terminal.\n";
-    contentStr += "4. Ends with a success message.\n\n";
-    contentStr +=
-      "Use `#!/usr/bin/env bash` at the start and make sure each `cat` block ends with `EOF`.\n---\n";
+  let contentStr = "";
+  for (const filePath in fileContents) {
+    contentStr += fileContents[filePath] + "\n";
   }
 
   return { summary: summaryLines.join("\n"), treeStr, contentStr };
@@ -188,7 +205,7 @@ export async function scanDirectory(
   dir: string,
   options: IngestFlags,
   depth = 0,
-  stats: ScanStats = { totalFiles: 0, totalSize: 0 },
+  stats: ScanStats = { totalFiles: 0, totalSize: 0 }
 ): Promise<TreeNode | null> {
   if (depth > DIR_MAX_DEPTH) {
     if (options.debug) console.log("[DEBUG] Max depth reached:", dir);
@@ -201,9 +218,16 @@ export async function scanDirectory(
     return null;
   }
   if (!stat.isDirectory()) return null;
-  if (stats.totalFiles >= DIR_MAX_FILES || stats.totalSize >= DIR_MAX_TOTAL_SIZE) {
+  if (
+    stats.totalFiles >= DIR_MAX_FILES ||
+    stats.totalSize >= DIR_MAX_TOTAL_SIZE
+  ) {
     if (options.debug)
-      console.log("[DEBUG] Max files/size reached:", stats.totalFiles, stats.totalSize);
+      console.log(
+        "[DEBUG] Max files/size reached:",
+        stats.totalFiles,
+        stats.totalSize
+      );
     return null;
   }
 
@@ -221,7 +245,9 @@ export async function scanDirectory(
     } catch {}
   }
 
-  const patterns = options.include?.length ? options.include : ["**/*", "**/.*"];
+  const patterns = options.include?.length
+    ? options.include
+    : ["**/*", "**/.*"];
   const ignorePatterns =
     options.ignore === false
       ? [...(options.exclude ?? [])]
@@ -240,7 +266,7 @@ export async function scanDirectory(
   const files = await globby(patterns, {
     cwd: dir,
     ignore: ignorePatterns,
-    dot: false,
+    dot: true,
     absolute: true,
     onlyFiles: true,
   });
@@ -249,7 +275,9 @@ export async function scanDirectory(
   const rawFindTerms =
     typeof options.find === "string" ? [options.find] : options.find || [];
   const rawRequireTerms =
-    typeof options.require === "string" ? [options.require] : options.require || [];
+    typeof options.require === "string"
+      ? [options.require]
+      : options.require || [];
   const findTerms = rawFindTerms.filter((term) => term.trim() !== "");
   const requireTerms = rawRequireTerms.filter((term) => term.trim() !== "");
   if (findTerms.length > 0 || requireTerms.length > 0) {
@@ -277,9 +305,16 @@ export async function scanDirectory(
       const fstat = await fs.lstat(file);
       stats.totalFiles++;
       stats.totalSize += fstat.size;
-      if (stats.totalFiles > DIR_MAX_FILES || stats.totalSize > DIR_MAX_TOTAL_SIZE) {
+      if (
+        stats.totalFiles > DIR_MAX_FILES ||
+        stats.totalSize > DIR_MAX_TOTAL_SIZE
+      ) {
         if (options.debug)
-          console.log("[DEBUG] Max files/size reached:", stats.totalFiles, stats.totalSize);
+          console.log(
+            "[DEBUG] Max files/size reached:",
+            stats.totalFiles,
+            stats.totalSize
+          );
         break;
       }
       const relPath = file.slice(dir.length + 1);
@@ -289,7 +324,7 @@ export async function scanDirectory(
         const segment = segments[i];
         if (!segment) continue;
         let child = currentNode.children?.find(
-          (n) => n.type === "directory" && n.name === segment,
+          (n) => n.type === "directory" && n.name === segment
         );
         if (!child) {
           child = {
@@ -330,7 +365,8 @@ export async function scanDirectory(
         node.size += fstat.size;
       }
     } catch (err) {
-      if (options.debug) console.log("[DEBUG] Error processing file:", file, err);
+      if (options.debug)
+        console.log("[DEBUG] Error processing file:", file, err);
     }
   }
   node.file_count = stats.totalFiles;
@@ -340,7 +376,9 @@ export async function scanDirectory(
 /** Recursively sort the tree's children alphabetically by name */
 export function sortTree(node: TreeNode): void {
   if (node.children) {
-    node.children.sort((a: TreeNode, b: TreeNode) => a.name.localeCompare(b.name));
+    node.children.sort((a: TreeNode, b: TreeNode) =>
+      a.name.localeCompare(b.name)
+    );
     for (const child of node.children) {
       if (child.type === "directory") sortTree(child);
     }
@@ -351,27 +389,27 @@ export function sortTree(node: TreeNode): void {
 export async function filterFilesByContent(
   files: string[],
   findTerms: string[] = [],
-  requireTerms: string[] = [],
+  requireTerms: string[] = []
 ): Promise<string[]> {
   if (!findTerms.length && !requireTerms.length) return files;
-  
+
   // Split any comma-separated terms and flatten the arrays
   const orTermsLower = findTerms
-    .flatMap(t => t.split(','))
-    .map(t => t.trim().toLowerCase())
-    .filter(t => t !== '');
-    
+    .flatMap((t) => t.split(","))
+    .map((t) => t.trim().toLowerCase())
+    .filter((t) => t !== "");
+
   const andTermsLower = requireTerms
-    .flatMap(t => t.split(','))
-    .map(t => t.trim().toLowerCase())
-    .filter(t => t !== '');
+    .flatMap((t) => t.split(","))
+    .map((t) => t.trim().toLowerCase())
+    .filter((t) => t !== "");
 
   const matchingFiles: Set<string> = new Set();
 
   const results = await Promise.allSettled(
     files.map(async (file) => {
       const fileNameLower = basename(file).toLowerCase();
-      
+
       // First check filename matches for OR terms
       if (orTermsLower.some((term: string) => fileNameLower.includes(term))) {
         return file;
@@ -383,28 +421,32 @@ export async function filterFilesByContent(
       try {
         const fstat = await fs.lstat(file);
         if (fstat.size > DEFAULT_MAX_SIZE) return null;
-        
+
         const content = (await fs.readFile(file, "utf8")).toLowerCase();
-        
+
         // Check content for OR terms
-        const matchesFind = orTermsLower.length && orTermsLower.some((term: string) => content.includes(term));
-        
+        const matchesFind =
+          orTermsLower.length &&
+          orTermsLower.some((term: string) => content.includes(term));
+
         // Check content for AND terms - only if we have require terms
-        const matchesRequire = andTermsLower.length && andTermsLower.every((term: string) => content.includes(term));
-        
+        const matchesRequire =
+          andTermsLower.length &&
+          andTermsLower.every((term: string) => content.includes(term));
+
         // Return the file if it matches either condition
-        return (matchesFind || matchesRequire) ? file : null;
+        return matchesFind || matchesRequire ? file : null;
       } catch (error) {
         if (error instanceof Error) {
           console.error(`Error reading file ${file}:`, error.message);
         }
         return null;
       }
-    }),
+    })
   );
 
   results.forEach((result) => {
-    if (result.status === 'fulfilled' && result.value) {
+    if (result.status === "fulfilled" && result.value) {
       matchingFiles.add(result.value);
     }
   });
@@ -415,7 +457,7 @@ export async function filterFilesByContent(
 /** Recursively gather file nodes and read their content */
 export async function gatherFiles(
   root: TreeNode,
-  maxSize: number,
+  maxSize: number
 ): Promise<TreeNode[]> {
   const files: TreeNode[] = [];
 
@@ -448,8 +490,21 @@ export async function gatherFiles(
 /** Check if a file is likely a text file by reading its first bytes */
 export async function isLikelyTextFile(filePath: string): Promise<boolean> {
   // Common text file extensions
-  const textExtensions = ['.txt', '.js', '.ts', '.jsx', '.tsx', '.md', '.json', '.yml', '.yaml', '.css', '.html', '.xml'];
-  const ext = filePath.toLowerCase().slice(filePath.lastIndexOf('.'));
+  const textExtensions = [
+    ".txt",
+    ".js",
+    ".ts",
+    ".jsx",
+    ".tsx",
+    ".md",
+    ".json",
+    ".yml",
+    ".yaml",
+    ".css",
+    ".html",
+    ".xml",
+  ];
+  const ext = filePath.toLowerCase().slice(filePath.lastIndexOf("."));
   if (textExtensions.includes(ext)) return true;
 
   try {
@@ -468,15 +523,23 @@ export async function isLikelyTextFile(filePath: string): Promise<boolean> {
 }
 
 /** Create a tree-like string representation of the directory structure */
-export function createTree(node: TreeNode, prefix: string, isLast = true): string {
+export function createTree(
+  node: TreeNode,
+  prefix: string,
+  isLast = true
+): string {
   const branchStr = isLast ? "└── " : "├── ";
-  const tree = `${prefix}${branchStr}${node.name}${node.type === "directory" ? "/" : ""}\n`;
+  const tree = `${prefix}${branchStr}${node.name}${
+    node.type === "directory" ? "/" : ""
+  }\n`;
   if (node.type === "directory" && node.children && node.children.length > 0) {
     const newPrefix = `${prefix}${isLast ? "    " : "│   "}`;
     return (
       tree +
       node.children
-        .map((child: TreeNode, idx: number) => createTree(child, newPrefix, idx === node.children!.length - 1))
+        .map((child: TreeNode, idx: number) =>
+          createTree(child, newPrefix, idx === node.children!.length - 1)
+        )
         .join("")
     );
   }
