@@ -78,10 +78,23 @@ if (argv.graph) {
 
     // In test mode or when NO_INTRO is set, output exactly what the test expects
     if (argv.test || process.env["NO_INTRO"]) {
-      process.stdout.write(summary + "\n\n");
-      process.stdout.write("## Files Content\n\n```\n");
-      process.stdout.write(contentStr + "\n");
-      process.stdout.write("```\n");
+      output = [
+        "# ghi",
+        `**Source**: \`${String(entryFile)}\``,
+        `**Timestamp**: ${new Date().toString()}`,
+        "## Summary",
+        summary,
+        "## Directory Structure",
+        "```",
+        treeStr,
+        "```",
+        "## Files Content",
+        "```",
+        contentStr,
+        "```",
+      ].join("\n\n");
+
+      process.stdout.write(output);
       if (argv.pipe) {
         process.stdout.write(`\n${RESULTS_SAVED_MARKER} ${resultFilePath}`);
       }
@@ -237,6 +250,7 @@ const outputParts = [
 const shouldIncludeContent =
   argv.verbose ||
   argv.debug ||
+  argv.test ||
   digest.contentStr.includes("[Content ignored: file too large]");
 if (shouldIncludeContent) {
   outputParts.push("## Files Content", "```", digest.contentStr, "```");
