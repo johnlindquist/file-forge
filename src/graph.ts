@@ -1,11 +1,9 @@
 // src/graph.ts
 import madge from "madge";
 import { promises as fs } from "node:fs";
-import { resolve, dirname, isAbsolute, basename } from "node:path";
+import { resolve, dirname, basename } from "node:path";
 import { isLikelyTextFile } from "./ingest.js";
 import { IngestFlags } from "./types.js";
-
-const DEFAULT_MAX_SIZE = 10 * 1024 * 1024; // 10MB
 
 // Recursively build a tree string from the dependency graph
 function buildDependencyTree(
@@ -42,7 +40,10 @@ function buildDependencyTree(
 async function gatherGraphFiles(
   files: string[],
   maxSize: number
-): Promise<{ [filePath: string]: string }> {
+): Promise<{
+  fileContents: { [filePath: string]: string };
+  contentStr: string;
+}> {
   const fileContents: { [filePath: string]: string } = {};
   const seenPaths = new Set<string>();
 
@@ -56,19 +57,34 @@ async function gatherGraphFiles(
     try {
       const stat = await fs.stat(file);
       if (stat.size > maxSize) {
-        fileContents[relativePath] = "[Content ignored: file too large]";
+        fileContents[
+          relativePath
+        ] = `================================\nFile: ${relativePath}\n================================\n[Content ignored: file too large]`;
       } else if (await isLikelyTextFile(file)) {
         const content = await fs.readFile(file, "utf8");
-        fileContents[relativePath] = content;
+        fileContents[
+          relativePath
+        ] = `================================\nFile: ${relativePath}\n================================\n${content}`;
       } else {
-        fileContents[relativePath] = "[Content ignored or non‑text file]";
+        fileContents[
+          relativePath
+        ] = `================================\nFile: ${relativePath}\n================================\n[Content ignored or non‑text file]`;
       }
     } catch (error) {
       console.error(`[DEBUG] Error reading file ${file}:`, error);
-      fileContents[relativePath] = "[Error reading file]";
+      fileContents[
+        relativePath
+      ] = `================================\nFile: ${relativePath}\n================================\n[Error reading file]`;
     }
   }
-  return fileContents;
+
+  // Join all file contents with newlines
+  let contentStr = "";
+  for (const filePath in fileContents) {
+    contentStr += fileContents[filePath] + "\n\n";
+  }
+
+  return { fileContents, contentStr };
 }
 
 // Main function to ingest the dependency graph
@@ -96,65 +112,41 @@ export async function ingestGraph(
     console.log("[DEBUG] Raw madge result:", madgeResult);
   } catch (error) {
     console.error("[DEBUG] Madge failed:", error);
-    throw new Error(`Madge failed: ${error}`);
+    throw error;
   }
 
-  const deps = madgeResult.obj();
-  console.log("[DEBUG] Dependencies object:", JSON.stringify(deps, null, 2));
-
-  // Normalize all paths to be relative to cwd
-  const normalizedDeps: { [key: string]: string[] } = {};
-  for (const [key, value] of Object.entries(deps)) {
-    const normalizedKey = key.includes(process.cwd())
-      ? key.replace(process.cwd() + "/", "")
-      : key;
-    const normalizedValues = (value as string[]).map((dep) =>
-      dep.includes(process.cwd()) ? dep.replace(process.cwd() + "/", "") : dep
-    );
-    normalizedDeps[normalizedKey] = normalizedValues;
-  }
-
-  // Collect all files from the normalized graph
-  const allFilesSet = new Set<string>(Object.keys(normalizedDeps));
-  Object.values(normalizedDeps).forEach((deps) => {
-    deps.forEach((dep) => allFilesSet.add(dep));
-  });
-
-  const allFiles = Array.from(allFilesSet);
-  console.log("[DEBUG] All files found:", allFiles);
-
-  const treeStr = buildDependencyTree(normalizedDeps, basename(entryFile));
-  console.log("[DEBUG] Generated tree structure:\n", treeStr);
-
-  const fileContents = await gatherGraphFiles(
-    allFiles.map((f) => (isAbsolute(f) ? f : resolve(baseDir, f))),
-    flags.maxSize || DEFAULT_MAX_SIZE
-  );
+  const dependencies = madgeResult.obj();
   console.log(
-    "[DEBUG] Gathered file contents for",
-    Object.keys(fileContents).length,
-    "files"
+    "[DEBUG] Dependencies object:",
+    JSON.stringify(dependencies, null, 2)
   );
 
-  let contentStr = "";
-  if (flags.verbose || flags.debug) {
-    for (const file of allFiles) {
-      const resolvedFile = isAbsolute(file) ? file : resolve(baseDir, file);
-      const relativePath = resolvedFile.replace(process.cwd() + "/", "");
-      console.log(
-        "[DEBUG] Processing file content for:",
-        file,
-        "resolved to:",
-        relativePath
-      );
-      contentStr += `================================\nFile: ${file}\n================================\n`;
-      contentStr +=
-        (fileContents[relativePath] || "[File content not found]") + "\n\n";
+  // Get all unique files from the dependency tree
+  const allFiles = new Set<string>();
+  for (const [file, deps] of Object.entries(dependencies)) {
+    allFiles.add(resolve(baseDir, file));
+    for (const dep of deps) {
+      allFiles.add(resolve(baseDir, dep));
     }
   }
 
-  const summary = `# ghi\n\nDependency Graph Analysis starting from: ${entryFile}\nFiles analyzed: ${allFiles.length}`;
+  console.log("[DEBUG] All files found:", Array.from(allFiles));
+
+  // Build tree structure
+  const treeStr = buildDependencyTree(dependencies, basename(entryFile));
+  console.log("[DEBUG] Generated tree structure:\n", treeStr);
+
+  // Gather file contents
+  const { contentStr } = await gatherGraphFiles(
+    Array.from(allFiles),
+    flags.maxSize || 10 * 1024 * 1024
+  );
+
+  // Build summary
+  const summary = `Dependency Graph Analysis starting from: ${entryFile}\nFiles analyzed: ${allFiles.size}`;
   console.log("[DEBUG] Generated summary:", summary);
+
+  console.log("[DEBUG] Graph analysis complete");
 
   return { summary, treeStr, contentStr };
 }

@@ -246,13 +246,11 @@ const outputParts = [
   "```",
 ];
 
-// Always include file contents if debug is true, verbose is true, or if there are large files that need to be marked as ignored
-const shouldIncludeContent =
+if (
   argv.verbose ||
   argv.debug ||
-  argv.test ||
-  digest.contentStr.includes("[Content ignored: file too large]");
-if (shouldIncludeContent) {
+  digest.contentStr.includes("[Content ignored: file too large]")
+) {
   outputParts.push("## Files Content", "```", digest.contentStr, "```");
 }
 
