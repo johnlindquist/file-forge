@@ -4,7 +4,7 @@ import { getRepoPath } from "../src/repo.js";
 import { promises as fs } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
-import { execSync } from "child_process";
+import { simpleGit as createGit } from "simple-git";
 import { createHash } from "crypto";
 import envPaths from "env-paths";
 import { mkdirp } from "mkdirp";
@@ -28,27 +28,29 @@ describe("getRepoPath cloning behavior", () => {
     tempRoot = join(tmpdir(), "test-repo-clone-" + Date.now());
     await mkdirp(tempRoot);
 
-    // Configure Git for the test environment
-    execSync('git config --global user.email "test@example.com"');
-    execSync('git config --global user.name "Test User"');
-
     // Create repo1 in a temporary directory
     repo1Path = join(tempRoot, "repo1");
     await mkdirp(repo1Path);
-    execSync("git init", { cwd: repo1Path });
+    const git1 = createGit(repo1Path);
+    await git1.init();
+    await git1.addConfig("user.name", "Test User");
+    await git1.addConfig("user.email", "test@example.com");
     // Create a file "repo1.txt" with content "Repo 1"
     await fs.writeFile(join(repo1Path, "repo1.txt"), "Repo 1");
-    execSync("git add repo1.txt", { cwd: repo1Path });
-    execSync('git commit -m "Initial commit in repo1"', { cwd: repo1Path });
+    await git1.add("repo1.txt");
+    await git1.commit("Initial commit in repo1");
 
     // Create repo2 in a temporary directory
     repo2Path = join(tempRoot, "repo2");
     await mkdirp(repo2Path);
-    execSync("git init", { cwd: repo2Path });
+    const git2 = createGit(repo2Path);
+    await git2.init();
+    await git2.addConfig("user.name", "Test User");
+    await git2.addConfig("user.email", "test@example.com");
     // Create a file "repo2.txt" with content "Repo 2"
     await fs.writeFile(join(repo2Path, "repo2.txt"), "Repo 2");
-    execSync("git add repo2.txt", { cwd: repo2Path });
-    execSync('git commit -m "Initial commit in repo2"', { cwd: repo2Path });
+    await git2.add("repo2.txt");
+    await git2.commit("Initial commit in repo2");
   });
 
   afterEach(async () => {
@@ -65,10 +67,6 @@ describe("getRepoPath cloning behavior", () => {
     if (await fileExists(repo2CacheDir)) {
       await fs.rm(repo2CacheDir, { recursive: true, force: true });
     }
-
-    // Clean up the global Git config we set
-    execSync("git config --global --unset user.email");
-    execSync("git config --global --unset user.name");
   });
 
   it("clones distinct repositories based on their source paths", async () => {
