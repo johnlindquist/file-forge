@@ -43,13 +43,13 @@ export async function getRepoPath(
       source.startsWith("file://") ? source.slice(7) : source
     );
     if (!(await fileExists(localPath))) {
-      throw new Error(`Local path not found: \${localPath}`);
+      throw new Error(`Local path not found: ${localPath}`);
     }
     return localPath;
   }
 
   const cacheDir = envPaths("ghi").cache;
-  const repoDir = resolve(cacheDir, `ingest-\${_hashedSource}`);
+  const repoDir = resolve(cacheDir, `ingest-${_hashedSource}`);
 
   if (await fileExists(repoDir)) {
     const spinner = p.spinner();
