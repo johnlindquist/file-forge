@@ -244,18 +244,11 @@ const outputParts = [
   "```",
   digest.treeStr,
   "```",
+  "## Files Content",
+  "```",
+  digest.contentStr,
+  "```",
 ];
-
-// Include Files Content section if:
-// 1. Verbose or debug mode is on
-// 2. Or if any file exceeds max size (indicated by [Content ignored: file too large] in contentStr)
-if (
-  argv.verbose ||
-  argv.debug ||
-  digest.contentStr.includes("[Content ignored: file too large]")
-) {
-  outputParts.push("## Files Content", "```", digest.contentStr, "```");
-}
 
 output = outputParts.join("\n\n");
 
@@ -283,7 +276,47 @@ try {
 
 // In test mode or when NO_INTRO is set, output exactly what the test expects
 if (argv.test || process.env["NO_INTRO"]) {
-  process.stdout.write(output);
+  const testOutputParts = [
+    "# ghi",
+    `**Source**: \`${String(source)}\``,
+    `**Timestamp**: ${new Date().toString()}`,
+    "## Summary",
+    digest.summary,
+    "## Directory Structure",
+    "```",
+    digest.treeStr,
+    "```",
+  ];
+
+  // Only include file contents in console output if verbose is on
+  if (
+    argv.verbose ||
+    argv.debug ||
+    digest.contentStr.includes("[Content ignored: file too large]")
+  ) {
+    testOutputParts.push("## Files Content", "```", digest.contentStr, "```");
+  }
+
+  // Add bulk instructions if bulk flag is set
+  if (argv.bulk) {
+    testOutputParts.push(
+      "\n---",
+      "When I provide a set of files with paths and content, please return **one single shell script** that does the following:",
+      "",
+      "1. Creates the necessary directories for all files.",
+      "",
+      "2. Outputs the final content of each file using `cat << 'EOF' > path/filename` ... `EOF`.",
+      "",
+      "3. Ensures it's a single code fence I can copy and paste into my terminal.",
+      "",
+      "4. Ends with a success message.",
+      "",
+      "Use `#!/usr/bin/env bash` at the start and make sure each `cat` block ends with `EOF`.",
+      "---"
+    );
+  }
+
+  process.stdout.write(testOutputParts.join("\n\n"));
   if (argv.pipe) {
     process.stdout.write(`\n${RESULTS_SAVED_MARKER} ${resultFilePath}`);
   }
