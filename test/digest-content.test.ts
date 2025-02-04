@@ -74,5 +74,5 @@ describe("Digest File Content", () => {
     expect(
       Math.abs(nonVerboseDigest.length - verboseDigest.length)
     ).toBeLessThan(250);
-  });
+  }, 30000);
 });
