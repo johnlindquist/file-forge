@@ -28,6 +28,10 @@ describe("getRepoPath cloning behavior", () => {
     tempRoot = join(tmpdir(), "test-repo-clone-" + Date.now());
     await mkdirp(tempRoot);
 
+    // Configure Git for the test environment
+    execSync('git config --global user.email "test@example.com"');
+    execSync('git config --global user.name "Test User"');
+
     // Create repo1 in a temporary directory
     repo1Path = join(tempRoot, "repo1");
     await mkdirp(repo1Path);
@@ -35,10 +39,7 @@ describe("getRepoPath cloning behavior", () => {
     // Create a file "repo1.txt" with content "Repo 1"
     await fs.writeFile(join(repo1Path, "repo1.txt"), "Repo 1");
     execSync("git add repo1.txt", { cwd: repo1Path });
-    execSync(
-      'git commit -m "Initial commit in repo1" --author="Test <test@example.com>"',
-      { cwd: repo1Path }
-    );
+    execSync('git commit -m "Initial commit in repo1"', { cwd: repo1Path });
 
     // Create repo2 in a temporary directory
     repo2Path = join(tempRoot, "repo2");
@@ -47,10 +48,7 @@ describe("getRepoPath cloning behavior", () => {
     // Create a file "repo2.txt" with content "Repo 2"
     await fs.writeFile(join(repo2Path, "repo2.txt"), "Repo 2");
     execSync("git add repo2.txt", { cwd: repo2Path });
-    execSync(
-      'git commit -m "Initial commit in repo2" --author="Test <test@example.com>"',
-      { cwd: repo2Path }
-    );
+    execSync('git commit -m "Initial commit in repo2"', { cwd: repo2Path });
   });
 
   afterEach(async () => {
@@ -67,6 +65,10 @@ describe("getRepoPath cloning behavior", () => {
     if (await fileExists(repo2CacheDir)) {
       await fs.rm(repo2CacheDir, { recursive: true, force: true });
     }
+
+    // Clean up the global Git config we set
+    execSync("git config --global --unset user.email");
+    execSync("git config --global --unset user.name");
   });
 
   it("clones distinct repositories based on their source paths", async () => {
