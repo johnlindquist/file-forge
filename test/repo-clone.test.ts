@@ -70,9 +70,8 @@ describe("getRepoPath cloning behavior", () => {
   });
 
   it("clones distinct repositories based on their source paths", async () => {
-    // Prepare flags to use regular git cloning.
-    // We force cloning by passing isLocal = false.
-    const flags = { useRegularGit: true };
+    // Use simpleGit for cloning
+    const flags = { useRegularGit: false };
 
     // Call getRepoPath for each repository.
     const repo1Cache = await getRepoPath(
