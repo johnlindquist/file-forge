@@ -126,7 +126,12 @@ ${treeStr}
 \`\`\`
 `;
 
-    if (argv.verbose || argv.debug) {
+    // Show file contents in output if verbose/debug OR if there are large files to notify about
+    if (
+      argv.verbose ||
+      argv.debug ||
+      contentStr.includes("[Content ignored: file too large]")
+    ) {
       output += `
 ## Files Content
 
@@ -288,7 +293,7 @@ if (argv.test || process.env["NO_INTRO"]) {
     "```",
   ];
 
-  // Only include file contents in console output if verbose is on
+  // Show file contents in console only if verbose/debug is on
   if (
     argv.verbose ||
     argv.debug ||
@@ -300,7 +305,7 @@ if (argv.test || process.env["NO_INTRO"]) {
   // Add bulk instructions if bulk flag is set
   if (argv.bulk) {
     testOutputParts.push(
-      "\n---",
+      "---",
       "When I provide a set of files with paths and content, please return **one single shell script** that does the following:",
       "",
       "1. Creates the necessary directories for all files.",
@@ -316,6 +321,7 @@ if (argv.test || process.env["NO_INTRO"]) {
     );
   }
 
+  // Write output to stdout
   process.stdout.write(testOutputParts.join("\n\n"));
   if (argv.pipe) {
     process.stdout.write(`\n${RESULTS_SAVED_MARKER} ${resultFilePath}`);
@@ -328,6 +334,8 @@ if (argv.debug) console.log("[DEBUG] Normal mode, using formatted output");
 p.intro(digest.summary);
 console.log("\nDirectory Structure:\n");
 console.log(digest.treeStr);
+
+// Show file contents in console only if verbose/debug is on
 if (
   argv.verbose ||
   argv.debug ||
@@ -336,8 +344,40 @@ if (
   console.log("\nFiles Content:\n");
   console.log(digest.contentStr);
 }
+
 if (argv.pipe) {
   console.log(`\n${RESULTS_SAVED_MARKER} ${resultFilePath}`);
+}
+
+// Always include file contents in the saved file
+output = [
+  "# ghi",
+  `**Source**: \`${String(source)}\``,
+  `**Timestamp**: ${new Date().toString()}`,
+  "## Summary",
+  digest.summary,
+  "## Directory Structure",
+  "```",
+  digest.treeStr,
+  "```",
+  "## Files Content",
+  "```",
+  digest.contentStr,
+  "```",
+].join("\n\n");
+
+// Add bulk instructions after the main output
+if (argv.bulk) {
+  output +=
+    "\n\n---\nWhen I provide a set of files with paths and content, please return **one single shell script** that does the following:\n\n";
+  output += "1. Creates the necessary directories for all files.\n\n";
+  output +=
+    "2. Outputs the final content of each file using `cat << 'EOF' > path/filename` ... `EOF`.\n\n";
+  output +=
+    "3. Ensures it's a single code fence I can copy and paste into my terminal.\n\n";
+  output += "4. Ends with a success message.\n\n";
+  output +=
+    "Use `#!/usr/bin/env bash` at the start and make sure each `cat` block ends with `EOF`.\n---\n";
 }
 
 const fileSize = Buffer.byteLength(output, "utf8");
