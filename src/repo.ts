@@ -10,6 +10,7 @@ import * as p from "@clack/prompts";
 import { fileExists } from "./utils.js";
 import { IngestFlags } from "./types.js";
 import { resetGitRepo } from "./gitUtils.js";
+import { APP_SYSTEM_ID } from "./constants.js";
 
 /** Check if a string looks like a GitHub URL or a local file URL */
 export function isGitHubURL(input: string): { isValid: boolean; url: string } {
@@ -48,7 +49,7 @@ export async function getRepoPath(
     return localPath;
   }
 
-  const cacheDir = envPaths("ghi").cache;
+  const cacheDir = envPaths(APP_SYSTEM_ID).cache;
   const repoDir = resolve(cacheDir, `ingest-${_hashedSource}`);
 
   if (await fileExists(repoDir)) {

@@ -6,6 +6,7 @@ import { join, resolve } from "node:path";
 import { runCLI } from "./test-helpers";
 import { nanoid } from "nanoid";
 import envPaths from "env-paths";
+import { APP_SYSTEM_ID } from "../src/constants.js"
 
 describe("Repository Caching", () => {
 	let repoPath: string;
@@ -15,7 +16,7 @@ describe("Repository Caching", () => {
 		// Create a brand new temp directory for the test repo
 		const randomFolder = `cache-test-${nanoid()}`;
 		repoPath = join(tmpdir(), randomFolder);
-		cacheDir = envPaths("ghi").cache;
+		cacheDir = envPaths(APP_SYSTEM_ID).cache;
 
 		// Wipe if something is leftover
 		rmSync(repoPath, { recursive: true, force: true });
@@ -83,7 +84,9 @@ describe("Repository Caching", () => {
 
 		// Extract the saved file path from the output
 		const savedMatch = result1.stdout.match(/RESULTS_SAVED: (.+\.md)/);
-		expect(savedMatch).toBeTruthy();
+		if (!savedMatch) {
+			throw new Error("Could not find RESULTS_SAVED marker in output");
+		}
 		const [, savedPath] = savedMatch;
 		const savedContent = readFileSync(savedPath, "utf8");
 		expect(savedContent).toContain("initial.js");

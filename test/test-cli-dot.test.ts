@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import envPaths from "env-paths";
 import { runCLI } from "./test-helpers";
+import { APP_SYSTEM_ID } from "../src/constants"
 
 describe("CLI: ingest current directory with '.'", () => {
   it("should include files from the current directory and not throw 'No files found'", async () => {
@@ -12,7 +13,9 @@ describe("CLI: ingest current directory with '.'", () => {
       "test/fixtures/sample-project",
       "--debug",
       "--pipe",
-      "--skip-artifacts=false",
+      "--no-skip-artifacts",
+      "--ignore",
+      "false",
       "--verbose",
     ]);
 
@@ -31,7 +34,7 @@ describe("CLI: ingest current directory with '.'", () => {
     expect(savedMatch).toBeTruthy();
 
     const [, savedPath] = savedMatch;
-    const searchesDir = envPaths("ghi").config;
+    const searchesDir = envPaths(APP_SYSTEM_ID).config;
     const fullPath = resolve(searchesDir, savedPath.split("/").pop()!);
     const savedContent = readFileSync(fullPath, "utf8");
 

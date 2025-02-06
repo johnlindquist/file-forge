@@ -7,16 +7,13 @@ import envPaths from "env-paths";
 import { resolve } from "node:path";
 import { createHash } from "node:crypto";
 import { promises as fs } from "node:fs";
-import clipboard from "clipboardy";
 import * as p from "@clack/prompts";
-import { execSync } from "node:child_process";
-
 import { runCli } from "./cli.js";
-import { getEditorConfig } from "./editor.js";
 import { ingestDirectory } from "./ingest.js";
 import { ingestGraph } from "./graph.js";
 import { isGitHubURL, getRepoPath } from "./repo.js";
 import { IngestFlags } from "./types.js";
+import { APP_ANALYSIS_HEADER, APP_HEADER, APP_SYSTEM_ID } from "./constants.js"
 
 // Handle uncaught errors
 process.on("uncaughtException", (err: unknown) => {
@@ -37,9 +34,8 @@ try {
 
 /** Constants used in the main flow */
 const RESULTS_SAVED_MARKER = "RESULTS_SAVED:";
-const DEFAULT_LOG_DIR = envPaths("ghi").log;
-const DEFAULT_SEARCHES_DIR = envPaths("ghi").config;
-const MAX_EDITOR_SIZE = 5 * 1024 * 1024; // 5 MB
+const DEFAULT_LOG_DIR = envPaths(APP_SYSTEM_ID).log;
+const DEFAULT_SEARCHES_DIR = envPaths(APP_SYSTEM_ID).config;
 
 // Parse CLI arguments
 const argv = runCli() as IngestFlags & { _: (string | number)[] };
@@ -79,7 +75,7 @@ if (argv.graph) {
     // In test mode or when NO_INTRO is set, output exactly what the test expects
     if (argv.test || process.env["NO_INTRO"]) {
       output = [
-        "# ghi",
+        APP_HEADER,
         `**Source**: \`${String(entryFile)}\``,
         `**Timestamp**: ${new Date().toString()}`,
         "## Summary",
@@ -222,7 +218,7 @@ resultFilePath = resolve(
 
 // Only show intro message if not in test mode or NO_INTRO is not set
 if (!process.env["VITEST"] && !process.env["NO_INTRO"] && !argv.test) {
-  const introLines = ["🔍 ghi Analysis", `\nAnalyzing: ${source}`];
+  const introLines = [APP_ANALYSIS_HEADER, `\nAnalyzing: ${source}`];
   if (argv.find?.length)
     introLines.push(`Finding files containing: ${argv.find.join(", ")}`);
   if (argv.include?.length)
@@ -240,7 +236,7 @@ if (!process.env["VITEST"] && !process.env["NO_INTRO"] && !argv.test) {
 }
 
 const outputParts = [
-  "# ghi",
+  APP_HEADER,
   `**Source**: \`${String(source)}\``,
   `**Timestamp**: ${new Date().toString()}`,
   "## Summary",
@@ -282,7 +278,7 @@ try {
 // In test mode or when NO_INTRO is set, output exactly what the test expects
 if (argv.test || process.env["NO_INTRO"]) {
   const testOutputParts = [
-    "# ghi",
+    APP_HEADER,
     `**Source**: \`${String(source)}\``,
     `**Timestamp**: ${new Date().toString()}`,
     "## Summary",
@@ -351,7 +347,7 @@ if (argv.pipe) {
 
 // Always include file contents in the saved file
 output = [
-  "# ghi",
+  APP_HEADER,
   `**Source**: \`${String(source)}\``,
   `**Timestamp**: ${new Date().toString()}`,
   "## Summary",
@@ -365,66 +361,3 @@ output = [
   digest.contentStr,
   "```",
 ].join("\n\n");
-
-// Add bulk instructions after the main output
-if (argv.bulk) {
-  output +=
-    "\n\n---\nWhen I provide a set of files with paths and content, please return **one single shell script** that does the following:\n\n";
-  output += "1. Creates the necessary directories for all files.\n\n";
-  output +=
-    "2. Outputs the final content of each file using `cat << 'EOF' > path/filename` ... `EOF`.\n\n";
-  output +=
-    "3. Ensures it's a single code fence I can copy and paste into my terminal.\n\n";
-  output += "4. Ends with a success message.\n\n";
-  output +=
-    "Use `#!/usr/bin/env bash` at the start and make sure each `cat` block ends with `EOF`.\n---\n";
-}
-
-const fileSize = Buffer.byteLength(output, "utf8");
-if (fileSize > MAX_EDITOR_SIZE) {
-  p.note(
-    `${RESULTS_SAVED_MARKER} ${resultFilePath}`,
-    `Results saved to file (${Math.round(
-      fileSize / 1024 / 1024
-    )}MB). File too large for editor; open it manually.`
-  );
-  p.outro("Done! 🎉");
-  process.exit(0);
-} else {
-  if (argv.clipboard) {
-    try {
-      await clipboard.write(output);
-      p.note("Results copied to clipboard!");
-    } catch {
-      p.note("Failed to copy to clipboard");
-    }
-  }
-  if (!argv.open) {
-    p.note(
-      `${RESULTS_SAVED_MARKER} ${resultFilePath}`,
-      "Results saved to file."
-    );
-  } else {
-    const editorConfig = await getEditorConfig();
-    if (!editorConfig.skipEditor && editorConfig.command) {
-      try {
-        execSync(`${editorConfig.command} "${resultFilePath}"`);
-        p.note(
-          `${RESULTS_SAVED_MARKER} ${resultFilePath}`,
-          "Opened in your configured editor."
-        );
-      } catch {
-        p.note(
-          `${RESULTS_SAVED_MARKER} ${resultFilePath}`,
-          `Couldn't open with: ${editorConfig.command}`
-        );
-      }
-    } else {
-      p.note(
-        `${RESULTS_SAVED_MARKER} ${resultFilePath}`,
-        "You can open the file manually."
-      );
-    }
-  }
-  p.outro("Done! 🎉");
-}

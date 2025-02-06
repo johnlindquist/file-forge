@@ -1,14 +1,14 @@
 {
-  "name": "@johnlindquist/ghi",
-  "description": "Ingest GitHub repositories and local directories for analysis",
+  "name": "@johnlindquist/file-forge",
+  "description": "File Forge is a powerful CLI tool for deep analysis of codebases, generating markdown reports to feed AI reasoning models.",
   "repository": {
     "type": "git",
-    "url": "https://github.com/johnlindquist/ghi.git"
+    "url": "https://github.com/johnlindquist/file-forge.git"
   },
   "main": "dist/index.js",
   "type": "module",
   "bin": {
-    "ghi": "./dist/index.js"
+    "ffg": "./dist/index.js"
   },
   "files": [
     "dist"

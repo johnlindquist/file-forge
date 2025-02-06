@@ -9,6 +9,7 @@ import { createHash } from "crypto";
 import envPaths from "env-paths";
 import { mkdirp } from "mkdirp";
 import { fileExists } from "../src/utils.js";
+import { APP_SYSTEM_ID } from "../src/constants"
 
 // Helper: compute a short MD5 hash from the source URL/path
 function hashSource(source: string): string {
@@ -16,7 +17,7 @@ function hashSource(source: string): string {
 }
 
 // Determine the cache directory from envPaths
-const cacheDir = envPaths("ghi").cache;
+const cacheDir = envPaths(APP_SYSTEM_ID).cache;
 
 describe("getRepoPath cloning behavior", () => {
   let tempRoot: string;

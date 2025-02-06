@@ -1,267 +1,198 @@
-# ghi (GitHub Ingest)
+# File Forge
 
-**ghi** is a powerful command‑line tool for deep analysis of GitHub repositories and local directories. It scans your codebase to generate detailed markdown reports that include a summary, a visual directory tree, file metadata, and (optionally) file contents. Use it to quickly understand new projects, generate documentation, or integrate into your CI/CD workflows.
+**File Forge** is a powerful command‑line tool for deep analysis of codebases. It scans your codebase to generate detailed markdown reports that include a summary, a visual directory structure, and file contents. These reports are optimized for feeding into AI reasoning models.
 
-> **Note:** **ghi** supports both GitHub URLs (by cloning or updating a cached repository) and local directories. It can also generate dependency graphs for projects using tools like [madge](https://github.com/pahen/madge).
-
----
+> **Note:** **File Forge** supports both GitHub URLs (by cloning or updating a cached repository) and local directories. It can also generate dependency graphs for projects using tools like [madge](https://github.com/pahen/madge).
 
 ## Features
 
-- **Repository & Directory Analysis:** Analyze both remote GitHub repositories and local directories.
-- **Custom File Filtering:** Include or exclude files using glob patterns, or search by name and file content.
-- **Branch & Commit Checkout:** Clone and check out specific branches or commits.
-- **Graph Generation:** Create dependency graphs starting from a specified entry file.
-- **Output Options:** Save results to a file, pipe the output to STDOUT, or open the digest in your preferred editor.
-- **Editor Integration & Clipboard Support:** Configure your editor (or skip it) and even copy results directly to your clipboard.
-- **Debug & Verbose Modes:** Get detailed debug output or include full file contents when needed.
-- **Bulk Mode for AI Processing:** Append instructions for generating a single shell script that reconstructs the scanned file structure.
-
----
+- 📊 **Comprehensive Analysis**: Generates detailed reports with summaries, directory structures, and file contents
+- 🔍 **Smart Filtering**: Include/exclude files based on patterns, find specific content, or require certain strings
+- 📦 **GitHub Integration**: Clone repositories or use local directories
+- 🌳 **Dependency Graphs**: Generate visual dependency graphs for your project
+- 📋 **Multiple Output Options**: Save to file, pipe to another command, or copy to clipboard
+- 🎯 **Flexible Search**: Find files containing specific strings or requiring certain content
+- 🔄 **Git Branch/Commit Support**: Analyze specific branches or commits
 
 ## Installation
 
-Use your favorite package manager to install **ghi** globally. For example, with [pnpm](https://pnpm.io):
+Use your favorite package manager to install **File Forge** globally. For example, with [pnpm](https://pnpm.io):
 
 ```bash
-pnpm add -g ghi
+pnpm add -g @johnlindquist/file-forge
 ```
 
 Or with npm:
 
 ```bash
-npm install -g @johnlindquist/ghi
+npm install -g @johnlindquist/file-forge
 ```
-
----
 
 ## Usage
 
-The general usage syntax is:
+Basic usage:
 
 ```bash
-ghi [options] <repo-or-path>
+ffg [options] <repo-or-path>
 ```
 
-Where `<repo-or-path>` can be a GitHub repository URL or a local directory path.
+### Examples
 
-### Common Examples
-
-#### 1. Analyze a GitHub Repository
-
-Clone and analyze the repository on the default branch (usually `main`):
+#### Analyze a GitHub Repository
 
 ```bash
-ghi https://github.com/owner/repo
+ffg https://github.com/owner/repo
 ```
 
-#### 2. Analyze a Local Directory
-
-Scan a local directory with default settings:
+#### Analyze a Local Directory
 
 ```bash
-ghi /path/to/local/project
+ffg /path/to/local/project
 ```
 
-#### 3. Filter Files with Include/Exclude Patterns
-
-Include only specific files (e.g. only TypeScript files) and/or exclude unwanted files:
+#### Filter Files by Pattern
 
 ```bash
-ghi /path/to/project --include "*.ts,*.tsx" --exclude "*.spec.*,node_modules"
+ffg /path/to/project --include "*.ts,*.tsx" --exclude "*.spec.*,node_modules"
 ```
 
-#### 4. Search Within Files
-
-- **Find Mode (OR behavior):** Find files whose names or content contain *any* of the search terms:
-
-  ```bash
-  ghi /path/to/project --find "console,debug"
-  ```
-
-- **Require Mode (AND behavior):** Only return files that contain *all* specified terms in their content:
-
-  ```bash
-  ghi /path/to/project --require "console,log"
-  ```
-
-You can combine `--find` and `--require` to further fine‑tune the selection.
-
-#### 5. Checkout a Specific Branch or Commit
-
-- **Branch Checkout:**
-
-  ```bash
-  ghi https://github.com/owner/repo --branch develop
-  ```
-
-- **Commit Checkout:**
-
-  ```bash
-  ghi https://github.com/owner/repo --commit a1b2c3d
-  ```
-
-*(When using branch or commit options, **ghi** will perform the necessary Git operations either with the built‑in git library or using your system’s Git if `--use-regular-git` is specified.)*
-
-#### 6. Generate a Dependency Graph
-
-Analyze a project’s dependency structure starting from a given entry file:
+#### Find Files Containing Text
 
 ```bash
-ghi /path/to/project --graph /path/to/project/src/index.js
+ffg /path/to/project --find "console,debug"
 ```
 
-The output includes a tree‑formatted dependency graph and the content of the related files.
-
-#### 7. Output Options
-
-- **Pipe Mode:** Output the digest directly to STDOUT rather than opening an editor.
-
-  ```bash
-  ghi /path/to/project --pipe
-  ```
-
-- **Open in Editor:** Automatically open the results file in your preferred editor. On first use, you will be prompted to configure your editor command (e.g. `code`, `vim`, or `nano`):
-
-  ```bash
-  ghi /path/to/project --open
-  ```
-
-- **Clipboard Support:** Copy the results to your clipboard automatically:
-
-  ```bash
-  ghi /path/to/project --clipboard
-  ```
-
-#### 8. Bulk Mode for AI Shell Script Generation
-
-Append AI instructions at the end of the output to generate a single shell script that will recreate the file structure and content:
+#### Require Files to Have Content
 
 ```bash
-ghi /path/to/project --bulk --pipe
+ffg /path/to/project --require "console,log"
 ```
 
-#### 9. Debug and Verbose Modes
-
-- **Debug Mode:** Output extra debug logs to help troubleshoot issues.
-
-  ```bash
-  ghi /path/to/project --debug
-  ```
-
-- **Verbose Mode:** Include full file contents in the digest (useful for detailed analysis or troubleshooting).
-
-  ```bash
-  ghi /path/to/project --verbose
-  ```
-
-#### 10. Respecting .gitignore
-
-By default, **ghi** will read and apply `.gitignore` rules (and other common ignore patterns) to exclude build artifacts and cache files. To disable this behavior:
+#### Analyze a Specific Branch
 
 ```bash
-ghi /path/to/project --ignore=false
+ffg https://github.com/owner/repo --branch develop
 ```
 
----
+#### Analyze a Specific Commit
 
-## CLI Options Reference
+```bash
+ffg https://github.com/owner/repo --commit a1b2c3d
+```
 
-Below is a summary of the available options:
+*(When using branch or commit options, **File Forge** will perform the necessary Git operations either with the built‑in git library or using your system's Git if `--use-regular-git` is specified.)*
 
-| Flag(s)                    | Description |
-| -------------------------- | ----------- |
-| `--include, -i`            | Glob or path patterns to include (comma‑separated or repeatable). |
-| `--exclude, -e`            | Glob or path patterns to exclude (comma‑separated or repeatable). |
-| `--find, -f`               | Return files that contain **any** of these terms (searches file names and content). |
-| `--require, -r`            | Return files that contain **all** of these terms in their content. |
-| `--branch, -b`             | Git branch to clone or check out when analyzing a repository URL. |
-| `--commit, -c`             | Specific commit SHA to check out when analyzing a repository URL. |
-| `--max-size, -s`           | Maximum file size (in bytes) to process per file (default: 10 MB). Files exceeding this limit show a placeholder. |
-| `--pipe, -p`               | Pipe the final output to STDOUT (useful for scripting or CI). |
-| `--open, -o`               | Open the generated results file in your configured editor. |
-| `--debug`                  | Enable detailed debug logging. |
-| `--verbose`                | Include detailed file contents in the digest. |
-| `--bulk, -k`               | Append AI processing instructions for generating a shell script that rebuilds the file structure. |
-| `--ignore`                 | Whether to honor `.gitignore` rules (default: true). Use `--ignore=false` to disable. |
-| `--skip-artifacts`         | Skip dependency files, build artifacts, and generated assets (default: true). |
-| `--clipboard, -y`          | Copy the results to your clipboard. |
-| `--no-editor, -n`          | Save the results file but do not open it in an editor. |
-| `--use-regular-git`        | Use the system’s Git commands rather than a library-based Git client. |
-| `--graph, -g`              | Analyze a dependency graph starting from the specified entry file. |
+#### Generate a Dependency Graph
 
----
+```bash
+ffg /path/to/project --graph /path/to/project/src/index.js
+```
 
-## Output & Configuration
+#### Pipe Output to Another Command
 
-When **ghi** runs, it generates a markdown file containing:
+```bash
+ffg /path/to/project --pipe
+```
 
-- **Summary:** Basic information about the source (repository URL or local path), timestamp, and analysis details.
-- **Directory Structure:** A tree‑formatted representation of the project.
-- **Files Content:** The content of the files that were analyzed (if not skipped, and when verbose or debug modes are enabled).
-- **Additional AI Instructions:** (Only when using `--bulk`.)
+#### Open in Default Editor
 
-### Where Are the Results Saved?
+```bash
+ffg /path/to/project --open
+```
 
-The results file is saved to a system‑specific configuration directory:
+#### Copy to Clipboard
 
-- **macOS:** `~/Library/Preferences/ghi/config/`
-- **Linux:** `~/.config/ghi/config/`
-- **Windows:** `%APPDATA%/ghi/config/`
+```bash
+ffg /path/to/project --clipboard
+```
 
-If you run with the `--pipe` flag, the digest is printed to STDOUT as well as saved.
+#### Bulk Analysis Mode
 
-### Editor Configuration
+```bash
+ffg /path/to/project --bulk --pipe
+```
 
-On first use with the `--open` flag, you’ll be prompted to enter your preferred editor command (e.g., `code` for VS Code, `vim`, or `nano`). Your selection is saved for future runs.
+#### Debug Mode
 
----
+```bash
+ffg /path/to/project --debug
+```
+
+#### Verbose Output
+
+```bash
+ffg /path/to/project --verbose
+```
+
+### Ignore Patterns
+
+By default, **File Forge** will read and apply `.gitignore` rules (and other common ignore patterns) to exclude build artifacts and cache files. To disable this behavior:
+
+```bash
+ffg /path/to/project --ignore=false
+```
+
+## Output Format
+
+When **File Forge** runs, it generates a markdown file containing:
+
+1. **Summary**: A brief overview of the analyzed codebase
+2. **Directory Structure**: A visual tree of the project's file structure
+3. **File Contents**: The actual content of files (based on filters and options)
+4. **Dependency Graph**: (If requested) A visual representation of dependencies
+
+## Configuration
+
+Analysis results are saved in:
+
+- **macOS:** `~/Library/Preferences/@johnlindquist/file-forge/config/`
+- **Linux:** `~/.config/@johnlindquist/file-forge/config/`
+- **Windows:** `%APPDATA%/@johnlindquist/file-forge/config/`
 
 ## Development
 
-To contribute or run **ghi** locally:
+To contribute or run **File Forge** locally:
 
-1. **Clone the Repository:**
+```bash
+git clone https://github.com/johnlindquist/file-forge.git
+cd @johnlindquist/file-forge
+pnpm install
+pnpm build
+```
 
-   ```bash
-   git clone https://github.com/johnlindquist/ghi.git
-   cd ghi
-   ```
+### Scripts
 
-2. **Install Dependencies:**
+- `pnpm build`: Build the project
+- `pnpm test`: Run tests
+- `pnpm lint`: Run ESLint
+- `pnpm format`: Format code with Prettier
 
-   ```bash
-   pnpm install
-   ```
+### Testing
 
-3. **Run in Development Mode:**
+**File Forge** uses [Vitest](https://vitest.dev/) for testing:
 
-   You can run the CLI directly using:
+```bash
+pnpm test
+```
 
-   ```bash
-   pnpm node src/index.ts [options] <repo-or-path>
-   ```
+For watch mode:
 
-4. **Build:**
+```bash
+pnpm test:watch
+```
 
-   ```bash
-   pnpm build
-   ```
+## Contributing
 
-5. **Run Tests:**
-
-   **ghi** uses [Vitest](https://vitest.dev/) for testing:
-
-   ```bash
-   pnpm test
-   ```
-
----
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
 ## License
 
-This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
+This project is licensed under the MIT License - see the LICENSE file for details.
 
 ---
 
-By covering all of these scenarios and options, **ghi** provides a flexible solution for codebase analysis, whether you are exploring a new GitHub repository or need to generate comprehensive reports on local projects. Happy analyzing!
+By covering all of these scenarios and options, **File Forge** provides a flexible solution for codebase analysis, whether you are exploring a new GitHub repository or need to generate comprehensive reports on local projects. Happy analyzing!

@@ -2,6 +2,7 @@
 import { describe, it, expect } from "vitest";
 import { runCLI } from "./test-helpers";
 import { join } from "node:path";
+import { APP_HEADER } from "../src/constants.js"
 
 const FIXTURES_DIR = join(__dirname, "fixtures", "graph-project");
 const ENTRY_FILE = join(FIXTURES_DIR, "index.js");
@@ -15,7 +16,7 @@ describe("CLI --graph", () => {
       "--pipe",
     ]);
     expect(exitCode).toBe(0);
-    expect(stdout).toContain("# ghi");
+    expect(stdout).toContain(APP_HEADER);
     expect(stdout).toContain("Files analyzed: 3");
     expect(stdout).toContain("index.js");
     expect(stdout).toContain("module1.js");

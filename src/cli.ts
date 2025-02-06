@@ -1,13 +1,15 @@
 import { hideBin } from "yargs/helpers";
 import yargs from "yargs";
 import { readFileSync } from "fs";
+import { APP_COMMAND, APP_DESCRIPTION } from "./constants.js"
 
 const DEFAULT_MAX_SIZE = 10 * 1024 * 1024; // 10MB
 
 export function runCli() {
   const argv = yargs(hideBin(process.argv))
-    .scriptName("ghi")
+    .scriptName(APP_COMMAND)
     .usage("$0 [options] <repo-or-path>")
+    .epilogue(APP_DESCRIPTION)
     .version("version", "Show version number", getVersion())
     .alias("version", "v")
     .option("include", {

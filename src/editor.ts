@@ -3,10 +3,11 @@
 import Conf from "conf";
 import * as p from "@clack/prompts";
 import { EditorConfig } from "./types.js";
+import { APP_NAME } from "./constants.js"
 
 // Global configuration for editor settings
 const config = new Conf<{ editor: EditorConfig }>({
-  projectName: "ghi",
+  projectName: APP_NAME,
 });
 
 /** Prompt for editor configuration if not already set */
