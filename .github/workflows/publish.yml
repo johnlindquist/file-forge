@@ -36,7 +36,7 @@ jobs:
       - name: Verify CLI
         run: |
           pnpm link --global
-          ghi --help || exit 1
+          ffg --help || exit 1
       - name: Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
