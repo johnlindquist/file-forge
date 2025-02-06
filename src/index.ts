@@ -293,7 +293,7 @@ if (argv.test || process.env["NO_INTRO"]) {
     "```",
   ];
 
-  // Show file contents in console only if verbose/debug is on
+  // Show file contents in console only if verbose/debug is on OR if there are large files to notify about
   if (
     argv.verbose ||
     argv.debug ||
@@ -335,7 +335,7 @@ p.intro(digest.summary);
 console.log("\nDirectory Structure:\n");
 console.log(digest.treeStr);
 
-// Show file contents in console only if verbose/debug is on
+// Show file contents in console only if verbose/debug is on OR if there are large files to notify about
 if (
   argv.verbose ||
   argv.debug ||
