@@ -289,13 +289,13 @@ if (argv.test || process.env["NO_INTRO"]) {
     "```",
   ];
 
-  // Show file contents in console only if verbose/debug is on OR if there are large files to notify about
-  if (
-    argv.verbose ||
-    argv.debug ||
-    digest.contentStr.includes("[Content ignored: file too large]")
-  ) {
+  // Show file contents in console only if verbose/debug is on
+  if (argv.verbose || argv.debug) {
     testOutputParts.push("## Files Content", "```", digest.contentStr, "```");
+  } else if (digest.contentStr.includes("[Content ignored: file too large]")) {
+    // If there are large files, show the exact warning from the content
+    testOutputParts.push("\nFiles Content:\n");
+    testOutputParts.push("[Content ignored: file too large]");
   }
 
   // Add bulk instructions if bulk flag is set
@@ -331,14 +331,14 @@ p.intro(digest.summary);
 console.log("\nDirectory Structure:\n");
 console.log(digest.treeStr);
 
-// Show file contents in console only if verbose/debug is on OR if there are large files to notify about
-if (
-  argv.verbose ||
-  argv.debug ||
-  digest.contentStr.includes("[Content ignored: file too large]")
-) {
+// Show file contents in console only if verbose/debug is on
+if (argv.verbose || argv.debug) {
   console.log("\nFiles Content:\n");
   console.log(digest.contentStr);
+} else if (digest.contentStr.includes("[Content ignored: file too large]")) {
+  // If there are large files, show the exact warning from the content
+  console.log("\nFiles Content:\n");
+  console.log("[Content ignored: file too large]");
 }
 
 if (argv.pipe) {
@@ -361,3 +361,16 @@ output = [
   digest.contentStr,
   "```",
 ].join("\n\n");
+
+if (argv.bulk) {
+  output +=
+    "\n\n---\nWhen I provide a set of files with paths and content, please return **one single shell script** that does the following:\n\n";
+  output += "1. Creates the necessary directories for all files.\n\n";
+  output +=
+    "2. Outputs the final content of each file using `cat << 'EOF' > path/filename` ... `EOF`.\n\n";
+  output +=
+    "3. Ensures it's a single code fence I can copy and paste into my terminal.\n\n";
+  output += "4. Ends with a success message.\n\n";
+  output +=
+    "Use `#!/usr/bin/env bash` at the start and make sure each `cat` block ends with `EOF`.\n---\n";
+}

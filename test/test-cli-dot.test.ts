@@ -11,12 +11,10 @@ describe("CLI: ingest current directory with '.'", () => {
     // Use the test fixtures directory instead of the whole project
     const { stdout, stderr, exitCode } = await runCLI([
       "test/fixtures/sample-project",
-      "--debug",
       "--pipe",
       "--no-skip-artifacts",
       "--ignore",
-      "false",
-      "--verbose",
+      "false"
     ]);
 
     console.log("CLI STDOUT:\n", stdout);
