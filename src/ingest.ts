@@ -77,12 +77,7 @@ export async function ingestDirectory(
       throw new Error("Cannot checkout branch/commit: not a git repository");
     }
     try {
-      await resetGitRepo(
-        basePath,
-        flags.branch,
-        flags.commit,
-        flags.useRegularGit
-      );
+      await resetRepo(basePath, flags);
     } catch (error) {
       throw new Error(
         error instanceof Error ? error.message : "Failed to checkout repository"
@@ -138,6 +133,19 @@ export async function ingestDirectory(
   }
 
   return { summary: summaryLines.join("\n"), treeStr, contentStr };
+}
+
+/** Reset a Git repository to a specific state */
+export async function resetRepo(
+  repoPath: string,
+  flags: IngestFlags
+): Promise<void> {
+  await resetGitRepo({
+    branch: flags.branch,
+    commit: flags.commit,
+    useRegularGit: flags.useRegularGit,
+    repoPath,
+  });
 }
 
 /** Recursively scan a directory using async fs operations */

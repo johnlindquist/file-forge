@@ -1,110 +1,103 @@
 // src/repo.ts
 
-import { resolve } from "node:path";
-import { promises as fs } from "node:fs";
-import { execSync } from "node:child_process";
+import { join } from "node:path";
 import { simpleGit as createGit } from "simple-git";
-import { mkdirp } from "mkdirp";
-import envPaths from "env-paths";
+import { existsSync, rmSync } from "fs";
 import * as p from "@clack/prompts";
-import { fileExists } from "./utils.js";
-import { IngestFlags } from "./types.js";
-import { resetGitRepo } from "./gitUtils.js";
+import envPaths from "env-paths";
 import { APP_SYSTEM_ID } from "./constants.js";
+import { formatErrorMessage, formatSpinnerMessage } from "./formatter.js";
+import { resetGitRepo } from "./gitUtils.js";
+import { GitResetOptions } from "./types.js";
 
 /** Check if a string looks like a GitHub URL or a local file URL */
-export function isGitHubURL(input: string): { isValid: boolean; url: string } {
-  const str = input.trim();
-  if (/^https?:\/\/(www\.)?github\.com\//i.test(str)) {
-    return { isValid: true, url: str };
-  }
-  if (str.startsWith("github.com/")) {
-    return { isValid: true, url: `https://${str}` };
-  }
-  if (str.startsWith("file://")) {
-    return { isValid: true, url: str };
-  }
-  return { isValid: false, url: "" };
+export function isGitUrl(str: string): boolean {
+  return (
+    str.startsWith("git://") ||
+    str.startsWith("git@") ||
+    str.startsWith("https://") ||
+    str.startsWith("file://") ||
+    str.startsWith("github.com/") ||
+    str.startsWith("www.github.com/")
+  );
 }
 
-/**
- * Get a cached repository path or clone (or update) if needed.
- *
- * For local paths, just verify they exist.
- */
+/** Get the path to a repository, cloning it if necessary */
 export async function getRepoPath(
   source: string,
-  _hashedSource: string,
-  flags: IngestFlags,
-  isLocal: boolean
+  hash: string,
+  argv: GitResetOptions = {},
+  isLocal = false
 ): Promise<string> {
-  // For local paths
-  if (isLocal || source.startsWith("file://")) {
-    const localPath = resolve(
-      source.startsWith("file://") ? source.slice(7) : source
-    );
-    if (!(await fileExists(localPath))) {
-      throw new Error(`Local path not found: ${localPath}`);
-    }
-    return localPath;
-  }
-
-  const cacheDir = envPaths(APP_SYSTEM_ID).cache;
-  const repoDir = resolve(cacheDir, `ingest-${_hashedSource}`);
-
-  if (await fileExists(repoDir)) {
-    const spinner = p.spinner();
-    spinner.start("Repository exists, updating...");
-    try {
-      if (flags.useRegularGit) {
-        execSync("git fetch --all", { cwd: repoDir, stdio: "pipe" });
-      } else {
-        const git = createGit(repoDir);
-        await git.fetch(["--all"]);
-      }
-
-      await resetGitRepo(
-        repoDir,
-        flags.branch,
-        flags.commit,
-        flags.useRegularGit
-      );
-      spinner.stop("Repository updated successfully.");
-      return repoDir;
-    } catch {
-      spinner.stop("Update failed, recloning...");
-      await fs.rm(repoDir, { recursive: true, force: true });
-    }
+  if (isLocal) {
+    return source;
   }
 
   const spinner = p.spinner();
-  spinner.start("Cloning repository...");
+  const paths = envPaths(APP_SYSTEM_ID);
+  const repoPath = join(paths.cache, `ingest-${hash}`);
+
   try {
-    await mkdirp(repoDir);
-    if (flags.useRegularGit) {
-      let cmd = "git clone";
-      if (!flags.commit) {
-        cmd += " --depth=1";
-        if (flags.branch) cmd += ` --branch ${flags.branch}`;
-      }
-      cmd += ` ${source} ${repoDir}`;
-      execSync(cmd, { stdio: "pipe" });
-    } else {
-      const git = createGit();
-      if (flags.commit) {
-        await git.clone(source, repoDir);
-      } else {
-        const cloneOptions = ["--depth=1"];
-        if (flags.branch) {
-          cloneOptions.push("--branch", flags.branch);
-        }
-        await git.clone(source, repoDir, cloneOptions);
+    // Check if repo exists and has a valid .git directory
+    const repoExists = existsSync(repoPath);
+    const isValidRepo = existsSync(join(repoPath, ".git"));
+    console.log(
+      "Debug: repoExists =",
+      repoExists,
+      "isValidRepo =",
+      isValidRepo,
+      "for path",
+      repoPath
+    );
+
+    // If repo exists but is invalid, remove it
+    if (repoExists && !isValidRepo) {
+      console.log("Debug: Removing corrupted repository");
+      rmSync(repoPath, { recursive: true, force: true });
+    }
+
+    if (isValidRepo) {
+      spinner.start(formatSpinnerMessage("Updating repository..."));
+      try {
+        const git = createGit(repoPath);
+        await git.fetch(["--all"]);
+        await git.pull();
+        spinner.stop(formatSpinnerMessage("Repository updated"));
+      } catch (error) {
+        // If update fails, remove the repo and reclone
+        console.log("Debug: Update failed with error:", error);
+        rmSync(repoPath, { recursive: true, force: true });
+        spinner.stop(
+          formatErrorMessage(`Repository update failed, will reclone: ${error}`)
+        );
+
+        // Reclone after removing
+        spinner.start(formatSpinnerMessage("Recloning repository..."));
+        await createGit().clone(source, repoPath);
+        spinner.stop(formatSpinnerMessage("Repository recloned"));
       }
     }
-    spinner.stop("Repository cloned successfully.");
-    return repoDir;
-  } catch (err) {
-    spinner.stop("Clone failed.");
-    throw err;
+
+    if (!isValidRepo) {
+      console.log("Debug: Cloning repository for the first time");
+      spinner.start(formatSpinnerMessage("Cloning repository..."));
+      await createGit().clone(source, repoPath);
+      spinner.stop(formatSpinnerMessage("Repository cloned"));
+    }
+
+    // Reset to specific commit/branch if requested
+    if (argv.commit || argv.branch) {
+      console.log("Debug: Resetting to commit/branch:", {
+        commit: argv.commit,
+        branch: argv.branch,
+      });
+      await resetGitRepo({ ...argv, repoPath });
+    }
+
+    return repoPath;
+  } catch (error) {
+    console.log("Debug: Fatal error:", error);
+    spinner.stop(formatErrorMessage(`Failed to prepare repository: ${error}`));
+    throw error;
   }
 }

@@ -43,3 +43,11 @@ export interface TreeNode {
   dir_count: number;
   parent?: TreeNode;
 }
+
+export interface GitResetOptions {
+  branch?: string | undefined;
+  commit?: string | undefined;
+  useRegularGit?: boolean | undefined;
+  source?: string | undefined;
+  repoPath?: string | undefined;
+}

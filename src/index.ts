@@ -11,14 +11,22 @@ import * as p from "@clack/prompts";
 import { runCli } from "./cli.js";
 import { ingestDirectory } from "./ingest.js";
 import { ingestGraph } from "./graph.js";
-import { isGitHubURL, getRepoPath } from "./repo.js";
+import { isGitUrl, getRepoPath } from "./repo.js";
 import { IngestFlags } from "./types.js";
 import { APP_ANALYSIS_HEADER, APP_HEADER, APP_SYSTEM_ID } from "./constants.js";
 import clipboard from "clipboardy";
+import {
+  formatDebugMessage,
+  formatErrorMessage,
+  formatIntroMessage,
+  formatSpinnerMessage,
+  formatClipboardMessage,
+  formatSaveMessage,
+} from "./formatter.js";
 
 // Handle uncaught errors
 process.on("uncaughtException", (err: unknown) => {
-  console.error("Uncaught exception:", err);
+  console.error(formatErrorMessage("Uncaught exception: " + err));
   if (process.env["VITEST"]) throw err;
   process.exit(1);
 });
@@ -51,18 +59,22 @@ if (argv.graph) {
   try {
     await fs.access(entryFile);
   } catch {
-    console.error(`Graph entry file not found: ${entryFile}`);
+    console.error(
+      formatErrorMessage(`Graph entry file not found: ${entryFile}`)
+    );
     process.exit(1);
   }
 
   try {
-    console.log("[DEBUG] Starting graph analysis for:", entryFile);
+    console.log(
+      formatDebugMessage("Starting graph analysis for: " + entryFile)
+    );
     const { summary, treeStr, contentStr } = await ingestGraph(entryFile, {
       maxSize: argv.maxSize,
       verbose: argv.verbose,
       debug: argv.debug,
     });
-    console.log("[DEBUG] Graph analysis complete");
+    console.log(formatDebugMessage("Graph analysis complete"));
 
     // Save results
     resultFilePath = resolve(
@@ -99,8 +111,8 @@ if (argv.graph) {
     }
 
     // Normal mode with pretty formatting
-    console.log("[DEBUG] Normal mode, using formatted output");
-    p.intro(summary);
+    console.log(formatDebugMessage("Normal mode, using formatted output"));
+    p.intro(formatIntroMessage(summary));
     console.log("\nDirectory Structure:\n");
     console.log(treeStr);
     if (argv.verbose || argv.debug) {
@@ -140,15 +152,15 @@ ${contentStr}
 
     try {
       await fs.writeFile(resultFilePath, output, "utf8");
-      console.log("[DEBUG] Results saved to:", resultFilePath);
+      console.log(formatDebugMessage("Results saved to: " + resultFilePath));
     } catch (err) {
-      console.error("[DEBUG] Failed to save results:", err);
+      console.error(formatErrorMessage("Failed to save results: " + err));
       process.exit(1);
     }
 
     process.exit(0);
   } catch (error) {
-    p.cancel(`Graph analysis failed: ${error}`);
+    p.cancel(formatErrorMessage(`Graph analysis failed: ${error}`));
     process.exit(1);
   }
 } else {
@@ -157,23 +169,23 @@ ${contentStr}
     srcArg = process.cwd();
     if (argv.debug)
       console.log(
-        "[DEBUG] No source provided, using current directory:",
-        srcArg
+        formatDebugMessage(
+          "No source provided, using current directory: " + srcArg
+        )
       );
   }
   const srcStr = String(srcArg);
-  if (isGitHubURL(srcStr).isValid) {
+  if (isGitUrl(srcStr)) {
     try {
-      const { url } = isGitHubURL(srcStr);
-      source = url;
+      source = srcStr;
       var finalPath = await getRepoPath(
-        url,
+        source,
         createHash("md5").update(String(srcStr)).digest("hex").slice(0, 6),
         argv,
         false
       );
     } catch {
-      p.cancel("Failed to clone repository");
+      p.cancel(formatErrorMessage("Failed to clone repository"));
       process.exit(1);
     }
   } else {
@@ -187,19 +199,21 @@ ${contentStr}
       );
     } catch (err) {
       p.cancel(
-        err instanceof Error ? err.message : "Failed to access directory"
+        formatErrorMessage(
+          err instanceof Error ? err.message : "Failed to access directory"
+        )
       );
       process.exit(1);
     }
   }
   const spinner2 = p.spinner();
-  spinner2.start("Building text digest...");
+  spinner2.start(formatSpinnerMessage("Building text digest..."));
   try {
     digest = await ingestDirectory(finalPath, argv);
-    spinner2.stop("Text digest built.");
+    spinner2.stop(formatSpinnerMessage("Text digest built."));
   } catch {
-    spinner2.stop("Digest build failed.");
-    p.cancel("Failed to build digest");
+    spinner2.stop(formatSpinnerMessage("Digest build failed."));
+    p.cancel(formatErrorMessage("Failed to build digest"));
     process.exit(1);
   }
 }
@@ -233,7 +247,7 @@ if (!process.env["VITEST"] && !process.env["NO_INTRO"] && !argv.test) {
   if (argv.skipArtifacts)
     introLines.push("Skipping build artifacts and generated files");
   if (!argv.ignore) introLines.push("Ignoring .gitignore rules");
-  p.intro(introLines.join("\n"));
+  p.intro(formatIntroMessage(introLines.join("\n")));
 }
 
 // Export handleOutput for testing
@@ -279,9 +293,10 @@ export async function handleOutput(
   // Save to file
   try {
     await fs.writeFile(resultFilePath, output, "utf8");
-    if (argv.debug) console.log("[DEBUG] Results saved to:", resultFilePath);
+    if (argv.debug)
+      console.log(formatDebugMessage("Results saved to: " + resultFilePath));
   } catch (err) {
-    console.error("[DEBUG] Failed to save results:", err);
+    console.error(formatErrorMessage("Failed to save results: " + err));
     process.exit(1);
   }
 
@@ -314,7 +329,7 @@ export async function handleOutput(
     // Copy to clipboard if requested
     if (argv.clipboard) {
       clipboard.writeSync(testOutput);
-      console.log("\n✨ Copied to clipboard");
+      console.log("\n" + formatClipboardMessage());
     }
 
     if (argv.pipe) {
@@ -346,12 +361,13 @@ export async function handleOutput(
     // Copy to clipboard if requested
     if (argv.clipboard) {
       clipboard.writeSync(output);
-      console.log("\n✨ Copied to clipboard");
+      console.log("\n" + formatClipboardMessage());
     }
   } else {
     // Normal mode with pretty formatting
-    if (argv.debug) console.log("[DEBUG] Normal mode, using formatted output");
-    p.intro(digest.summary);
+    if (argv.debug)
+      console.log(formatDebugMessage("Normal mode, using formatted output"));
+    p.intro(formatIntroMessage(digest.summary));
     console.log("\nDirectory Structure:\n");
     console.log(digest.treeStr);
 
@@ -378,13 +394,14 @@ export async function handleOutput(
     // Copy to clipboard if requested
     if (argv.clipboard) {
       clipboard.writeSync(output);
-      console.log("\n✨ Copied to clipboard");
+      console.log("\n" + formatClipboardMessage());
     }
   }
 
   // Always show the file path unless in test mode
   if (!argv.test && !process.env["NO_INTRO"]) {
     console.log(`\n${RESULTS_SAVED_MARKER} ${resultFilePath}`);
+    console.log(formatSaveMessage(resultFilePath));
   }
 }
 
