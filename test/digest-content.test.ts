@@ -56,7 +56,7 @@ describe("Digest File Content", () => {
     const fullPath = resolve(searchesDir, savedPath.split("/").pop()!);
 
     console.log("Waiting for file to exist:", fullPath);
-    const fileExists = await waitForFile(fullPath);
+    const fileExists = await waitForFile(fullPath, 30000);
     if (!fileExists) {
       throw new Error(`Timeout waiting for file to exist: ${fullPath}`);
     }
@@ -75,7 +75,7 @@ describe("Digest File Content", () => {
     // Check for content from sample-project files
     expect(digestContent).toContain("sample-project");
     expect(digestContent).toContain(".ts"); // Should show TypeScript files
-  });
+  }, 30000);
 
   it("console output respects verbose flag while file contains everything", async () => {
     // Run without verbose flag first

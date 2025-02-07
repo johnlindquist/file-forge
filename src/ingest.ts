@@ -104,7 +104,7 @@ Files analyzed: ${stats.totalFiles}`;
     .map((f) => `${f.path}:\n${f.content}`)
     .join("\n\n")
     .replace(/# File Forge Analysis[\s\S]*?Files analyzed: \d+\n\n/g, "")
-    .replace(/## Directory Structure[\s\S]*?\`\`\`\n\n/g, "");
+    .replace(/## Directory Structure[\s\S]*?```\n\n/g, "");
 
   const fileContentsSection = `## Files Content\n\n\`\`\`\n${fileContents}\n\`\`\``;
 
