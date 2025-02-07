@@ -314,6 +314,7 @@ export async function handleOutput(
     // Copy to clipboard if requested
     if (argv.clipboard) {
       clipboard.writeSync(testOutput);
+      console.log("\n✨ Copied to clipboard");
     }
 
     if (argv.pipe) {
@@ -345,6 +346,7 @@ export async function handleOutput(
     // Copy to clipboard if requested
     if (argv.clipboard) {
       clipboard.writeSync(output);
+      console.log("\n✨ Copied to clipboard");
     }
   } else {
     // Normal mode with pretty formatting
@@ -376,6 +378,7 @@ export async function handleOutput(
     // Copy to clipboard if requested
     if (argv.clipboard) {
       clipboard.writeSync(output);
+      console.log("\n✨ Copied to clipboard");
     }
   }
 
