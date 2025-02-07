@@ -109,7 +109,12 @@ export async function ingestDirectory(
   // Build content string
   const contentStr = await buildContentString(files, flags);
 
-  return { summary: summaryLines.join("\n"), treeStr, contentStr };
+  // Format the output with markdown sections
+  const summary = `## Summary\n\n${summaryLines.join("\n")}`;
+  const tree = `## Directory Structure\n\n\`\`\`\n${treeStr}\n\`\`\``;
+  const content = `## Files Content\n\n${contentStr}`;
+
+  return { summary, treeStr: tree, contentStr: content };
 }
 
 /** Reset a Git repository to a specific state */
