@@ -28,7 +28,7 @@ import * as p from "@clack/prompts";
 export function formatIntroMessage(message: string, useClack = true): string {
   const formattedMessage = `\x1b[1m\x1b[32m🔍 ${message}\x1b[0m`;
   if (useClack) {
-    p.intro(`🔍 ${message}`);
+    p.intro(message);
   }
   return formattedMessage;
 }

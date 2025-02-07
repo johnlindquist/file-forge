@@ -8,6 +8,7 @@ import { fileExists } from "./utils.js";
 import { IngestFlags, ScanStats, TreeNode } from "./types.js";
 import { getFileContent } from "./fileUtils.js";
 import { resetGitRepo } from "./gitUtils.js";
+import { BRANCH_STATUS, COMMIT_STATUS } from "./constants.js";
 
 /** Constants for ingest */
 const DEFAULT_MAX_SIZE = 10 * 1024 * 1024; // 10 MB
@@ -85,52 +86,24 @@ export async function ingestDirectory(
     }
   }
 
-  const rootNode = await scanDirectory(basePath, flags);
-  if (!rootNode)
-    throw new Error("No files found or directory is empty after scanning.");
+  // Process files and get tree structure
+  const { files, treeStr } = await processFiles(basePath, flags);
 
-  // Sort the tree for consistent ordering
-  sortTree(rootNode);
+  // Build summary once
+  const summaryLines = [
+    `Analyzing: ${basePath}`,
+    flags.include?.length
+      ? `Including patterns: ${flags.include.join(", ")}`
+      : null,
+    flags.maxSize ? `Max file size: ${flags.maxSize}KB` : null,
+    flags.skipArtifacts ? "Skipping build artifacts and generated files" : null,
+    flags.branch ? BRANCH_STATUS(flags.branch) : null,
+    flags.commit ? COMMIT_STATUS(flags.commit) : null,
+    `Files analyzed: ${files.length}`,
+  ].filter(Boolean);
 
-  const summaryLines: string[] = [];
-  summaryLines.push(`Directory: ${basePath}`);
-  summaryLines.push(`Files analyzed: ${rootNode.file_count ?? 0}`);
-  if (
-    flags.branch &&
-    flags.branch.toLowerCase() !== "main" &&
-    flags.branch.toLowerCase() !== "master"
-  ) {
-    summaryLines.push(`Branch: ${flags.branch}`);
-  }
-  if (flags.commit) summaryLines.push(`Commit: ${flags.commit}`);
-
-  const treeStr = createTree(rootNode, "");
-  const fileNodes = await gatherFiles(rootNode, flags);
-
-  const fileContents: { [filePath: string]: string } = {};
-  const seenPaths = new Set<string>();
-
-  for (const file of fileNodes) {
-    // Get the original relative path for storing in the result
-    const relativePath = file.path.replace(basePath + "/", "");
-
-    if (seenPaths.has(relativePath)) continue;
-    seenPaths.add(relativePath);
-
-    try {
-      fileContents[relativePath] = file.content;
-    } catch (error) {
-      console.error(`[DEBUG] Error reading file ${file.path}:`, error);
-      fileContents[
-        relativePath
-      ] = `================================\nFile: ${relativePath}\n================================\n[Error reading file]`;
-    }
-  }
-
-  let contentStr = "";
-  for (const filePath in fileContents) {
-    contentStr += fileContents[filePath] + "\n";
-  }
+  // Build content string
+  const contentStr = await buildContentString(files, flags);
 
   return { summary: summaryLines.join("\n"), treeStr, contentStr };
 }
@@ -512,4 +485,32 @@ export function createTree(
     );
   }
   return tree;
+}
+
+/** Process files from a directory */
+async function processFiles(basePath: string, flags: IngestFlags) {
+  const rootNode = await scanDirectory(basePath, flags);
+  if (!rootNode)
+    throw new Error("No files found or directory is empty after scanning.");
+
+  const files = await gatherFiles(rootNode, flags);
+  const treeStr = createTree(rootNode, "");
+
+  return { files, treeStr };
+}
+
+/** Build a formatted string of file contents */
+async function buildContentString(
+  files: FileContent[],
+  flags: IngestFlags
+): Promise<string> {
+  let contentStr = "";
+  for (const file of files) {
+    const relativePath = file.path.replace(
+      flags.basePath ? flags.basePath + "/" : "",
+      ""
+    );
+    contentStr += `================================\nFile: ${relativePath}\n================================\n${file.content}\n\n`;
+  }
+  return contentStr;
 }

@@ -25,6 +25,7 @@ export type IngestFlags = {
   graph?: string | undefined;
   verbose?: boolean | undefined;
   test?: boolean | undefined;
+  basePath?: string;
 };
 
 export type ScanStats = {

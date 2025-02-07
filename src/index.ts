@@ -233,11 +233,9 @@ resultFilePath = resolve(
 
 // Only show intro message if not in test mode or NO_INTRO is not set
 if (!process.env["VITEST"] && !process.env["NO_INTRO"] && !argv.test) {
-  const introLines = [APP_ANALYSIS_HEADER, `\nAnalyzing: ${source}`];
+  const introLines = [APP_ANALYSIS_HEADER];
   if (argv.find?.length)
     introLines.push(`Finding files containing: ${argv.find.join(", ")}`);
-  if (argv.include?.length)
-    introLines.push(`Including patterns: ${argv.include.join(", ")}`);
   if (argv.exclude?.length)
     introLines.push(`Excluding patterns: ${argv.exclude.join(", ")}`);
   if (argv.branch) introLines.push(`Using branch: ${argv.branch}`);
@@ -260,8 +258,8 @@ export async function handleOutput(
   resultFilePath: string,
   argv: IngestFlags
 ) {
-  // Save results to file first
-  const outputParts = [
+  // Base output parts that are always included in both file and console output
+  const baseOutputParts = [
     APP_HEADER,
     `**Source**: \`${String(source)}\``,
     `**Timestamp**: ${new Date().toString()}`,
@@ -271,31 +269,29 @@ export async function handleOutput(
     "```",
     digest.treeStr,
     "```",
+  ];
+
+  // Add bulk mode instructions if flag is set
+  if (argv.bulk) {
+    baseOutputParts.push(
+      "## AI Instructions",
+      "When I provide a set of files with paths and content, please return **one single shell script**",
+      "Use `#!/usr/bin/env bash` at the start"
+    );
+  }
+
+  // File output always includes everything
+  const fileOutput = [
+    ...baseOutputParts,
     "## Files Content",
     "```",
     digest.contentStr,
     "```",
-  ];
+  ].join("\n\n");
 
-  let output = outputParts.join("\n\n");
-
-  // Add bulk instructions if needed
-  if (argv.bulk) {
-    output +=
-      "\n\n---\nWhen I provide a set of files with paths and content, please return **one single shell script** that does the following:\n\n";
-    output += "1. Creates the necessary directories for all files.\n\n";
-    output +=
-      "2. Outputs the final content of each file using `cat << 'EOF' > path/filename` ... `EOF`.\n\n";
-    output +=
-      "3. Ensures it's a single code fence I can copy and paste into my terminal.\n\n";
-    output += "4. Ends with a success message.\n\n";
-    output +=
-      "Use `#!/usr/bin/env bash` at the start and make sure each `cat` block ends with `EOF`.\n---\n";
-  }
-
-  // Save to file
+  // Save content to file
   try {
-    await fs.writeFile(resultFilePath, output, "utf8");
+    await fs.writeFile(resultFilePath, fileOutput, "utf8");
     if (argv.debug)
       console.log(formatDebugMessage("Results saved to: " + resultFilePath));
   } catch (err) {
@@ -303,74 +299,67 @@ export async function handleOutput(
     process.exit(1);
   }
 
-  // Handle different output modes
+  // Console output varies based on mode
   if (argv.test || process.env["NO_INTRO"]) {
-    // Test mode output
-    const testOutputParts = [
-      APP_HEADER,
-      `**Source**: \`${String(source)}\``,
-      `**Timestamp**: ${new Date().toString()}`,
-      "## Summary",
-      digest.summary,
-      "## Directory Structure",
-      "```",
-      digest.treeStr,
-      "```",
-    ];
+    // Test mode console output
+    const consoleOutputParts = [...baseOutputParts];
 
+    // Only include file content in verbose mode for console
     if (argv.verbose || argv.debug) {
-      testOutputParts.push("## Files Content", "```", digest.contentStr, "```");
+      consoleOutputParts.push(
+        "## Files Content",
+        "```",
+        digest.contentStr,
+        "```"
+      );
     } else if (
       digest.contentStr.includes("[Content ignored: file too large]")
     ) {
-      testOutputParts.push("[Content ignored: file too large]");
+      consoleOutputParts.push("[Content ignored: file too large]");
     }
 
-    const testOutput = testOutputParts.join("\n\n");
-    process.stdout.write(testOutput);
+    const consoleOutput = consoleOutputParts.join("\n\n");
+    process.stdout.write(consoleOutput);
 
     // Copy to clipboard if requested
     if (argv.clipboard) {
-      clipboard.writeSync(testOutput);
+      clipboard.writeSync(consoleOutput);
       console.log("\n" + formatClipboardMessage());
     }
 
     if (argv.pipe) {
       process.stdout.write(`\n${RESULTS_SAVED_MARKER} ${resultFilePath}`);
     }
-
-    // Add bulk instructions in test mode too
-    if (argv.bulk) {
-      process.stdout.write(
-        "\n\n---\nWhen I provide a set of files with paths and content, please return **one single shell script** that does the following:\n\n"
-      );
-      process.stdout.write(
-        "1. Creates the necessary directories for all files.\n\n"
-      );
-      process.stdout.write(
-        "2. Outputs the final content of each file using `cat << 'EOF' > path/filename` ... `EOF`.\n\n"
-      );
-      process.stdout.write(
-        "3. Ensures it's a single code fence I can copy and paste into my terminal.\n\n"
-      );
-      process.stdout.write("4. Ends with a success message.\n\n");
-      process.stdout.write(
-        "Use `#!/usr/bin/env bash` at the start and make sure each `cat` block ends with `EOF`.\n---\n"
-      );
-    }
   } else if (argv.pipe) {
-    // Pipe mode: output everything to stdout
-    process.stdout.write(output);
+    // Pipe mode console output
+    const pipeOutputParts = [...baseOutputParts];
+
+    // Respect verbose flag for console output in pipe mode
+    if (argv.verbose || argv.debug) {
+      pipeOutputParts.push("## Files Content", "```", digest.contentStr, "```");
+    } else if (
+      digest.contentStr.includes("[Content ignored: file too large]")
+    ) {
+      pipeOutputParts.push("[Content ignored: file too large]");
+    }
+
+    const pipeOutput = pipeOutputParts.join("\n\n");
+    process.stdout.write(pipeOutput);
+
     // Copy to clipboard if requested
     if (argv.clipboard) {
-      clipboard.writeSync(output);
+      clipboard.writeSync(pipeOutput);
       console.log("\n" + formatClipboardMessage());
+    }
+
+    if (argv.pipe) {
+      process.stdout.write(`\n${RESULTS_SAVED_MARKER} ${resultFilePath}`);
     }
   } else {
     // Normal mode with pretty formatting
     if (argv.debug)
       console.log(formatDebugMessage("Normal mode, using formatted output"));
-    p.intro(formatIntroMessage(digest.summary));
+    p.intro(digest.summary);
     console.log("\nDirectory Structure:\n");
     console.log(digest.treeStr);
 
@@ -378,32 +367,21 @@ export async function handleOutput(
     if (argv.verbose || argv.debug) {
       console.log("\nFiles Content:\n");
       console.log(digest.contentStr);
-    } else {
-      // Check for ignored files and show a summary
-      const ignoredCount = (
-        digest.contentStr.match(
-          /^================================\nFile: .+\n================================\n\[Content ignored: (file too large|non‑text file)\]/gm
-        ) || []
-      ).length;
-      if (ignoredCount > 0) {
-        console.log("\nContent Summary:");
-        console.log(
-          `${ignoredCount} file(s) had content ignored due to size or format limitations`
-        );
-        console.log("Use --verbose to see full content");
-      }
+    } else if (
+      digest.contentStr.includes("[Content ignored: file too large]")
+    ) {
+      console.log("\n[Content ignored: file too large]");
     }
 
     // Copy to clipboard if requested
     if (argv.clipboard) {
-      clipboard.writeSync(output);
+      clipboard.writeSync(fileOutput); // Use complete content for clipboard
       console.log("\n" + formatClipboardMessage());
     }
   }
 
   // Always show the file path unless in test mode
   if (!argv.test && !process.env["NO_INTRO"]) {
-    console.log(`\n${RESULTS_SAVED_MARKER} ${resultFilePath}`);
     formatSaveMessage(resultFilePath, !argv.test && !process.env["NO_INTRO"]);
   }
 }

@@ -138,3 +138,5 @@ dist
 # test/.gitignore
 !fixtures/**/*
 plans
+*.diff
+diffs
