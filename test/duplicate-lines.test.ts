@@ -29,6 +29,7 @@ describe("duplicate lines", () => {
     // Check each line for duplicates
     lines.forEach((line) => {
       if (uniqueLines.has(line)) {
+        // Only add to duplicates if we've seen it before
         duplicates.push(line);
       }
       uniqueLines.add(line);
@@ -36,10 +37,11 @@ describe("duplicate lines", () => {
 
     // Log duplicates for debugging if test fails
     if (duplicates.length > 0) {
-      console.log("Found duplicate markdown headers:", duplicates);
+      console.log("Found duplicate headers:", duplicates);
       console.log("All unique headers:", Array.from(uniqueLines));
     }
 
+    // We should have no duplicates, but we can have headers
     expect(duplicates).toHaveLength(0);
   });
 
