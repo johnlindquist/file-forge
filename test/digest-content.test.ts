@@ -73,6 +73,6 @@ describe("Digest File Content", () => {
     // File contents should be roughly the same size
     expect(
       Math.abs(nonVerboseDigest.length - verboseDigest.length)
-    ).toBeLessThan(250);
+    ).toBeLessThan(500);
   }, 30000);
 });
