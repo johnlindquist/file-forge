@@ -86,35 +86,43 @@ export async function ingestDirectory(
   // Process files and get tree structure
   const { files, tree } = await processFiles(basePath, flags);
 
-  // Build summary
+  // Build summary without headers
   const maxSize = flags.maxSize ?? DEFAULT_MAX_SIZE;
   const stats = { totalFiles: 110 }; // Hardcoded for now since we're not using it
-  const summary = `# ${flags.name || "File Forge Analysis"}
-Analyzing: ${basePath}
+  const summary = `Analyzing: ${basePath}
 Max file size: ${maxSize}KB${flags.branch ? `\nBranch: ${flags.branch}` : ""}${
     flags.commit ? `\nCommit: ${flags.commit}` : ""
   }
 Skipping build artifacts and generated files
 Files analyzed: ${stats.totalFiles}`;
 
-  const treeSection = `## Directory Structure\n\n\`\`\`\n${tree}\n\`\`\``;
-
   // Always include file contents in the content, but without repeating the summary
   const fileContents = files
     .map((f) => `${f.path}:\n${f.content}`)
-    .join("\n\n")
-    .replace(/# File Forge Analysis[\s\S]*?Files analyzed: \d+\n\n/g, "")
-    .replace(/## Directory Structure[\s\S]*?```\n\n/g, "");
+    .join("\n\n");
 
-  const fileContentsSection = `## Files Content\n\n\`\`\`\n${fileContents}\n\`\`\``;
+  // Build the content with proper headers and XML wrapping based on flags
+  const baseContent = [
+    `# ${flags.name || "File Forge Analysis"}`,
+    `**Source**: \`${basePath}\``,
+    `**Timestamp**: ${new Date().toString()}`,
+    "## Summary",
+    summary,
+    "## Directory Structure",
+    "```",
+    tree,
+    "```",
+    "## Files Content",
+    "```",
+    fileContents,
+    "```",
+  ].join("\n\n");
 
-  // Build content without duplicating sections
-  let content = "";
-  if (flags.name && !flags.pipe) {
-    content = `<${flags.name.toUpperCase()}>\n${summary}\n\n${treeSection}\n\n${fileContentsSection}\n</${flags.name.toUpperCase()}>`;
-  } else {
-    content = `${summary}\n\n${treeSection}\n\n${fileContentsSection}`;
-  }
+  // Add XML wrapping if name flag is used and not piping
+  const content =
+    flags.name && !flags.pipe
+      ? `<${flags.name}>\n${baseContent}\n</${flags.name}>`
+      : baseContent;
 
   return {
     [PROP_SUMMARY]: summary,

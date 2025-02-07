@@ -271,15 +271,40 @@ export async function handleOutput(
   argv: IngestFlags
 ) {
   // When using name flag and not piping, use the content directly as it includes XML tags
-  if (argv.name && !argv.pipe) {
+  if (argv.name) {
     const fileOutput = digest?.[PROP_CONTENT] || "";
     const consoleOutput = fileOutput
       .replace(/^<[^>]+>\n/, "")
-      .replace(/\n<\/[^>]+>$/, "");
+      .replace(/\n<\/[^>]+>$/, "")
+      // Remove any existing headers to prevent duplication
+      .replace(/^#.*\n\n/gm, "")
+      .replace(/^##.*\n\n/gm, "");
+
+    // Add our headers once
+    const baseOutput = [
+      `# ${argv.name}`,
+      `**Source**: \`${String(source)}\``,
+      `**Timestamp**: ${new Date().toString()}`,
+      "## Summary",
+      digest?.[PROP_SUMMARY] || "",
+      "## Directory Structure",
+      "```",
+      digest?.[PROP_TREE] || "",
+      "```",
+      "## Files Content",
+      "```",
+      consoleOutput,
+      "```",
+    ].join("\n\n");
+
+    // Add XML wrapping if not piping
+    const outputWithHeaders = argv.pipe
+      ? baseOutput
+      : `<${argv.name}>\n${baseOutput}\n</${argv.name}>`;
 
     // Save content to file
     try {
-      await fs.writeFile(resultFilePath, fileOutput, "utf8");
+      await fs.writeFile(resultFilePath, outputWithHeaders, "utf8");
       if (argv.debug)
         console.log(formatDebugMessage("Results saved to: " + resultFilePath));
     } catch (err) {
@@ -289,9 +314,9 @@ export async function handleOutput(
 
     // Handle console output
     if (argv.test || process.env["NO_INTRO"]) {
-      process.stdout.write(consoleOutput);
+      process.stdout.write(outputWithHeaders);
       if (argv.clipboard) {
-        clipboard.writeSync(fileOutput);
+        clipboard.writeSync(outputWithHeaders);
         console.log("\n" + formatClipboardMessage());
       }
       if (argv.pipe) {
@@ -302,10 +327,10 @@ export async function handleOutput(
       if (argv.debug)
         console.log(formatDebugMessage("Normal mode, using formatted output"));
       // Skip intro since it's already in the console output
-      console.log(consoleOutput);
+      console.log(outputWithHeaders);
 
       if (argv.clipboard) {
-        clipboard.writeSync(fileOutput);
+        clipboard.writeSync(outputWithHeaders);
         console.log("\n" + formatClipboardMessage());
       }
 
