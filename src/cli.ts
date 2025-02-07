@@ -1,7 +1,7 @@
 import { hideBin } from "yargs/helpers";
 import yargs from "yargs";
 import { readFileSync } from "fs";
-import { APP_COMMAND, APP_DESCRIPTION } from "./constants.js"
+import { APP_COMMAND, APP_DESCRIPTION } from "./constants.js";
 
 const DEFAULT_MAX_SIZE = 10 * 1024 * 1024; // 10MB
 
@@ -114,6 +114,10 @@ export function runCli() {
       nargs: 1,
       describe:
         "Analyze dependency graph starting from the given file using madge",
+    })
+    .option("name", {
+      type: "string",
+      describe: "Custom name to use in header and XML wrapping tags",
     })
     .help()
     .alias("help", "h")

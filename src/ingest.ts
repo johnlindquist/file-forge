@@ -95,6 +95,7 @@ export async function ingestDirectory(
 
   // Build summary once
   const summaryLines = [
+    `# ${flags.name || "File Forge Analysis"}`,
     `Analyzing: ${basePath}`,
     flags.include?.length
       ? `Including patterns: ${flags.include.join(", ")}`
@@ -114,7 +115,18 @@ export async function ingestDirectory(
   const tree = `## Directory Structure\n\n\`\`\`\n${treeStr}\n\`\`\``;
   const content = `## Files Content\n\n${contentStr}`;
 
-  return { summary, treeStr: tree, contentStr: content };
+  // Combine all sections
+  const output = [summary, tree, content].join("\n\n");
+
+  // Wrap in XML tags if name is provided and not piping to stdout
+  return {
+    summary,
+    treeStr: tree,
+    contentStr:
+      flags.name && !flags.pipe
+        ? `<${flags.name.toUpperCase()}>\n${output}\n</${flags.name.toUpperCase()}>`
+        : output,
+  };
 }
 
 /** Reset a Git repository to a specific state */

@@ -25,6 +25,7 @@ export type IngestFlags = {
   graph?: string | undefined;
   verbose?: boolean | undefined;
   test?: boolean | undefined;
+  name?: string | undefined;
   basePath?: string;
 };
 
