@@ -12,18 +12,25 @@
  * - \x1b[0m: Reset all formatting
  */
 
+import * as p from "@clack/prompts";
+
 /**
  * Formats a message for introduction/header display.
- * Uses bold green text with a magnifying glass icon to indicate analysis or important information.
+ * Uses clack/prompts intro for consistent and attractive formatting.
  *
  * @example
- * formatIntroMessage("Analyzing repository...") // Returns "🔍 Analyzing repository..." in bold green
+ * formatIntroMessage("Analyzing repository...") // Returns styled intro message
  *
  * @param message The message to format
- * @returns Formatted message with bold green styling and icon
+ * @param useClack Whether to use clack/prompts output (default: true)
+ * @returns Formatted message with clack/prompts styling
  */
-export function formatIntroMessage(message: string): string {
-  return `\x1b[1m\x1b[32m🔍 ${message}\x1b[0m`;
+export function formatIntroMessage(message: string, useClack = true): string {
+  const formattedMessage = `\x1b[1m\x1b[32m🔍 ${message}\x1b[0m`;
+  if (useClack) {
+    p.intro(`🔍 ${message}`);
+  }
+  return formattedMessage;
 }
 
 /**
@@ -84,14 +91,19 @@ export function formatClipboardMessage(): string {
 
 /**
  * Formats a file save notification message.
- * Uses a bookmark emoji and blue text to indicate where results are saved.
+ * Uses clack/prompts outro for a nice completion message.
  *
  * @example
- * formatSaveMessage("/path/to/file.md") // Returns "📑 Results saved: /path/to/file.md" in blue
+ * formatSaveMessage("/path/to/file.md") // Returns styled outro message
  *
  * @param path The file path where results were saved
- * @returns Formatted message with bookmark emoji and blue styling
+ * @param useClack Whether to use clack/prompts output (default: true)
+ * @returns Formatted message with clack/prompts styling
  */
-export function formatSaveMessage(path: string): string {
-  return `\x1b[34m📑 Results saved: ${path}\x1b[0m`;
+export function formatSaveMessage(path: string, useClack = true): string {
+  const formattedMessage = `\x1b[34m📑 Results saved: ${path}\x1b[0m`;
+  if (useClack) {
+    p.outro(`📑 Results saved: ${path}`);
+  }
+  return formattedMessage;
 }

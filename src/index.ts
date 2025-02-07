@@ -247,7 +247,10 @@ if (!process.env["VITEST"] && !process.env["NO_INTRO"] && !argv.test) {
   if (argv.skipArtifacts)
     introLines.push("Skipping build artifacts and generated files");
   if (!argv.ignore) introLines.push("Ignoring .gitignore rules");
-  p.intro(formatIntroMessage(introLines.join("\n")));
+  formatIntroMessage(
+    introLines.join("\n"),
+    !argv.test && !process.env["NO_INTRO"]
+  );
 }
 
 // Export handleOutput for testing
@@ -401,7 +404,7 @@ export async function handleOutput(
   // Always show the file path unless in test mode
   if (!argv.test && !process.env["NO_INTRO"]) {
     console.log(`\n${RESULTS_SAVED_MARKER} ${resultFilePath}`);
-    console.log(formatSaveMessage(resultFilePath));
+    formatSaveMessage(resultFilePath, !argv.test && !process.env["NO_INTRO"]);
   }
 }
 
