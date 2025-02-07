@@ -14,6 +14,7 @@ import { ingestGraph } from "./graph.js";
 import { isGitHubURL, getRepoPath } from "./repo.js";
 import { IngestFlags } from "./types.js";
 import { APP_ANALYSIS_HEADER, APP_HEADER, APP_SYSTEM_ID } from "./constants.js";
+import clipboard from "clipboardy";
 
 // Handle uncaught errors
 process.on("uncaughtException", (err: unknown) => {
@@ -235,7 +236,8 @@ if (!process.env["VITEST"] && !process.env["NO_INTRO"] && !argv.test) {
   p.intro(introLines.join("\n"));
 }
 
-async function handleOutput(
+// Export handleOutput for testing
+export async function handleOutput(
   digest: { summary: string; treeStr: string; contentStr: string },
   source: string,
   resultFilePath: string,
@@ -306,7 +308,14 @@ async function handleOutput(
       testOutputParts.push("[Content ignored: file too large]");
     }
 
-    process.stdout.write(testOutputParts.join("\n\n"));
+    const testOutput = testOutputParts.join("\n\n");
+    process.stdout.write(testOutput);
+
+    // Copy to clipboard if requested
+    if (argv.clipboard) {
+      clipboard.writeSync(testOutput);
+    }
+
     if (argv.pipe) {
       process.stdout.write(`\n${RESULTS_SAVED_MARKER} ${resultFilePath}`);
     }
@@ -333,6 +342,10 @@ async function handleOutput(
   } else if (argv.pipe) {
     // Pipe mode: output everything to stdout
     process.stdout.write(output);
+    // Copy to clipboard if requested
+    if (argv.clipboard) {
+      clipboard.writeSync(output);
+    }
   } else {
     // Normal mode with pretty formatting
     if (argv.debug) console.log("[DEBUG] Normal mode, using formatted output");
@@ -359,6 +372,11 @@ async function handleOutput(
         console.log("Use --verbose to see full content");
       }
     }
+
+    // Copy to clipboard if requested
+    if (argv.clipboard) {
+      clipboard.writeSync(output);
+    }
   }
 
   // Always show the file path unless in test mode
@@ -367,6 +385,17 @@ async function handleOutput(
   }
 }
 
-// After getting digest, call handleOutput
-await handleOutput(digest, source, resultFilePath, argv);
-process.exit(0);
+// Main function that handles the CLI flow
+export async function main() {
+  // After getting digest, call handleOutput
+  await handleOutput(digest, source, resultFilePath, argv);
+  process.exit(0);
+}
+
+// Only run main if this is the main module
+if (import.meta.url === `file://${process.argv[1]}`) {
+  main().catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });
+}

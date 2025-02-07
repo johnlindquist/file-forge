@@ -6,16 +6,27 @@ import envPaths from "env-paths";
 import { runCLI } from "./test-helpers";
 import { APP_SYSTEM_ID } from "../src/constants";
 
-// Helper function to wait for file to exist with timeout
+// Helper function to wait for file to exist and be stable
 async function waitForFile(
   path: string,
   timeoutMs = 5000,
   intervalMs = 100
 ): Promise<boolean> {
   const start = Date.now();
+  let lastSize = -1;
+  let sameCount = 0;
+
   while (Date.now() - start < timeoutMs) {
     if (existsSync(path)) {
-      return true;
+      const stats = readFileSync(path).length;
+      if (stats === lastSize) {
+        sameCount++;
+        // If size has been stable for 3 checks, file is fully written
+        if (sameCount >= 3) return true;
+      } else {
+        lastSize = stats;
+        sameCount = 0;
+      }
     }
     await new Promise((resolve) => setTimeout(resolve, intervalMs));
   }
@@ -65,8 +76,8 @@ describe("CLI: ingest current directory with '.'", () => {
     console.log("File content length:", savedContent.length);
 
     // Now check the actual content of the saved file
-    expect(savedContent).toMatch(/hello\.js/);
-    expect(savedContent).toMatch(/test\.ts/);
+    expect(savedContent).toContain("hello.js");
+    expect(savedContent).toContain("test.ts");
     expect(savedContent).toContain("Directory Structure");
     expect(savedContent).toContain("Files Content");
 
