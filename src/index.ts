@@ -277,8 +277,7 @@ export async function handleOutput(
       .replace(/^<[^>]+>\n/, "")
       .replace(/\n<\/[^>]+>$/, "")
       // Remove any existing headers to prevent duplication
-      .replace(/^#.*\n\n/gm, "")
-      .replace(/^##.*\n\n/gm, "");
+      .replace(/^#+\s.*(\n|\n\n)/gm, "");
 
     // Add our headers once
     const baseOutput = [
