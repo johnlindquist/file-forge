@@ -103,14 +103,14 @@ Files analyzed: ${stats.totalFiles}`;
   const fileContents = files
     .map((f) => `${f.path}:\n${f.content}`)
     .join("\n\n");
-  const fileContentsSection = `\n\n## Files Content\n\n\`\`\`\n${fileContents}\n\`\`\``;
+  const fileContentsSection = `## Files Content\n\n\`\`\`\n${fileContents}\n\`\`\``;
 
-  // Build content without duplicating the summary
+  // Build content without duplicating sections
   let content = "";
   if (flags.name && !flags.pipe) {
-    content = `<${flags.name.toUpperCase()}>\n${summary}\n\n${treeSection}${fileContentsSection}\n</${flags.name.toUpperCase()}>`;
+    content = `<${flags.name.toUpperCase()}>\n${summary}\n\n${treeSection}\n\n${fileContentsSection}\n</${flags.name.toUpperCase()}>`;
   } else {
-    content = `${summary}\n\n${treeSection}${fileContentsSection}`;
+    content = `${summary}\n\n${treeSection}\n\n${fileContentsSection}`;
   }
 
   return {
