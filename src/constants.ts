@@ -11,6 +11,11 @@ export const APP_SYSTEM_ID = APP_NAME;
 export const APP_HEADER = `# ${APP_DISPLAY_NAME}`;
 export const APP_ANALYSIS_HEADER = `${APP_DISPLAY_NAME} Analysis`;
 
+// Property names for consistent usage across files
+export const PROP_SUMMARY = "summary";
+export const PROP_TREE = "tree";
+export const PROP_CONTENT = "content";
+
 // Status messages
 export const BRANCH_STATUS = (branch: string) => `Branch: ${branch}`;
 export const COMMIT_STATUS = (commit: string) => `Commit: ${commit}`;
@@ -27,3 +32,10 @@ export const getAnalysisFilename = (hash: string, timestamp: string) =>
 
 export const FILE_SIZE_MESSAGE = (size: number) =>
   ` [${(size / 1024 / 1024).toFixed(2)} MB - too large]`;
+
+// Return type for ingest functions
+export type DigestResult = {
+  [PROP_SUMMARY]: string;
+  [PROP_TREE]: string;
+  [PROP_CONTENT]: string;
+};

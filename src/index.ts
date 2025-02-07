@@ -18,6 +18,10 @@ import {
   APP_HEADER,
   APP_SYSTEM_ID,
   FILE_SIZE_MESSAGE,
+  PROP_SUMMARY,
+  PROP_TREE,
+  PROP_CONTENT,
+  DigestResult,
 } from "./constants.js";
 import clipboard from "clipboardy";
 import {
@@ -55,7 +59,7 @@ const DEFAULT_SEARCHES_DIR = envPaths(APP_SYSTEM_ID).config;
 const argv = runCli() as IngestFlags & { _: (string | number)[] };
 
 let output: string;
-let digest: { summary: string; treeStr: string; contentStr: string };
+let digest: DigestResult | null = null;
 let resultFilePath: string;
 let source: string;
 
@@ -261,21 +265,68 @@ if (!process.env["VITEST"] && !process.env["NO_INTRO"] && !argv.test) {
 
 // Export handleOutput for testing
 export async function handleOutput(
-  digest: { summary: string; treeStr: string; contentStr: string },
+  digest: DigestResult | null,
   source: string,
   resultFilePath: string,
   argv: IngestFlags
 ) {
+  // When using name flag and not piping, use the content directly as it includes XML tags
+  if (argv.name && !argv.pipe) {
+    const fileOutput = digest?.[PROP_CONTENT] || "";
+    const consoleOutput = fileOutput
+      .replace(/^<[^>]+>\n/, "")
+      .replace(/\n<\/[^>]+>$/, "");
+
+    // Save content to file
+    try {
+      await fs.writeFile(resultFilePath, fileOutput, "utf8");
+      if (argv.debug)
+        console.log(formatDebugMessage("Results saved to: " + resultFilePath));
+    } catch (err) {
+      console.error(formatErrorMessage("Failed to save results: " + err));
+      process.exit(1);
+    }
+
+    // Handle console output
+    if (argv.test || process.env["NO_INTRO"]) {
+      process.stdout.write(consoleOutput);
+      if (argv.clipboard) {
+        clipboard.writeSync(fileOutput);
+        console.log("\n" + formatClipboardMessage());
+      }
+      if (argv.pipe) {
+        process.stdout.write(`\n${RESULTS_SAVED_MARKER} ${resultFilePath}`);
+      }
+    } else {
+      // Normal mode with pretty formatting
+      if (argv.debug)
+        console.log(formatDebugMessage("Normal mode, using formatted output"));
+      // Skip intro since it's already in the console output
+      console.log(consoleOutput);
+
+      if (argv.clipboard) {
+        clipboard.writeSync(fileOutput);
+        console.log("\n" + formatClipboardMessage());
+      }
+
+      // Show the file path unless in test mode or pipe mode
+      if (!argv.test && !process.env["NO_INTRO"] && !argv.pipe) {
+        formatSaveMessage(resultFilePath, true);
+      }
+    }
+    return;
+  }
+
   // Base output parts that are always included in both file and console output
   const baseOutputParts = [
     APP_HEADER,
     `**Source**: \`${String(source)}\``,
     `**Timestamp**: ${new Date().toString()}`,
     "## Summary",
-    digest.summary,
+    digest?.[PROP_SUMMARY] || "",
     "## Directory Structure",
     "```",
-    digest.treeStr,
+    digest?.[PROP_TREE] || "",
     "```",
   ];
 
@@ -293,9 +344,25 @@ export async function handleOutput(
     ...baseOutputParts,
     "## Files Content",
     "```",
-    digest.contentStr,
+    digest?.[PROP_CONTENT] || "",
     "```",
   ].join("\n\n");
+
+  // Console output varies based on verbose flag
+  const consoleOutputParts = [...baseOutputParts];
+  if (
+    argv.verbose ||
+    argv.debug ||
+    digest?.[PROP_CONTENT].includes(FILE_SIZE_MESSAGE(0).replace("0.00", ""))
+  ) {
+    consoleOutputParts.push(
+      "## Files Content",
+      "```",
+      digest?.[PROP_CONTENT] || "",
+      "```"
+    );
+  }
+  const consoleOutput = consoleOutputParts.join("\n\n");
 
   // Save content to file
   try {
@@ -307,96 +374,49 @@ export async function handleOutput(
     process.exit(1);
   }
 
-  // Console output varies based on mode
+  // Console output
   if (argv.test || process.env["NO_INTRO"]) {
-    // Test mode console output
-    const consoleOutputParts = [...baseOutputParts];
-
-    // Only include file content in verbose mode for console
-    if (argv.verbose || argv.debug) {
-      consoleOutputParts.push(
-        "## Files Content",
-        "```",
-        digest.contentStr,
-        "```"
-      );
-    } else if (
-      digest.contentStr.includes(FILE_SIZE_MESSAGE(0).replace("0.00", ""))
-    ) {
-      consoleOutputParts.push(
-        "## Files Content",
-        "```",
-        digest.contentStr,
-        "```"
-      );
-    }
-
-    const consoleOutput = consoleOutputParts.join("\n\n");
     process.stdout.write(consoleOutput);
-
-    // Copy to clipboard if requested
     if (argv.clipboard) {
       clipboard.writeSync(consoleOutput);
       console.log("\n" + formatClipboardMessage());
     }
-
     if (argv.pipe) {
       process.stdout.write(`\n${RESULTS_SAVED_MARKER} ${resultFilePath}`);
     }
   } else if (argv.pipe) {
-    // Pipe mode console output
-    const pipeOutputParts = [...baseOutputParts];
-
-    // Respect verbose flag for console output in pipe mode
-    if (argv.verbose || argv.debug) {
-      pipeOutputParts.push("## Files Content", "```", digest.contentStr, "```");
-    } else if (
-      digest.contentStr.includes(FILE_SIZE_MESSAGE(0).replace("0.00", ""))
-    ) {
-      pipeOutputParts.push("## Files Content", "```", digest.contentStr, "```");
-    }
-
-    const pipeOutput = pipeOutputParts.join("\n\n");
-    process.stdout.write(pipeOutput);
-
-    // Copy to clipboard if requested
+    process.stdout.write(consoleOutput);
     if (argv.clipboard) {
-      clipboard.writeSync(pipeOutput);
+      clipboard.writeSync(consoleOutput);
       console.log("\n" + formatClipboardMessage());
     }
-
-    if (argv.pipe) {
-      process.stdout.write(`\n${RESULTS_SAVED_MARKER} ${resultFilePath}`);
-    }
+    process.stdout.write(`\n${RESULTS_SAVED_MARKER} ${resultFilePath}`);
   } else {
     // Normal mode with pretty formatting
     if (argv.debug)
       console.log(formatDebugMessage("Normal mode, using formatted output"));
-    p.intro(digest.summary);
+    p.intro(digest?.[PROP_SUMMARY] || "");
     console.log("\nDirectory Structure:\n");
-    console.log(digest.treeStr);
+    console.log(digest?.[PROP_TREE] || "");
 
-    // Show file contents based on flags and content state
-    if (argv.verbose || argv.debug) {
-      console.log("\nFiles Content:\n");
-      console.log(digest.contentStr);
-    } else if (
-      digest.contentStr.includes(FILE_SIZE_MESSAGE(0).replace("0.00", ""))
+    if (
+      argv.verbose ||
+      argv.debug ||
+      digest?.[PROP_CONTENT].includes(FILE_SIZE_MESSAGE(0).replace("0.00", ""))
     ) {
       console.log("\nFiles Content:\n");
-      console.log(digest.contentStr);
+      console.log(digest?.[PROP_CONTENT] || "");
     }
 
-    // Copy to clipboard if requested
     if (argv.clipboard) {
-      clipboard.writeSync(fileOutput); // Use complete content for clipboard
+      clipboard.writeSync(consoleOutput);
       console.log("\n" + formatClipboardMessage());
     }
   }
 
-  // Always show the file path unless in test mode
-  if (!argv.test && !process.env["NO_INTRO"]) {
-    formatSaveMessage(resultFilePath, !argv.test && !process.env["NO_INTRO"]);
+  // Always show the file path unless in test mode or pipe mode
+  if (!argv.test && !process.env["NO_INTRO"] && !argv.pipe) {
+    formatSaveMessage(resultFilePath, true);
   }
 }
 
