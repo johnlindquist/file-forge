@@ -8,7 +8,11 @@ import { fileExists } from "./utils.js";
 import { IngestFlags, ScanStats, TreeNode } from "./types.js";
 import { getFileContent } from "./fileUtils.js";
 import { resetGitRepo } from "./gitUtils.js";
-import { BRANCH_STATUS, COMMIT_STATUS } from "./constants.js";
+import {
+  BRANCH_STATUS,
+  COMMIT_STATUS,
+  FILE_SIZE_MESSAGE,
+} from "./constants.js";
 
 /** Constants for ingest */
 const DEFAULT_MAX_SIZE = 10 * 1024 * 1024; // 10 MB
@@ -290,16 +294,19 @@ export async function scanDirectory(
       }
       const fileName = segments[segments.length - 1];
       if (fileName) {
+        const maxSize = options.maxSize ?? DEFAULT_MAX_SIZE;
         const fileNode: TreeNode = {
           name: fileName,
           path: file,
           type: "file",
           size: fstat.size,
+          parent: currentNode,
           file_count: 0,
           dir_count: 0,
-          parent: currentNode,
+          tooLarge: fstat.size > maxSize,
         };
-        currentNode.children?.push(fileNode);
+        currentNode.children = currentNode.children || [];
+        currentNode.children.push(fileNode);
         currentNode.file_count++;
         currentNode.size += fstat.size;
         let pNode = currentNode;
@@ -309,9 +316,10 @@ export async function scanDirectory(
         }
         node.size += fstat.size;
       }
-    } catch (err) {
-      if (options.debug)
-        console.log("[DEBUG] Error processing file:", file, err);
+    } catch (error) {
+      if (options.debug) {
+        console.log("[DEBUG] Error processing file:", file, error);
+      }
     }
   }
   node.file_count = stats.totalFiles;
@@ -445,7 +453,10 @@ export async function gatherFiles(
         if (options.debug) {
           console.log("[DEBUG] Error reading file:", node.path, err);
         }
-        ignoredFiles.add(node.path);
+        // Only add to ignoredFiles if it's a real error, not just a large file
+        if (!node.tooLarge) {
+          ignoredFiles.add(node.path);
+        }
       }
     } else if (node.children) {
       for (const child of node.children) {
@@ -470,8 +481,10 @@ export function createTree(
   isLast = true
 ): string {
   const branchStr = isLast ? "└── " : "├── ";
+  const sizeInfo =
+    node.type === "file" && node.tooLarge ? FILE_SIZE_MESSAGE(node.size) : "";
   const tree = `${prefix}${branchStr}${node.name}${
-    node.type === "directory" ? "/" : ""
+    node.type === "directory" ? "/" : sizeInfo
   }\n`;
   if (node.type === "directory" && node.children && node.children.length > 0) {
     const newPrefix = `${prefix}${isLast ? "    " : "│   "}`;

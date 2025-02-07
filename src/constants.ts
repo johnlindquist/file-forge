@@ -24,3 +24,6 @@ export const TEXT_DIGEST_BUILT = "Text digest built";
 // Used for file naming
 export const getAnalysisFilename = (hash: string, timestamp: string) =>
   `${APP_NAME}-${hash}-${timestamp}.md`;
+
+export const FILE_SIZE_MESSAGE = (size: number) =>
+  ` [${(size / 1024 / 1024).toFixed(2)} MB - too large]`;

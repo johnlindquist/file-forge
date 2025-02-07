@@ -13,7 +13,12 @@ import { ingestDirectory } from "./ingest.js";
 import { ingestGraph } from "./graph.js";
 import { isGitUrl, getRepoPath } from "./repo.js";
 import { IngestFlags } from "./types.js";
-import { APP_ANALYSIS_HEADER, APP_HEADER, APP_SYSTEM_ID } from "./constants.js";
+import {
+  APP_ANALYSIS_HEADER,
+  APP_HEADER,
+  APP_SYSTEM_ID,
+  FILE_SIZE_MESSAGE,
+} from "./constants.js";
 import clipboard from "clipboardy";
 import {
   formatDebugMessage,
@@ -136,11 +141,7 @@ ${treeStr}
 `;
 
     // Show file contents in output if verbose/debug OR if there are large files to notify about
-    if (
-      argv.verbose ||
-      argv.debug ||
-      contentStr.includes("[Content ignored: file too large]")
-    ) {
+    if (argv.verbose || argv.debug || contentStr.includes("MB - too large")) {
       output += `
 ## Files Content
 
@@ -211,10 +212,17 @@ ${contentStr}
   try {
     digest = await ingestDirectory(finalPath, argv);
     spinner2.stop(formatSpinnerMessage("Text digest built."));
-  } catch {
+  } catch (error) {
     spinner2.stop(formatSpinnerMessage("Digest build failed."));
-    p.cancel(formatErrorMessage("Failed to build digest"));
-    process.exit(1);
+    // Only exit with error if it's not just a large file
+    if (error instanceof Error && error.message.includes("too large")) {
+      spinner2.stop(
+        formatSpinnerMessage("Text digest built with size limits.")
+      );
+    } else {
+      p.cancel(formatErrorMessage("Failed to build digest"));
+      process.exit(1);
+    }
   }
 }
 
@@ -313,9 +321,14 @@ export async function handleOutput(
         "```"
       );
     } else if (
-      digest.contentStr.includes("[Content ignored: file too large]")
+      digest.contentStr.includes(FILE_SIZE_MESSAGE(0).replace("0.00", ""))
     ) {
-      consoleOutputParts.push("[Content ignored: file too large]");
+      consoleOutputParts.push(
+        "## Files Content",
+        "```",
+        digest.contentStr,
+        "```"
+      );
     }
 
     const consoleOutput = consoleOutputParts.join("\n\n");
@@ -338,9 +351,9 @@ export async function handleOutput(
     if (argv.verbose || argv.debug) {
       pipeOutputParts.push("## Files Content", "```", digest.contentStr, "```");
     } else if (
-      digest.contentStr.includes("[Content ignored: file too large]")
+      digest.contentStr.includes(FILE_SIZE_MESSAGE(0).replace("0.00", ""))
     ) {
-      pipeOutputParts.push("[Content ignored: file too large]");
+      pipeOutputParts.push("## Files Content", "```", digest.contentStr, "```");
     }
 
     const pipeOutput = pipeOutputParts.join("\n\n");
@@ -368,9 +381,10 @@ export async function handleOutput(
       console.log("\nFiles Content:\n");
       console.log(digest.contentStr);
     } else if (
-      digest.contentStr.includes("[Content ignored: file too large]")
+      digest.contentStr.includes(FILE_SIZE_MESSAGE(0).replace("0.00", ""))
     ) {
-      console.log("\n[Content ignored: file too large]");
+      console.log("\nFiles Content:\n");
+      console.log(digest.contentStr);
     }
 
     // Copy to clipboard if requested
