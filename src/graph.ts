@@ -54,11 +54,12 @@ async function gatherGraphFiles(
     seenPaths.add(relativePath);
 
     try {
-      fileContents[relativePath] = await getFileContent(
-        file,
-        maxSize,
-        relativePath
-      );
+      const content = await getFileContent(file, maxSize, basename(file));
+      if (content === null) {
+        console.log(`[DEBUG] File ignored by getFileContent: ${file}`);
+        continue;
+      }
+      fileContents[relativePath] = content;
     } catch (error) {
       console.error(`[DEBUG] Error reading file ${file}:`, error);
       fileContents[
@@ -137,5 +138,6 @@ export async function ingestGraph(
 
   console.log("[DEBUG] Graph analysis complete");
 
+  // Return the results to be handled by the main output logic
   return { summary, treeStr, contentStr };
 }

@@ -13,7 +13,7 @@ import { ingestDirectory } from "./ingest.js";
 import { ingestGraph } from "./graph.js";
 import { isGitHubURL, getRepoPath } from "./repo.js";
 import { IngestFlags } from "./types.js";
-import { APP_ANALYSIS_HEADER, APP_HEADER, APP_SYSTEM_ID } from "./constants.js"
+import { APP_ANALYSIS_HEADER, APP_HEADER, APP_SYSTEM_ID } from "./constants.js";
 
 // Handle uncaught errors
 process.on("uncaughtException", (err: unknown) => {
@@ -235,49 +235,14 @@ if (!process.env["VITEST"] && !process.env["NO_INTRO"] && !argv.test) {
   p.intro(introLines.join("\n"));
 }
 
-const outputParts = [
-  APP_HEADER,
-  `**Source**: \`${String(source)}\``,
-  `**Timestamp**: ${new Date().toString()}`,
-  "## Summary",
-  digest.summary,
-  "## Directory Structure",
-  "```",
-  digest.treeStr,
-  "```",
-  "## Files Content",
-  "```",
-  digest.contentStr,
-  "```",
-];
-
-output = outputParts.join("\n\n");
-
-// Add bulk instructions after the main output
-if (argv.bulk) {
-  output +=
-    "\n\n---\nWhen I provide a set of files with paths and content, please return **one single shell script** that does the following:\n\n";
-  output += "1. Creates the necessary directories for all files.\n\n";
-  output +=
-    "2. Outputs the final content of each file using `cat << 'EOF' > path/filename` ... `EOF`.\n\n";
-  output +=
-    "3. Ensures it's a single code fence I can copy and paste into my terminal.\n\n";
-  output += "4. Ends with a success message.\n\n";
-  output +=
-    "Use `#!/usr/bin/env bash` at the start and make sure each `cat` block ends with `EOF`.\n---\n";
-}
-
-try {
-  await fs.writeFile(resultFilePath, output, "utf8");
-  if (argv.debug) console.log("[DEBUG] Results saved to:", resultFilePath);
-} catch (err) {
-  console.error("[DEBUG] Failed to save results:", err);
-  process.exit(1);
-}
-
-// In test mode or when NO_INTRO is set, output exactly what the test expects
-if (argv.test || process.env["NO_INTRO"]) {
-  const testOutputParts = [
+async function handleOutput(
+  digest: { summary: string; treeStr: string; contentStr: string },
+  source: string,
+  resultFilePath: string,
+  argv: IngestFlags
+) {
+  // Save results to file first
+  const outputParts = [
     APP_HEADER,
     `**Source**: \`${String(source)}\``,
     `**Timestamp**: ${new Date().toString()}`,
@@ -287,90 +252,121 @@ if (argv.test || process.env["NO_INTRO"]) {
     "```",
     digest.treeStr,
     "```",
+    "## Files Content",
+    "```",
+    digest.contentStr,
+    "```",
   ];
 
-  // Show file contents in console only if verbose/debug is on
-  if (argv.verbose || argv.debug) {
-    testOutputParts.push("## Files Content", "```", digest.contentStr, "```");
-  } else if (digest.contentStr.includes("[Content ignored: file too large]")) {
-    // If there are large files, show the exact warning from the content
-    testOutputParts.push("\nFiles Content:\n");
-    testOutputParts.push("[Content ignored: file too large]");
-  }
+  let output = outputParts.join("\n\n");
 
-  // Add bulk instructions if bulk flag is set
+  // Add bulk instructions if needed
   if (argv.bulk) {
-    testOutputParts.push(
-      "---",
-      "When I provide a set of files with paths and content, please return **one single shell script** that does the following:",
-      "",
-      "1. Creates the necessary directories for all files.",
-      "",
-      "2. Outputs the final content of each file using `cat << 'EOF' > path/filename` ... `EOF`.",
-      "",
-      "3. Ensures it's a single code fence I can copy and paste into my terminal.",
-      "",
-      "4. Ends with a success message.",
-      "",
-      "Use `#!/usr/bin/env bash` at the start and make sure each `cat` block ends with `EOF`.",
-      "---"
-    );
+    output +=
+      "\n\n---\nWhen I provide a set of files with paths and content, please return **one single shell script** that does the following:\n\n";
+    output += "1. Creates the necessary directories for all files.\n\n";
+    output +=
+      "2. Outputs the final content of each file using `cat << 'EOF' > path/filename` ... `EOF`.\n\n";
+    output +=
+      "3. Ensures it's a single code fence I can copy and paste into my terminal.\n\n";
+    output += "4. Ends with a success message.\n\n";
+    output +=
+      "Use `#!/usr/bin/env bash` at the start and make sure each `cat` block ends with `EOF`.\n---\n";
   }
 
-  // Write output to stdout
-  process.stdout.write(testOutputParts.join("\n\n"));
-  if (argv.pipe) {
-    process.stdout.write(`\n${RESULTS_SAVED_MARKER} ${resultFilePath}`);
+  // Save to file
+  try {
+    await fs.writeFile(resultFilePath, output, "utf8");
+    if (argv.debug) console.log("[DEBUG] Results saved to:", resultFilePath);
+  } catch (err) {
+    console.error("[DEBUG] Failed to save results:", err);
+    process.exit(1);
   }
-  process.exit(0);
+
+  // Handle different output modes
+  if (argv.test || process.env["NO_INTRO"]) {
+    // Test mode output
+    const testOutputParts = [
+      APP_HEADER,
+      `**Source**: \`${String(source)}\``,
+      `**Timestamp**: ${new Date().toString()}`,
+      "## Summary",
+      digest.summary,
+      "## Directory Structure",
+      "```",
+      digest.treeStr,
+      "```",
+    ];
+
+    if (argv.verbose || argv.debug) {
+      testOutputParts.push("## Files Content", "```", digest.contentStr, "```");
+    } else if (
+      digest.contentStr.includes("[Content ignored: file too large]")
+    ) {
+      testOutputParts.push("[Content ignored: file too large]");
+    }
+
+    process.stdout.write(testOutputParts.join("\n\n"));
+    if (argv.pipe) {
+      process.stdout.write(`\n${RESULTS_SAVED_MARKER} ${resultFilePath}`);
+    }
+
+    // Add bulk instructions in test mode too
+    if (argv.bulk) {
+      process.stdout.write(
+        "\n\n---\nWhen I provide a set of files with paths and content, please return **one single shell script** that does the following:\n\n"
+      );
+      process.stdout.write(
+        "1. Creates the necessary directories for all files.\n\n"
+      );
+      process.stdout.write(
+        "2. Outputs the final content of each file using `cat << 'EOF' > path/filename` ... `EOF`.\n\n"
+      );
+      process.stdout.write(
+        "3. Ensures it's a single code fence I can copy and paste into my terminal.\n\n"
+      );
+      process.stdout.write("4. Ends with a success message.\n\n");
+      process.stdout.write(
+        "Use `#!/usr/bin/env bash` at the start and make sure each `cat` block ends with `EOF`.\n---\n"
+      );
+    }
+  } else if (argv.pipe) {
+    // Pipe mode: output everything to stdout
+    process.stdout.write(output);
+  } else {
+    // Normal mode with pretty formatting
+    if (argv.debug) console.log("[DEBUG] Normal mode, using formatted output");
+    p.intro(digest.summary);
+    console.log("\nDirectory Structure:\n");
+    console.log(digest.treeStr);
+
+    // Show file contents based on flags and content state
+    if (argv.verbose || argv.debug) {
+      console.log("\nFiles Content:\n");
+      console.log(digest.contentStr);
+    } else {
+      // Check for ignored files and show a summary
+      const ignoredCount = (
+        digest.contentStr.match(
+          /^================================\nFile: .+\n================================\n\[Content ignored: (file too large|non‑text file)\]/gm
+        ) || []
+      ).length;
+      if (ignoredCount > 0) {
+        console.log("\nContent Summary:");
+        console.log(
+          `${ignoredCount} file(s) had content ignored due to size or format limitations`
+        );
+        console.log("Use --verbose to see full content");
+      }
+    }
+  }
+
+  // Always show the file path unless in test mode
+  if (!argv.test && !process.env["NO_INTRO"]) {
+    console.log(`\n${RESULTS_SAVED_MARKER} ${resultFilePath}`);
+  }
 }
 
-// Normal mode with pretty formatting
-if (argv.debug) console.log("[DEBUG] Normal mode, using formatted output");
-p.intro(digest.summary);
-console.log("\nDirectory Structure:\n");
-console.log(digest.treeStr);
-
-// Show file contents in console only if verbose/debug is on
-if (argv.verbose || argv.debug) {
-  console.log("\nFiles Content:\n");
-  console.log(digest.contentStr);
-} else if (digest.contentStr.includes("[Content ignored: file too large]")) {
-  // If there are large files, show the exact warning from the content
-  console.log("\nFiles Content:\n");
-  console.log("[Content ignored: file too large]");
-}
-
-if (argv.pipe) {
-  console.log(`\n${RESULTS_SAVED_MARKER} ${resultFilePath}`);
-}
-
-// Always include file contents in the saved file
-output = [
-  APP_HEADER,
-  `**Source**: \`${String(source)}\``,
-  `**Timestamp**: ${new Date().toString()}`,
-  "## Summary",
-  digest.summary,
-  "## Directory Structure",
-  "```",
-  digest.treeStr,
-  "```",
-  "## Files Content",
-  "```",
-  digest.contentStr,
-  "```",
-].join("\n\n");
-
-if (argv.bulk) {
-  output +=
-    "\n\n---\nWhen I provide a set of files with paths and content, please return **one single shell script** that does the following:\n\n";
-  output += "1. Creates the necessary directories for all files.\n\n";
-  output +=
-    "2. Outputs the final content of each file using `cat << 'EOF' > path/filename` ... `EOF`.\n\n";
-  output +=
-    "3. Ensures it's a single code fence I can copy and paste into my terminal.\n\n";
-  output += "4. Ends with a success message.\n\n";
-  output +=
-    "Use `#!/usr/bin/env bash` at the start and make sure each `cat` block ends with `EOF`.\n---\n";
-}
+// After getting digest, call handleOutput
+await handleOutput(digest, source, resultFilePath, argv);
+process.exit(0);

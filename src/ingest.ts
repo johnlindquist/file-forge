@@ -56,6 +56,12 @@ const DEFAULT_IGNORE = [
   ".git",
 ];
 
+interface FileContent {
+  path: string;
+  content: string;
+  size: number;
+}
+
 /**
  * Core: Ingest a directory or repository.
  * This function builds a digest by scanning the directory,
@@ -84,8 +90,7 @@ export async function ingestDirectory(
     }
   }
 
-  const stats: ScanStats = { totalFiles: 0, totalSize: 0 };
-  const rootNode = await scanDirectory(basePath, flags, 0, stats);
+  const rootNode = await scanDirectory(basePath, flags);
   if (!rootNode)
     throw new Error("No files found or directory is empty after scanning.");
 
@@ -105,25 +110,20 @@ export async function ingestDirectory(
   if (flags.commit) summaryLines.push(`Commit: ${flags.commit}`);
 
   const treeStr = createTree(rootNode, "");
-  const maxSize = flags.maxSize ?? DEFAULT_MAX_SIZE;
-  const fileNodes = await gatherFiles(rootNode, maxSize);
+  const fileNodes = await gatherFiles(rootNode, flags);
 
   const fileContents: { [filePath: string]: string } = {};
   const seenPaths = new Set<string>();
 
   for (const file of fileNodes) {
     // Get the original relative path for storing in the result
-    const relativePath = file.path.replace(process.cwd() + "/", "");
+    const relativePath = file.path.replace(basePath + "/", "");
 
     if (seenPaths.has(relativePath)) continue;
     seenPaths.add(relativePath);
 
     try {
-      fileContents[relativePath] = await getFileContent(
-        file.path,
-        maxSize,
-        relativePath
-      );
+      fileContents[relativePath] = file.content;
     } catch (error) {
       console.error(`[DEBUG] Error reading file ${file.path}:`, error);
       fileContents[
@@ -185,9 +185,17 @@ export async function scanDirectory(
     } catch {}
   }
 
+  // Handle include patterns correctly
   const patterns = options.include?.length
-    ? options.include
+    ? options.include.map((pattern) => {
+        // If pattern is just a directory name, append /**/* to get all files
+        if (!pattern.includes("*") && !pattern.includes("/")) {
+          return `${pattern}/**/*`;
+        }
+        return pattern;
+      })
     : ["**/*", "**/.*"];
+
   const ignorePatterns =
     options.ignore === false
       ? [...(options.exclude ?? [])]
@@ -203,13 +211,29 @@ export async function scanDirectory(
     console.log("[DEBUG] Globby ignore patterns:", ignorePatterns);
   }
 
-  const files = await globby(patterns, {
-    cwd: dir,
+  // If we're at the root directory and have include patterns, adjust the search
+  const isRoot = depth === 0;
+  const searchDir = dir;
+  const globbyOptions = {
+    cwd: searchDir,
     ignore: ignorePatterns,
     dot: true,
     absolute: true,
     onlyFiles: true,
-  });
+    followSymbolicLinks: false,
+  };
+
+  // For root directory with include patterns, only search in those directories
+  const files =
+    isRoot && options.include?.length
+      ? await globby(patterns, globbyOptions)
+      : await globby(["**/*", "**/.*"], {
+          ...globbyOptions,
+          ignore: [
+            ...ignorePatterns,
+            ...(options.include?.length ? ["**/*"] : []),
+          ],
+        });
 
   let filteredFiles = files;
   const rawFindTerms =
@@ -333,6 +357,11 @@ export async function filterFilesByContent(
 ): Promise<string[]> {
   if (!findTerms.length && !requireTerms.length) return files;
 
+  console.log(`[DEBUG] Filtering files with terms:`, {
+    findTerms,
+    requireTerms,
+  });
+
   // Split any comma-separated terms and flatten the arrays
   const orTermsLower = findTerms
     .flatMap((t) => t.split(","))
@@ -352,16 +381,11 @@ export async function filterFilesByContent(
 
       // First check filename matches for OR terms
       if (orTermsLower.some((term: string) => fileNameLower.includes(term))) {
+        console.log(`[DEBUG] File matched by name: ${file}`);
         return file;
       }
 
-      // Skip non-text files early
-      if (!(await isLikelyTextFile(file))) return null;
-
       try {
-        const fstat = await fs.lstat(file);
-        if (fstat.size > DEFAULT_MAX_SIZE) return null;
-
         const content = (await fs.readFile(file, "utf8")).toLowerCase();
 
         // Check content for OR terms
@@ -375,10 +399,14 @@ export async function filterFilesByContent(
           andTermsLower.every((term: string) => content.includes(term));
 
         // Return the file if it matches either condition
-        return matchesFind || matchesRequire ? file : null;
+        if (matchesFind || matchesRequire) {
+          console.log(`[DEBUG] File matched by content: ${file}`);
+          return file;
+        }
+        return null;
       } catch (error) {
         if (error instanceof Error) {
-          console.error(`Error reading file ${file}:`, error.message);
+          console.error(`[DEBUG] Error reading file ${file}:`, error.message);
         }
         return null;
       }
@@ -391,75 +419,67 @@ export async function filterFilesByContent(
     }
   });
 
+  console.log(`[DEBUG] Found ${matchingFiles.size} matching files`);
   return Array.from(matchingFiles);
 }
 
-/** Recursively gather file nodes and read their content */
+/** Gather files from a directory tree */
 export async function gatherFiles(
-  root: TreeNode,
-  maxSize: number
-): Promise<TreeNode[]> {
-  const files: TreeNode[] = [];
+  node: TreeNode,
+  options: IngestFlags
+): Promise<FileContent[]> {
+  const files: FileContent[] = [];
+  const seenPaths = new Set<string>();
+  const ignoredFiles = new Set<string>();
 
-  async function traverse(node: TreeNode): Promise<void> {
+  async function processNode(node: TreeNode) {
     if (node.type === "file") {
+      if (seenPaths.has(node.path)) {
+        if (options.debug) {
+          console.log("[DEBUG] Skipping duplicate file:", node.path);
+        }
+        return;
+      }
+      seenPaths.add(node.path);
+
       try {
         const content = await getFileContent(
           node.path,
-          maxSize,
+          options.maxSize ?? DEFAULT_MAX_SIZE,
           basename(node.path)
         );
-        // Always add the file, but strip the header from the content
-        node.content = content.split("\n").slice(3).join("\n");
-        files.push(node);
-      } catch {
-        node.content = "[Error reading file]";
-        files.push(node);
+        if (content === null) {
+          if (options.debug) {
+            console.log("[DEBUG] File ignored by getFileContent:", node.path);
+          }
+          ignoredFiles.add(node.path);
+          return;
+        }
+        files.push({
+          path: node.path,
+          content: content,
+          size: node.size,
+        });
+      } catch (err) {
+        if (options.debug) {
+          console.log("[DEBUG] Error reading file:", node.path, err);
+        }
+        ignoredFiles.add(node.path);
       }
     } else if (node.children) {
       for (const child of node.children) {
-        await traverse(child);
+        await processNode(child);
       }
     }
   }
 
-  await traverse(root);
-  return files;
-}
-
-/** Check if a file is likely a text file by reading its first bytes */
-export async function isLikelyTextFile(filePath: string): Promise<boolean> {
-  // Common text file extensions
-  const textExtensions = [
-    ".txt",
-    ".js",
-    ".ts",
-    ".jsx",
-    ".tsx",
-    ".md",
-    ".json",
-    ".yml",
-    ".yaml",
-    ".css",
-    ".html",
-    ".xml",
-  ];
-  const ext = filePath.toLowerCase().slice(filePath.lastIndexOf("."));
-  if (textExtensions.includes(ext)) return true;
-
-  try {
-    const buffer = await fs.readFile(filePath);
-    if (!buffer.length) return false;
-    const chunk = buffer.slice(0, 1024);
-    let nonPrintable = 0;
-    for (const byte of chunk) {
-      if (byte === 0) return false;
-      if (byte < 9 || (byte > 127 && byte < 192)) nonPrintable++;
-    }
-    return nonPrintable / chunk.length < 0.3;
-  } catch {
-    return false;
+  await processNode(node);
+  if (options.debug) {
+    console.log("[DEBUG] Total files gathered:", files.length);
+    console.log("[DEBUG] Total files ignored:", ignoredFiles.size);
+    console.log("[DEBUG] Ignored files:", Array.from(ignoredFiles));
   }
+  return files;
 }
 
 /** Create a tree-like string representation of the directory structure */
