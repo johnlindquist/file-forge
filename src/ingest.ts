@@ -99,10 +99,13 @@ Files analyzed: ${stats.totalFiles}`;
 
   const treeSection = `## Directory Structure\n\n\`\`\`\n${tree}\n\`\`\``;
 
-  // Always include file contents in the content
+  // Always include file contents in the content, but without repeating the summary
   const fileContents = files
     .map((f) => `${f.path}:\n${f.content}`)
-    .join("\n\n");
+    .join("\n\n")
+    .replace(/# File Forge Analysis[\s\S]*?Files analyzed: \d+\n\n/g, "")
+    .replace(/## Directory Structure[\s\S]*?\`\`\`\n\n/g, "");
+
   const fileContentsSection = `## Files Content\n\n\`\`\`\n${fileContents}\n\`\`\``;
 
   // Build content without duplicating sections
