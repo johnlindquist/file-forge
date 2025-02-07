@@ -12,12 +12,15 @@ describe("duplicate lines", () => {
       env: { ...process.env, VITEST: "1" },
     });
 
+    console.log("Full output:", output);
+
     // Split output into lines and filter to only include markdown headers
     const lines = output
       .split("\n")
       .map((line) => line.trim())
-      .filter((line) => line.startsWith("#")) // Only check markdown headers
-      .slice(0, 500); // Only check first 500 lines
+      .filter((line) => line.startsWith("#")); // Only check markdown headers
+
+    console.log("All markdown headers found:", lines);
 
     // Create a Set to track unique lines
     const uniqueLines = new Set<string>();
@@ -34,6 +37,7 @@ describe("duplicate lines", () => {
     // Log duplicates for debugging if test fails
     if (duplicates.length > 0) {
       console.log("Found duplicate markdown headers:", duplicates);
+      console.log("All unique headers:", Array.from(uniqueLines));
     }
 
     expect(duplicates).toHaveLength(0);
