@@ -402,7 +402,7 @@ export async function handleOutput(
   if (argv.test || process.env["NO_INTRO"]) {
     process.stdout.write(consoleOutput);
     if (argv.clipboard) {
-      clipboard.writeSync(consoleOutput);
+      clipboard.writeSync(fileOutput);
       console.log("\n" + formatClipboardMessage());
     }
     if (argv.pipe) {
@@ -411,7 +411,7 @@ export async function handleOutput(
   } else if (argv.pipe) {
     process.stdout.write(consoleOutput);
     if (argv.clipboard) {
-      clipboard.writeSync(consoleOutput);
+      clipboard.writeSync(fileOutput);
       console.log("\n" + formatClipboardMessage());
     }
     process.stdout.write(`\n${RESULTS_SAVED_MARKER} ${resultFilePath}`);
@@ -433,7 +433,7 @@ export async function handleOutput(
     }
 
     if (argv.clipboard) {
-      clipboard.writeSync(consoleOutput);
+      clipboard.writeSync(fileOutput);
       console.log("\n" + formatClipboardMessage());
     }
   }

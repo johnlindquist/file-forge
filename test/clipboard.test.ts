@@ -82,4 +82,32 @@ describe("clipboard flag", () => {
 
     expect(clipboard.writeSync).not.toHaveBeenCalled();
   });
+
+  it("should copy complete file output to clipboard even without verbose flag", async () => {
+    const digest = {
+      [PROP_SUMMARY]: "Test summary",
+      [PROP_TREE]: "Test tree",
+      [PROP_CONTENT]: "Test content",
+    };
+
+    const source = "test/fixtures/sample-project";
+    const resultFilePath = "test-result.md";
+    const argv = {
+      clipboard: true,
+      pipe: true,
+      test: true,
+      verbose: false,
+    } as IngestFlags;
+
+    await handleOutput(digest, source, resultFilePath, argv);
+
+    expect(clipboard.writeSync).toHaveBeenCalledTimes(1);
+
+    const clipboardContent = vi.mocked(clipboard.writeSync).mock.calls[0][0];
+
+    expect(clipboardContent).toContain("Test summary");
+    expect(clipboardContent).toContain("Test tree");
+    expect(clipboardContent).toContain("Test content");
+    expect(clipboardContent).toContain("## Files Content");
+  });
 });
