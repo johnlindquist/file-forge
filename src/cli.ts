@@ -143,11 +143,11 @@ export function runCli() {
 
 function getVersion(): string {
   try {
-    // Synchronously load package.json for version info
-    // Note: import is cached, so it's efficient
-    const pkg = JSON.parse(readFileSync("./package.json", "utf-8"));
-    return pkg.version;
+    // Use a URL relative to this module to reliably locate package.json
+    const pkgPath = new URL("../package.json", import.meta.url);
+    const pkg = JSON.parse(readFileSync(pkgPath, "utf-8"));
+    return pkg.version || "0.0.0-development";
   } catch {
-    return "0.0.0";
+    return "0.0.0-development";
   }
 }

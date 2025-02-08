@@ -1,5 +1,6 @@
 {
   "name": "@johnlindquist/file-forge",
+  "version": "0.0.0-development",
   "description": "File Forge is a powerful CLI tool for deep analysis of codebases, generating markdown reports to feed AI reasoning models.",
   "repository": {
     "type": "git",
