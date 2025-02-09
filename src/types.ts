@@ -6,6 +6,8 @@ export type EditorConfig = {
 };
 
 export type IngestFlags = {
+  repo?: string | undefined;
+  path?: string | undefined;
   include?: string[];
   exclude?: string[];
   branch?: string | undefined;

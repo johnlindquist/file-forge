@@ -8,10 +8,18 @@ const DEFAULT_MAX_SIZE = 10 * 1024 * 1024; // 10MB
 export function runCli() {
   const argv = yargs(hideBin(process.argv))
     .scriptName(APP_COMMAND)
-    .usage("$0 [options] <repo-or-path>")
+    .usage("$0 [options]")
     .epilogue(APP_DESCRIPTION)
     .version("version", "Show version number", getVersion())
     .alias("version", "v")
+    .option("repo", {
+      type: "string",
+      describe: "Git repository URL to clone",
+    })
+    .option("path", {
+      type: "string",
+      describe: "Local file system path to analyze",
+    })
     .option("include", {
       alias: "i",
       array: true,

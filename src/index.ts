@@ -11,7 +11,7 @@ import * as p from "@clack/prompts";
 import { runCli } from "./cli.js";
 import { ingestDirectory } from "./ingest.js";
 import { ingestGraph } from "./graph.js";
-import { isGitUrl, getRepoPath } from "./repo.js";
+import { getRepoPath } from "./repo.js";
 import { IngestFlags } from "./types.js";
 import {
   APP_ANALYSIS_HEADER,
@@ -58,10 +58,18 @@ const DEFAULT_SEARCHES_DIR = envPaths(APP_SYSTEM_ID).config;
 // Parse CLI arguments
 const argv = runCli() as IngestFlags & { _: (string | number)[] };
 
+if (argv.debug) {
+  console.log(formatDebugMessage(`CLI Arguments:`));
+  console.log(formatDebugMessage(`argv.repo = ${argv.repo}`));
+  console.log(formatDebugMessage(`argv.path = ${argv.path}`));
+  console.log(formatDebugMessage(`All argv: ${JSON.stringify(argv, null, 2)}`));
+}
+
 let output: string;
 let digest: DigestResult | null = null;
 let resultFilePath: string;
-let source: string;
+let source = "";
+let finalPath: string;
 
 if (argv.graph) {
   const entryFile = String(argv.graph);
@@ -169,23 +177,15 @@ ${contentStr}
     process.exit(1);
   }
 } else {
-  let [srcArg] = argv._;
-  if (!srcArg) {
-    srcArg = process.cwd();
-    if (argv.debug)
-      console.log(
-        formatDebugMessage(
-          "No source provided, using current directory: " + srcArg
-        )
-      );
-  }
-  const srcStr = String(srcArg);
-  if (isGitUrl(srcStr)) {
+  if (argv.repo && argv.path) {
+    console.error("Error: Please provide either --repo or --path, not both.");
+    process.exit(1);
+  } else if (argv.repo) {
+    source = argv.repo;
     try {
-      source = srcStr;
-      var finalPath = await getRepoPath(
+      finalPath = await getRepoPath(
         source,
-        createHash("md5").update(String(srcStr)).digest("hex").slice(0, 6),
+        createHash("md5").update(String(source)).digest("hex").slice(0, 6),
         argv,
         false
       );
@@ -193,12 +193,36 @@ ${contentStr}
       p.cancel(formatErrorMessage("Failed to clone repository"));
       process.exit(1);
     }
-  } else {
+  } else if (argv.path) {
+    source = argv.path;
     try {
-      source = srcStr;
       finalPath = await getRepoPath(
-        srcStr,
-        createHash("md5").update(String(srcStr)).digest("hex").slice(0, 6),
+        source,
+        createHash("md5").update(String(source)).digest("hex").slice(0, 6),
+        argv,
+        true
+      );
+    } catch (err) {
+      p.cancel(
+        formatErrorMessage(
+          err instanceof Error ? err.message : "Failed to access directory"
+        )
+      );
+      process.exit(1);
+    }
+  } else {
+    // Default to the current working directory if neither flag is provided
+    source = process.cwd();
+    if (argv.debug)
+      console.log(
+        formatDebugMessage(
+          "No source provided, using current directory: " + source
+        )
+      );
+    try {
+      finalPath = await getRepoPath(
+        source,
+        createHash("md5").update(String(source)).digest("hex").slice(0, 6),
         argv,
         true
       );
@@ -211,6 +235,7 @@ ${contentStr}
       process.exit(1);
     }
   }
+
   const spinner2 = p.spinner();
   spinner2.start(formatSpinnerMessage("Building text digest..."));
   try {

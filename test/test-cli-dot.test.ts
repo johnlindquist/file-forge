@@ -50,6 +50,7 @@ describe("CLI: ingest current directory with '.'", () => {
 
     // Use absolute path to fixtures
     const { stdout, stderr, exitCode } = await runCLI([
+      "--path",
       fixturesPath,
       "--pipe",
       "--no-skip-artifacts",

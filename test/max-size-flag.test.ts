@@ -18,6 +18,7 @@ describe("CLI --max-size", () => {
 
     try {
       const { stdout, exitCode } = await runCLI([
+        "--path",
         testDir,
         "--max-size",
         "500000", // 500KB
@@ -49,6 +50,7 @@ describe("CLI --max-size", () => {
 
     try {
       const { stdout, exitCode } = await runCLI([
+        "--path",
         testDir,
         "--max-size",
         "500000", // 500KB

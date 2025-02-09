@@ -6,7 +6,11 @@ describe("CLI --verbose flag", () => {
   const FIXTURE_DIR = join(__dirname, "fixtures", "sample-project");
 
   it("omits file contents by default", async () => {
-    const { stdout, exitCode } = await runCLI([FIXTURE_DIR, "--pipe"]);
+    const { stdout, exitCode } = await runCLI([
+      "--path",
+      FIXTURE_DIR,
+      "--pipe",
+    ]);
 
     expect(exitCode).toBe(0);
     // Check that the output includes summary and directory structure
@@ -20,6 +24,7 @@ describe("CLI --verbose flag", () => {
 
   it("includes file contents when --verbose is used", async () => {
     const { stdout, exitCode } = await runCLI([
+      "--path",
       FIXTURE_DIR,
       "--pipe",
       "--verbose",

@@ -2,7 +2,7 @@
 import { describe, it, expect } from "vitest";
 import { runCLI } from "./test-helpers";
 import { join } from "node:path";
-import { APP_HEADER } from "../src/constants.js"
+import { APP_HEADER } from "../src/constants.js";
 
 const FIXTURES_DIR = join(__dirname, "fixtures", "graph-project");
 const ENTRY_FILE = join(FIXTURES_DIR, "index.js");
@@ -10,6 +10,7 @@ const ENTRY_FILE = join(FIXTURES_DIR, "index.js");
 describe("CLI --graph", () => {
   it("builds dependency graph digest starting from the given file", async () => {
     const { stdout, exitCode } = await runCLI([
+      "--path",
       FIXTURES_DIR,
       "--graph",
       ENTRY_FILE,
@@ -24,5 +25,4 @@ describe("CLI --graph", () => {
     expect(stdout).toContain("================================");
     expect(stdout).toContain("File:");
   });
-}); 
-
+});

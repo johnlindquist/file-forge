@@ -5,6 +5,7 @@ describe("Include flag with wildcard should not output file contents to console"
   it("should hide file content in console output when not in verbose mode", async () => {
     // Run the CLI with an include glob but without verbose/debug flags.
     const { stdout, exitCode } = await runCLI([
+      "--path",
       "test/fixtures/sample-project",
       "--include=**/*.ts",
       "--pipe",

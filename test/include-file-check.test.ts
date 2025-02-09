@@ -31,6 +31,7 @@ describe("Include flag for specific file and directory paths", () => {
 
     // Run the CLI with the include flag set to package.json
     const { stdout, exitCode } = await runCLI([
+      "--path",
       tempDir,
       "--include=package.json",
       "--pipe",
@@ -60,6 +61,7 @@ describe("Include flag for specific file and directory paths", () => {
 
     // Run the CLI with the include flag set to .github
     const { stdout, exitCode } = await runCLI([
+      "--path",
       tempDir,
       "--include=.github",
       "--pipe",

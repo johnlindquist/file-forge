@@ -5,6 +5,7 @@ import { runCLI } from "./test-helpers";
 describe("CLI --debug", () => {
   it("prints extra debug output to STDOUT or STDERR", async () => {
     const { stdout, stderr, exitCode } = await runCLI([
+      "--path",
       "test/fixtures/sample-project",
       "--debug",
       "--pipe",

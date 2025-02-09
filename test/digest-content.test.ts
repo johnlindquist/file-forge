@@ -43,6 +43,7 @@ describe("Digest File Content", () => {
   it("includes all file names and file contents by default", async () => {
     // Run without verbose flag
     const { stdout, exitCode } = await runCLI([
+      "--path",
       "test/fixtures/sample-project",
       "--pipe",
     ]);
@@ -80,12 +81,14 @@ describe("Digest File Content", () => {
   it("console output respects verbose flag while file contains everything", async () => {
     // Run without verbose flag first
     const { stdout: nonVerboseStdout } = await runCLI([
+      "--path",
       "test/fixtures/sample-project",
       "--pipe",
     ]);
 
     // Run with verbose flag
     const { stdout: verboseStdout } = await runCLI([
+      "--path",
       "test/fixtures/sample-project",
       "--pipe",
       "--verbose",
