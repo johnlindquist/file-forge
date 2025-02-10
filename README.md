@@ -33,6 +33,16 @@ npm install -g @johnlindquist/file-forge
 
 ## Usage Examples
 
+### Analyze Current Directory
+```bash
+# Analyze all files in current directory
+ffg
+
+# Analyze specific directory/files in current directory
+ffg src
+ffg "src/**/*.ts"
+```
+
 ### Analyze a GitHub Repository
 ```bash
 ffg https://github.com/owner/repo --branch develop
@@ -45,41 +55,45 @@ ffg /path/to/local/project
 
 ### Filter Files by Pattern
 ```bash
-ffg /path/to/project --include "*.ts,*.tsx" --exclude "*.spec.*,node_modules"
+# Filter in current directory
+ffg --include "*.ts,*.tsx" --exclude "*.spec.*,node_modules"
+
+# Filter in specific directory
+ffg src --include "*.ts" --exclude "*.test.ts"
 ```
 
 ### Search for Specific Content
 - **Find files containing ANY of the terms:**
   ```bash
-  ffg /path/to/project --find "console,debug"
+  ffg src --find "console,debug"
   ```
 - **Require files to have ALL of the terms:**
   ```bash
-  ffg /path/to/project --require "console,log"
+  ffg src --require "console,log"
   ```
 
 ### Generate a Dependency Graph
 ```bash
-ffg /path/to/project --graph /path/to/project/src/index.js
+ffg --graph src/index.js
 ```
 
 ### Advanced Options
 - **Pipe output:**
   ```bash
-  ffg /path/to/project --pipe
+  ffg src --pipe
   ```
 - **Copy to clipboard:**
   ```bash
-  ffg /path/to/project --clipboard
+  ffg src --clipboard
   ```
 - **Bulk Analysis Mode:**
   ```bash
-  ffg /path/to/project --bulk
+  ffg src --bulk
   ```
 - **Enable Debug/Verbose Output:**
   ```bash
-  ffg /path/to/project --debug
-  ffg /path/to/project --verbose
+  ffg src --debug
+  ffg src --verbose
   ```
 
 ## Viewing Help
