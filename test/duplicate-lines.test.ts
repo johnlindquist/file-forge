@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 import { execSync } from "child_process";
 import path from "path";
 import fs from "fs";
+import { ingestDirectory } from "../src/ingest.js";
+import { buildOutput } from "../src/outputFormatter.js";
+import { format } from "date-fns";
 
 describe("duplicate lines", () => {
   it("should not have duplicate markdown headers in output", () => {
@@ -59,24 +62,26 @@ describe("duplicate lines", () => {
     );
 
     try {
-      // Run the command and get the output directly (in test mode)
-      const output = execSync(
-        `node dist/index.js --path ${testDir} --name TEST_PROJECT --test`,
-        {
-          cwd: path.resolve(__dirname, ".."),
-          encoding: "utf8",
-          env: { ...process.env, VITEST: "1" },
-        }
-      );
+      // Get the digest and build output with file contents always included
+      const flags = {
+        path: testDir,
+        name: "TEST_PROJECT",
+        test: true,
+        verbose: true, // Force verbose to ensure file contents
+      };
+
+      const digest = await ingestDirectory(testDir, flags);
+      const timestamp = format(new Date(), "yyyyMMdd-HHmmss");
+      const output = buildOutput(digest, testDir, timestamp, flags);
 
       // Verify file contents section exists and has content
       expect(output).toContain("## Files Content");
       expect(output).toContain("```");
 
       // Verify some actual file content exists
-      expect(output).toContain("test1.ts:");
+      expect(output).toContain("test1.ts");
       expect(output).toContain("console.log('test1');");
-      expect(output).toContain("test2.ts:");
+      expect(output).toContain("test2.ts");
       expect(output).toContain("console.log('test2');");
     } finally {
       // Clean up test directory

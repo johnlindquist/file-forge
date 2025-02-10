@@ -1,8 +1,8 @@
-# File Forge
+# File Forge Analysis
 
 **Source**: `test/fixtures/sample-project`
 
-**Timestamp**: Sun Feb 09 2025 20:09:19 GMT-0700 (Mountain Standard Time)
+**Timestamp**: 20250210-091738
 
 ## Summary
 

@@ -1,44 +1,11 @@
 // test/test-cli-dot.test.ts
 import { describe, it, expect } from "vitest";
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import envPaths from "env-paths";
 import { runCLI } from "./test-helpers";
 import { APP_SYSTEM_ID } from "../src/constants";
-
-// Helper function to wait for file to exist and be stable
-async function waitForFile(
-  path: string,
-  timeoutMs = 10000,
-  intervalMs = 500
-): Promise<boolean> {
-  const start = Date.now();
-  let lastSize = -1;
-  let sameCount = 0;
-  let attempts = 0;
-
-  while (Date.now() - start < timeoutMs) {
-    attempts++;
-    if (existsSync(path)) {
-      const stats = readFileSync(path).length;
-      console.log(`Attempt ${attempts}: File size ${stats} bytes`);
-
-      if (stats === lastSize) {
-        sameCount++;
-        console.log(`Same size count: ${sameCount}`);
-        // If size has been stable for 5 checks, file is fully written
-        if (sameCount >= 5) return true;
-      } else {
-        lastSize = stats;
-        sameCount = 0;
-      }
-    } else {
-      console.log(`Attempt ${attempts}: File does not exist yet`);
-    }
-    await new Promise((resolve) => setTimeout(resolve, intervalMs));
-  }
-  return false;
-}
+import { waitForFile } from "./helpers/fileWaiter";
 
 describe("CLI: ingest current directory with '.'", () => {
   it("should include files from the current directory and not throw 'No files found'", async () => {

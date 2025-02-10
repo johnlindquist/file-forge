@@ -17,7 +17,6 @@ import {
   APP_ANALYSIS_HEADER,
   APP_HEADER,
   APP_SYSTEM_ID,
-  FILE_SIZE_MESSAGE,
   PROP_SUMMARY,
   PROP_TREE,
   PROP_CONTENT,
@@ -32,6 +31,8 @@ import {
   formatClipboardMessage,
   formatSaveMessage,
 } from "./formatter.js";
+import { buildOutput } from "./outputFormatter.js";
+import { getHashedSource } from "./utils.js";
 
 // Handle uncaught errors
 process.on("uncaughtException", (err: unknown) => {
@@ -183,12 +184,8 @@ ${contentStr}
   } else if (argv.repo) {
     source = argv.repo;
     try {
-      finalPath = await getRepoPath(
-        source,
-        createHash("md5").update(String(source)).digest("hex").slice(0, 6),
-        argv,
-        false
-      );
+      const hashedSource = getHashedSource(source);
+      finalPath = await getRepoPath(source, hashedSource, argv, false);
     } catch {
       p.cancel(formatErrorMessage("Failed to clone repository"));
       process.exit(1);
@@ -259,10 +256,7 @@ await mkdirp(DEFAULT_LOG_DIR);
 await mkdirp(DEFAULT_SEARCHES_DIR);
 
 const timestamp = format(new Date(), "yyyyMMdd-HHmmss");
-const hashedSource = createHash("md5")
-  .update(String(source))
-  .digest("hex")
-  .slice(0, 6);
+const hashedSource = getHashedSource(source);
 resultFilePath = resolve(
   DEFAULT_SEARCHES_DIR,
   `ghi-${hashedSource}-${timestamp}.md`
@@ -295,105 +289,20 @@ export async function handleOutput(
   resultFilePath: string,
   argv: IngestFlags
 ) {
-  // When using name flag and not piping, use the content directly as it includes XML tags
-  if (argv.name) {
-    const fileOutput = digest?.[PROP_CONTENT] || "";
+  const timestamp = format(new Date(), "yyyyMMdd-HHmmss");
 
-    // Save content to file
-    try {
-      await fs.writeFile(resultFilePath, fileOutput, "utf8");
-      if (argv.debug)
-        console.log(formatDebugMessage("Results saved to: " + resultFilePath));
-    } catch (err) {
-      console.error(formatErrorMessage("Failed to save results: " + err));
-      process.exit(1);
-    }
+  // For file output, always include everything
+  const fileOutput = buildOutput(digest as DigestResult, source, timestamp, {
+    ...argv,
+    verbose: true, // Always include file contents in file output
+  });
 
-    // Handle console output
-    if (argv.test || process.env["NO_INTRO"]) {
-      process.stdout.write(fileOutput);
-      if (argv.clipboard) {
-        clipboard.writeSync(fileOutput);
-        console.log("\n" + formatClipboardMessage());
-      }
-      if (argv.pipe) {
-        process.stdout.write(`\n${RESULTS_SAVED_MARKER} ${resultFilePath}`);
-      }
-    } else {
-      // Normal mode with pretty formatting
-      if (argv.debug)
-        console.log(formatDebugMessage("Normal mode, using formatted output"));
-      p.intro(digest?.[PROP_SUMMARY] || "");
-      console.log("\nDirectory Structure:\n");
-      console.log(digest?.[PROP_TREE] || "");
+  // For console output, respect the verbose flag
+  const consoleOutput = buildOutput(digest as DigestResult, source, timestamp, {
+    ...argv,
+    name: undefined, // Never use XML wrapping in console output
+  });
 
-      if (
-        argv.verbose ||
-        argv.debug ||
-        digest?.[PROP_CONTENT].includes(
-          FILE_SIZE_MESSAGE(0).replace("0.00", "")
-        )
-      ) {
-        console.log("\nFiles Content:\n");
-        console.log(digest?.[PROP_CONTENT] || "");
-      }
-
-      if (argv.clipboard) {
-        clipboard.writeSync(fileOutput);
-        console.log("\n" + formatClipboardMessage());
-      }
-    }
-    return;
-  }
-
-  // Base output parts that are always included in both file and console output
-  const baseOutputParts = [
-    APP_HEADER,
-    `**Source**: \`${String(source)}\``,
-    `**Timestamp**: ${new Date().toString()}`,
-    "## Summary",
-    digest?.[PROP_SUMMARY] || "",
-    "## Directory Structure",
-    "```",
-    digest?.[PROP_TREE] || "",
-    "```",
-  ];
-
-  // Add bulk mode instructions if flag is set
-  if (argv.bulk) {
-    baseOutputParts.push(
-      "## AI Instructions",
-      "When I provide a set of files with paths and content, please return **one single shell script**",
-      "Use `#!/usr/bin/env bash` at the start"
-    );
-  }
-
-  // File output always includes everything
-  const fileOutput = [
-    ...baseOutputParts,
-    "## Files Content",
-    "```",
-    digest?.[PROP_CONTENT] || "",
-    "```",
-  ].join("\n\n");
-
-  // Console output varies based on verbose flag
-  const consoleOutputParts = [...baseOutputParts];
-  if (
-    argv.verbose ||
-    argv.debug ||
-    digest?.[PROP_CONTENT].includes(FILE_SIZE_MESSAGE(0).replace("0.00", ""))
-  ) {
-    consoleOutputParts.push(
-      "## Files Content",
-      "```",
-      digest?.[PROP_CONTENT] || "",
-      "```"
-    );
-  }
-  const consoleOutput = consoleOutputParts.join("\n\n");
-
-  // Save content to file
   try {
     await fs.writeFile(resultFilePath, fileOutput, "utf8");
     if (argv.debug)
@@ -403,7 +312,6 @@ export async function handleOutput(
     process.exit(1);
   }
 
-  // Console output
   if (argv.test || process.env["NO_INTRO"]) {
     process.stdout.write(consoleOutput);
     if (argv.clipboard) {
@@ -421,29 +329,20 @@ export async function handleOutput(
     }
     process.stdout.write(`\n${RESULTS_SAVED_MARKER} ${resultFilePath}`);
   } else {
-    // Normal mode with pretty formatting
-    if (argv.debug)
-      console.log(formatDebugMessage("Normal mode, using formatted output"));
+    // Normal mode with pretty formatting (fallback)
     p.intro(digest?.[PROP_SUMMARY] || "");
     console.log("\nDirectory Structure:\n");
     console.log(digest?.[PROP_TREE] || "");
-
-    if (
-      argv.verbose ||
-      argv.debug ||
-      digest?.[PROP_CONTENT].includes(FILE_SIZE_MESSAGE(0).replace("0.00", ""))
-    ) {
+    if (argv.verbose || argv.debug) {
       console.log("\nFiles Content:\n");
       console.log(digest?.[PROP_CONTENT] || "");
     }
-
     if (argv.clipboard) {
       clipboard.writeSync(fileOutput);
       console.log("\n" + formatClipboardMessage());
     }
   }
 
-  // Always show the file path unless in test mode or pipe mode
   if (!argv.test && !process.env["NO_INTRO"] && !argv.pipe) {
     formatSaveMessage(resultFilePath, true);
   }

@@ -102,33 +102,10 @@ Files analyzed: ${stats.totalFiles}`;
     .map((f) => `${f.path}:\n${f.content}`)
     .join("\n\n");
 
-  // Build the content with proper headers and XML wrapping based on flags
-  const baseContent = [
-    `# ${flags.name || "File Forge Analysis"}`,
-    `**Source**: \`${basePath}\``,
-    `**Timestamp**: ${new Date().toString()}`,
-    "## Summary",
-    summary,
-    "## Directory Structure",
-    "```",
-    tree,
-    "```",
-    "## Files Content",
-    "```",
-    fileContents,
-    "```",
-  ].join("\n\n");
-
-  // Add XML wrapping if name flag is used and not piping
-  const content =
-    flags.name && !flags.pipe
-      ? `<${flags.name}>\n${baseContent}\n</${flags.name}>`
-      : baseContent;
-
   return {
     [PROP_SUMMARY]: summary,
     [PROP_TREE]: tree,
-    [PROP_CONTENT]: content,
+    [PROP_CONTENT]: fileContents,
   };
 }
 

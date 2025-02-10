@@ -2,7 +2,8 @@ import { describe, it, expect } from "vitest";
 import { runCli } from "../src/cli.js";
 import { ingestDirectory } from "../src/ingest.js";
 import { join } from "path";
-import { PROP_CONTENT } from "../src/constants.js";
+import { buildOutput } from "../src/outputFormatter.js";
+import { format } from "date-fns";
 
 describe("name flag", () => {
   it("should use custom name in header and wrap output in XML tags", async () => {
@@ -14,17 +15,16 @@ describe("name flag", () => {
       test: true,
     };
 
-    const { [PROP_CONTENT]: content } = await ingestDirectory(
-      flags._[0] as string,
-      flags
-    );
+    const digest = await ingestDirectory(flags._[0] as string, flags);
+    const timestamp = format(new Date(), "yyyyMMdd-HHmmss");
+    const output = buildOutput(digest, flags._[0] as string, timestamp, flags);
 
     // Check that the name is used in the header
-    expect(content).toContain("# EXAMPLE_PROJECT");
+    expect(output).toContain("# EXAMPLE_PROJECT");
 
     // Check that the content is wrapped in XML tags
-    expect(content).toMatch(/^<EXAMPLE_PROJECT>\n/);
-    expect(content).toMatch(/\n<\/EXAMPLE_PROJECT>$/);
+    expect(output).toMatch(/^<EXAMPLE_PROJECT>\n/);
+    expect(output).toMatch(/\n<\/EXAMPLE_PROJECT>$/);
   });
 
   it("should use custom name in header but not wrap output when piping", async () => {
@@ -36,17 +36,16 @@ describe("name flag", () => {
       test: true,
     };
 
-    const { [PROP_CONTENT]: content } = await ingestDirectory(
-      flags._[0] as string,
-      flags
-    );
+    const digest = await ingestDirectory(flags._[0] as string, flags);
+    const timestamp = format(new Date(), "yyyyMMdd-HHmmss");
+    const output = buildOutput(digest, flags._[0] as string, timestamp, flags);
 
     // Check that the name is used in the header
-    expect(content).toContain("# EXAMPLE_PROJECT");
+    expect(output).toContain("# EXAMPLE_PROJECT");
 
     // Check that the content is NOT wrapped in XML tags
-    expect(content).not.toMatch(/^<EXAMPLE_PROJECT>\n/);
-    expect(content).not.toMatch(/\n<\/EXAMPLE_PROJECT>$/);
+    expect(output).not.toMatch(/^<EXAMPLE_PROJECT>\n/);
+    expect(output).not.toMatch(/\n<\/EXAMPLE_PROJECT>$/);
   });
 
   it("should use default header and no XML tags when name is not provided", async () => {
@@ -57,16 +56,15 @@ describe("name flag", () => {
       test: true,
     };
 
-    const { [PROP_CONTENT]: content } = await ingestDirectory(
-      flags._[0] as string,
-      flags
-    );
+    const digest = await ingestDirectory(flags._[0] as string, flags);
+    const timestamp = format(new Date(), "yyyyMMdd-HHmmss");
+    const output = buildOutput(digest, flags._[0] as string, timestamp, flags);
 
     // Check that the default header is used
-    expect(content).toContain("# File Forge Analysis");
+    expect(output).toContain("# File Forge Analysis");
 
     // Check that the content is NOT wrapped in XML tags
-    expect(content).not.toMatch(/^<[A-Z_]+>\n/);
-    expect(content).not.toMatch(/\n<\/[A-Z_]+>$/);
+    expect(output).not.toMatch(/^<[A-Z_]+>\n/);
+    expect(output).not.toMatch(/\n<\/[A-Z_]+>$/);
   });
 });

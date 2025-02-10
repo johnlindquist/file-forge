@@ -1,7 +1,7 @@
 // test/test-helpers.ts
 import { execSync, spawn } from "node:child_process";
-import { createHash } from "node:crypto";
 import { beforeEach, vi } from "vitest";
+import { getHashedSource } from "../src/utils.js";
 
 // Mock process.exit to prevent it from actually exiting during tests
 beforeEach(() => {
@@ -44,10 +44,7 @@ export async function runCLI(args: string[]): Promise<{
     });
 
     proc.on("close", (code) => {
-      const hashedSource = createHash("md5")
-        .update(String(args[0]))
-        .digest("hex")
-        .slice(0, 6);
+      const hashedSource = getHashedSource(String(args[0]));
 
       resolve({
         stdout,
@@ -70,10 +67,7 @@ export function runCLISync(args: string[]): {
       env: { ...process.env, VITEST: "1", NO_COLOR: "1", NO_INTRO: "1" },
     }) as ExecResult;
 
-    const hashedSource = createHash("md5")
-      .update(String(args[0]))
-      .digest("hex")
-      .slice(0, 6);
+    const hashedSource = getHashedSource(String(args[0]));
 
     return {
       stdout: result.stdout?.toString() ?? "",
@@ -87,10 +81,7 @@ export function runCLISync(args: string[]): {
       stdout: execResult.stdout?.toString() ?? "",
       stderr: execResult.stderr?.toString() ?? "",
       exitCode: execResult.status ?? 1,
-      hashedSource: createHash("md5")
-        .update(String(args[0]))
-        .digest("hex")
-        .slice(0, 6),
+      hashedSource: getHashedSource(String(args[0])),
     };
   }
 }
