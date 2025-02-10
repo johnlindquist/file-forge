@@ -1,7 +1,7 @@
 import { hideBin } from "yargs/helpers";
 import yargs from "yargs";
-import { readFileSync } from "fs";
 import { APP_COMMAND, APP_DESCRIPTION } from "./constants.js";
+import { getVersion } from "./version.js";
 
 const DEFAULT_MAX_SIZE = 10 * 1024 * 1024; // 10MB
 
@@ -14,40 +14,40 @@ export function runCli() {
     .alias("version", "v")
     .option("repo", {
       type: "string",
-      describe: "Git repository URL to clone",
+      describe: "Git repository URL to clone and analyze",
     })
     .option("path", {
       type: "string",
       describe: "Local file system path to analyze",
     })
+    .option("include", {
+      type: "array",
+      describe: "Glob patterns for files/directories to include",
+    })
     .option("exclude", {
       alias: "e",
-      array: true,
-      type: "string",
-      describe:
-        "Glob or path patterns to exclude. Comma or multiple flags allowed.",
+      type: "array",
+      describe: "Glob patterns for files/directories to exclude",
     })
     .option("find", {
       alias: "f",
-      array: true,
-      type: "string",
-      describe: "Find files containing ANY of these terms (OR).",
+      type: "array",
+      describe: "Search for files containing ANY of the provided terms",
     })
     .option("require", {
       alias: "r",
-      array: true,
-      type: "string",
-      describe: "Find files containing ALL of these terms (AND).",
+      type: "array",
+      describe: "Require files to contain ALL of the provided terms",
     })
     .option("branch", {
       alias: "b",
       type: "string",
-      describe: "Git branch to clone if using a repo URL",
+      describe: "Specify a Git branch to analyze (when using a repo URL)",
     })
     .option("commit", {
       alias: "c",
       type: "string",
-      describe: "Specific commit SHA to checkout if using a repo URL",
+      describe: "Checkout a specific commit (when using a repo URL)",
     })
     .option("max-size", {
       alias: "s",
@@ -58,17 +58,17 @@ export function runCli() {
     .option("pipe", {
       alias: "p",
       type: "boolean",
-      describe: "Pipe final output to stdout instead of opening in editor",
+      describe: "Pipe output to stdout instead of opening in an editor",
     })
     .option("debug", {
       type: "boolean",
-      describe: "Enable debug logging",
+      describe: "Enable debug logging for troubleshooting",
     })
     .option("bulk", {
       alias: "k",
       type: "boolean",
       default: false,
-      describe: "Add AI processing instructions to the end of the output",
+      describe: "Append AI processing instructions to the output",
     })
     .option("ignore", {
       type: "boolean",
@@ -83,8 +83,7 @@ export function runCli() {
     .option("clipboard", {
       alias: "y",
       type: "boolean",
-      default: false,
-      describe: "Copy results to clipboard",
+      describe: "Copy the analysis result to the clipboard",
     })
     .option("no-editor", {
       alias: "n",
@@ -106,26 +105,36 @@ export function runCli() {
     })
     .option("verbose", {
       type: "boolean",
-      default: false,
       describe: "Include detailed file contents in the output",
     })
     .option("graph", {
       alias: "g",
       type: "string",
-      nargs: 1,
-      describe:
-        "Analyze dependency graph starting from the given file using madge",
+      describe: "Generate a dependency graph starting from the given file",
     })
     .option("name", {
       type: "string",
       describe: "Custom name to use in header and XML wrapping tags",
     })
+    .example("$0 --path /path/to/project", "Analyze a local project directory")
+    .example(
+      "$0 https://github.com/owner/repo --branch develop",
+      "Clone and analyze a GitHub repository on the 'develop' branch"
+    )
+    .example(
+      '$0 /path/to/project --include "**/*.ts" --exclude "*.spec.ts"',
+      "Include all TypeScript files but exclude test files"
+    )
+    .example(
+      '$0 /path/to/project --find "console,debug" --require "log"',
+      "Find files containing either 'console' or 'debug' and require them to contain 'log'"
+    )
     .help()
     .alias("help", "h")
     .parseSync();
 
-  // Map positional arguments to the include patterns
-  if (argv._ && argv._.length > 0) {
+  // Map positional arguments to the include patterns if not already specified
+  if (argv._ && argv._.length > 0 && !argv.include) {
     argv["include"] = argv._.map(String);
   }
 
@@ -145,15 +154,4 @@ export function runCli() {
   }
 
   return argv;
-}
-
-function getVersion(): string {
-  try {
-    // Use a URL relative to this module to reliably locate package.json
-    const pkgPath = new URL("../package.json", import.meta.url);
-    const pkg = JSON.parse(readFileSync(pkgPath, "utf-8"));
-    return pkg.version || "0.0.0-development";
-  } catch {
-    return "0.0.0-development";
-  }
 }
