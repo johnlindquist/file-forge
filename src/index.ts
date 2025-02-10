@@ -298,37 +298,10 @@ export async function handleOutput(
   // When using name flag and not piping, use the content directly as it includes XML tags
   if (argv.name) {
     const fileOutput = digest?.[PROP_CONTENT] || "";
-    const consoleOutput = fileOutput
-      .replace(/^<[^>]+>\n/, "")
-      .replace(/\n<\/[^>]+>$/, "")
-      // Remove any existing headers to prevent duplication
-      .replace(/^#+\s.*(\n|\n\n)/gm, "");
-
-    // Add our headers once
-    const baseOutput = [
-      `# ${argv.name}`,
-      `**Source**: \`${String(source)}\``,
-      `**Timestamp**: ${new Date().toString()}`,
-      "## Summary",
-      digest?.[PROP_SUMMARY] || "",
-      "## Directory Structure",
-      "```",
-      digest?.[PROP_TREE] || "",
-      "```",
-      "## Files Content",
-      "```",
-      consoleOutput,
-      "```",
-    ].join("\n\n");
-
-    // Add XML wrapping if not piping
-    const outputWithHeaders = argv.pipe
-      ? baseOutput
-      : `<${argv.name}>\n${baseOutput}\n</${argv.name}>`;
 
     // Save content to file
     try {
-      await fs.writeFile(resultFilePath, outputWithHeaders, "utf8");
+      await fs.writeFile(resultFilePath, fileOutput, "utf8");
       if (argv.debug)
         console.log(formatDebugMessage("Results saved to: " + resultFilePath));
     } catch (err) {
@@ -338,9 +311,9 @@ export async function handleOutput(
 
     // Handle console output
     if (argv.test || process.env["NO_INTRO"]) {
-      process.stdout.write(outputWithHeaders);
+      process.stdout.write(fileOutput);
       if (argv.clipboard) {
-        clipboard.writeSync(outputWithHeaders);
+        clipboard.writeSync(fileOutput);
         console.log("\n" + formatClipboardMessage());
       }
       if (argv.pipe) {
@@ -350,17 +323,24 @@ export async function handleOutput(
       // Normal mode with pretty formatting
       if (argv.debug)
         console.log(formatDebugMessage("Normal mode, using formatted output"));
-      // Skip intro since it's already in the console output
-      console.log(outputWithHeaders);
+      p.intro(digest?.[PROP_SUMMARY] || "");
+      console.log("\nDirectory Structure:\n");
+      console.log(digest?.[PROP_TREE] || "");
 
-      if (argv.clipboard) {
-        clipboard.writeSync(outputWithHeaders);
-        console.log("\n" + formatClipboardMessage());
+      if (
+        argv.verbose ||
+        argv.debug ||
+        digest?.[PROP_CONTENT].includes(
+          FILE_SIZE_MESSAGE(0).replace("0.00", "")
+        )
+      ) {
+        console.log("\nFiles Content:\n");
+        console.log(digest?.[PROP_CONTENT] || "");
       }
 
-      // Show the file path unless in test mode or pipe mode
-      if (!argv.test && !process.env["NO_INTRO"] && !argv.pipe) {
-        formatSaveMessage(resultFilePath, true);
+      if (argv.clipboard) {
+        clipboard.writeSync(fileOutput);
+        console.log("\n" + formatClipboardMessage());
       }
     }
     return;
