@@ -33,7 +33,7 @@ describe("Include flag for specific file and directory paths", () => {
     const { stdout, exitCode } = await runCLI([
       "--path",
       tempDir,
-      "--include=package.json",
+      "package.json",
       "--pipe",
       "--verbose",
     ]);
@@ -63,7 +63,7 @@ describe("Include flag for specific file and directory paths", () => {
     const { stdout, exitCode } = await runCLI([
       "--path",
       tempDir,
-      "--include=.github",
+      ".github",
       "--pipe",
       "--verbose",
     ]);

@@ -8,7 +8,7 @@ const DEFAULT_MAX_SIZE = 10 * 1024 * 1024; // 10MB
 export function runCli() {
   const argv = yargs(hideBin(process.argv))
     .scriptName(APP_COMMAND)
-    .usage("$0 [options]")
+    .usage("$0 [options] <include...>")
     .epilogue(APP_DESCRIPTION)
     .version("version", "Show version number", getVersion())
     .alias("version", "v")
@@ -19,13 +19,6 @@ export function runCli() {
     .option("path", {
       type: "string",
       describe: "Local file system path to analyze",
-    })
-    .option("include", {
-      alias: "i",
-      array: true,
-      type: "string",
-      describe:
-        "Glob or path patterns to include. Comma or multiple flags allowed.",
     })
     .option("exclude", {
       alias: "e",
@@ -130,6 +123,11 @@ export function runCli() {
     .help()
     .alias("help", "h")
     .parseSync();
+
+  // Map positional arguments to the include patterns
+  if (argv._ && argv._.length > 0) {
+    argv["include"] = argv._.map(String);
+  }
 
   // In test mode with graph flag, bypass standard argument processing
   if (process.env["VITEST"] && argv.graph) {

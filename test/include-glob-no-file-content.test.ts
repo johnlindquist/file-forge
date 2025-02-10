@@ -7,7 +7,7 @@ describe("Include flag with wildcard should not output file contents to console"
     const { stdout, exitCode } = await runCLI([
       "--path",
       "test/fixtures/sample-project",
-      "--include=**/*.ts",
+      "**/*.ts",
       "--pipe",
     ]);
 

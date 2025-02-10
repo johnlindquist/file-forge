@@ -61,7 +61,7 @@ describe("duplicate lines", () => {
     try {
       // Run the command and get the output directly (in test mode)
       const output = execSync(
-        `node dist/index.js -i ${testDir} --name TEST_PROJECT --test`,
+        `node dist/index.js --path ${testDir} --name TEST_PROJECT --test`,
         {
           cwd: path.resolve(__dirname, ".."),
           encoding: "utf8",

@@ -8,7 +8,7 @@ describe("CLI --include", () => {
     const { stdout, exitCode } = await runCLI([
       "--path",
       "test/fixtures/sample-project",
-      "--include=**/*.ts",
+      "**/*.ts",
       "--debug",
       "--pipe",
     ]);

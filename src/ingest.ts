@@ -206,25 +206,25 @@ export async function scanDirectory(
           try {
             const stats = lstatSync(resolvedPath);
             if (stats.isFile()) {
-              // Pattern points to a file, so return it unchanged.
-              return pattern;
+              // For files, use the exact path
+              return resolvedPath;
             } else if (stats.isDirectory()) {
-              // Pattern is a directory, so append '/**/*'
-              return `${pattern}/**/*`;
+              // For directories, include all files within
+              return join(pattern, "**/*");
             }
           } catch (error) {
             // If an error occurs (e.g., permission error), fallback to default behavior.
             if (options.debug) {
               console.log("[DEBUG] Error checking path:", resolvedPath, error);
             }
-            return `${pattern}/**/*`;
+            return join(pattern, "**/*");
           }
         }
 
         // Fallback: if the path does not exist, use the heuristic:
         // If pattern does not contain a slash, assume it's a directory.
         if (!pattern.includes("/")) {
-          return `${pattern}/**/*`;
+          return join(pattern, "**/*");
         }
 
         return pattern;
