@@ -256,8 +256,25 @@ export async function scanDirectory(
       : options.require || [];
   const findTerms = rawFindTerms.filter((term) => term.trim() !== "");
   const requireTerms = rawRequireTerms.filter((term) => term.trim() !== "");
+
+  // Filter by extension if specified
+  if (options.extension?.length) {
+    filteredFiles = filteredFiles.filter((file) => {
+      const fileExt = file.slice(file.lastIndexOf("."));
+      return options.extension!.some((ext) => {
+        // Ensure extensions start with a dot
+        const normalizedExt = ext.startsWith(".") ? ext : `.${ext}`;
+        return fileExt === normalizedExt;
+      });
+    });
+  }
+
   if (findTerms.length > 0 || requireTerms.length > 0) {
-    filteredFiles = await filterFilesByContent(files, findTerms, requireTerms);
+    filteredFiles = await filterFilesByContent(
+      filteredFiles,
+      findTerms,
+      requireTerms
+    );
   }
 
   if (options.debug) {

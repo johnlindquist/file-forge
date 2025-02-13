@@ -21,6 +21,32 @@ type ExecResult = {
   status?: number;
 };
 
+// Helper function to set up a test directory with files
+export async function setupTestDirectory(
+  dirPath: string,
+  files: Record<string, string>
+): Promise<void> {
+  const fs = await import("node:fs/promises");
+  const path = await import("node:path");
+
+  // Create the directory
+  await fs.mkdir(dirPath, { recursive: true });
+
+  // Create each file with its content
+  for (const [filePath, content] of Object.entries(files)) {
+    const fullPath = path.join(dirPath, filePath);
+    // Create parent directory if it doesn't exist
+    await fs.mkdir(path.dirname(fullPath), { recursive: true });
+    await fs.writeFile(fullPath, content);
+  }
+}
+
+// Helper function to clean up a test directory
+export async function cleanupTestDirectory(dirPath: string): Promise<void> {
+  const fs = await import("node:fs/promises");
+  await fs.rm(dirPath, { recursive: true, force: true });
+}
+
 export async function runCLI(args: string[]): Promise<{
   stdout: string;
   stderr: string;

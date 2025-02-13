@@ -29,6 +29,11 @@ export function runCli() {
       type: "array",
       describe: "Glob patterns for files/directories to exclude",
     })
+    .option("extension", {
+      alias: "x",
+      type: "array",
+      describe: "File extensions to include (e.g., .ts, .js)",
+    })
     .option("find", {
       alias: "f",
       type: "array",

@@ -29,6 +29,7 @@ export type IngestFlags = {
   test?: boolean | undefined;
   name?: string | undefined;
   basePath?: string;
+  extension?: string[];
 };
 
 export type ScanStats = {
