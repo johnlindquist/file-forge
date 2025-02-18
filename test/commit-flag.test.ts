@@ -19,7 +19,13 @@ describe("CLI --commit", () => {
 
     // Initialize git repo and create branches
     execSync("git init", { cwd: repoPath });
-    execSync("git checkout -b main", { cwd: repoPath }); // Create main branch explicitly
+    try {
+      // Attempt to create the "main" branch
+      execSync("git checkout -b main", { cwd: repoPath });
+    } catch {
+      // If the "main" branch already exists in a worktree, check it out instead
+      execSync("git checkout main", { cwd: repoPath });
+    }
     execSync("git add main.js", { cwd: repoPath });
     execSync(
       'git -c user.name="Test" -c user.email="test@example.com" commit -m "Initial commit"',

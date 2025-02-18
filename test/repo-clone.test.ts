@@ -9,7 +9,7 @@ import { createHash } from "crypto";
 import envPaths from "env-paths";
 import { mkdirp } from "mkdirp";
 import { fileExists } from "../src/utils.js";
-import { APP_SYSTEM_ID } from "../src/constants"
+import { APP_SYSTEM_ID } from "../src/constants";
 
 // Helper: compute a short MD5 hash from the source URL/path
 function hashSource(source: string): string {
@@ -73,6 +73,10 @@ describe("getRepoPath cloning behavior", () => {
   it("clones distinct repositories based on their source paths", async () => {
     // Use simpleGit for cloning
     const flags = { useRegularGit: false };
+
+    // Ensure that the source repository directories exist before attempting to clone
+    await mkdirp(repo1Path);
+    await mkdirp(repo2Path);
 
     // Call getRepoPath for each repository.
     const repo1Cache = await getRepoPath(

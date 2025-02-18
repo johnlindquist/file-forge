@@ -24,7 +24,13 @@ describe("Repository Caching", () => {
 
     // Initialize git repo
     execSync("git init --template=''", { cwd: repoPath });
-    execSync("git checkout -b main", { cwd: repoPath });
+    try {
+      // Try creating a new "main" branch
+      execSync("git checkout -b main", { cwd: repoPath });
+    } catch {
+      // If the branch already exists (common in a worktree), simply check it out
+      execSync("git checkout main", { cwd: repoPath });
+    }
 
     // Create & commit initial file
     writeFileSync(resolve(repoPath, "initial.js"), "console.log('initial')");
@@ -125,6 +131,8 @@ describe("Repository Caching", () => {
       // Check the saved content for the second run
       const savedMatch2 = result2.stdout.match(/RESULTS_SAVED: (.+\.md)/);
       expect(savedMatch2).toBeTruthy();
+      if (!savedMatch2)
+        throw new Error("Could not find RESULTS_SAVED marker in output");
       const [, savedPath2] = savedMatch2;
       const savedContent2 = readFileSync(savedPath2, "utf8");
       expect(savedContent2).toContain("initial.js");

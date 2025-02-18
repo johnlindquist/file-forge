@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { execSync } from "node:child_process";
-import { writeFileSync, mkdirSync, rmSync } from "node:fs";
+import { writeFileSync, mkdirSync, rmSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { runCLI } from "./test-helpers";
@@ -17,6 +17,11 @@ describe.concurrent("CLI --branch", () => {
     // Wipe if something is leftover (paranoia)
     rmSync(repoPath, { recursive: true, force: true });
     mkdirSync(repoPath, { recursive: true });
+
+    // Only initialize if the repository is not already initialized (i.e. when in a bare repo)
+    if (!existsSync(join(repoPath, ".git"))) {
+      execSync("git init --template=''", { cwd: repoPath });
+    }
 
     // Now safely init a brand-new repo with no default template
     execSync("git init --template=''", { cwd: repoPath });
