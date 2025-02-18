@@ -117,3 +117,15 @@ export function runCLISync(args: string[]): {
 export function getTestTempFilePath(filename: string): string {
   return path.join(os.tmpdir(), `ffg-test-${filename}`);
 }
+
+export function isOnMainBranch(): boolean {
+  try {
+    const currentBranch = execSync("git rev-parse --abbrev-ref HEAD", {
+      encoding: "utf8",
+    }).trim();
+    return currentBranch === "main";
+  } catch {
+    // If git command fails, assume we're not on main branch
+    return false;
+  }
+}
