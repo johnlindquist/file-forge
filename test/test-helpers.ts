@@ -2,6 +2,8 @@
 import { execSync, spawn } from "node:child_process";
 import { beforeEach, vi } from "vitest";
 import { getHashedSource } from "../src/utils.js";
+import * as os from "node:os";
+import * as path from "node:path";
 
 // Mock process.exit to prevent it from actually exiting during tests
 beforeEach(() => {
@@ -110,4 +112,8 @@ export function runCLISync(args: string[]): {
       hashedSource: getHashedSource(String(args[0])),
     };
   }
+}
+
+export function getTestTempFilePath(filename: string): string {
+  return path.join(os.tmpdir(), `ffg-test-${filename}`);
 }

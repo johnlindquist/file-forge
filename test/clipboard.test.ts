@@ -3,6 +3,7 @@ import clipboard from "clipboardy";
 import { handleOutput } from "../src/index.js";
 import { IngestFlags } from "../src/types.js";
 import { PROP_SUMMARY, PROP_TREE, PROP_CONTENT } from "../src/constants.js";
+import { getTestTempFilePath } from "./test-helpers.js";
 
 vi.mock("clipboardy", () => ({
   default: {
@@ -23,7 +24,7 @@ describe("clipboard flag", () => {
     };
 
     const source = "test/fixtures/sample-project";
-    const resultFilePath = "test-result.md";
+    const resultFilePath = getTestTempFilePath("result.md");
     const argv = {
       clipboard: true,
       pipe: true,
@@ -46,7 +47,7 @@ describe("clipboard flag", () => {
     };
 
     const source = "test/fixtures/sample-project";
-    const resultFilePath = "test-result.md";
+    const resultFilePath = getTestTempFilePath("result.md");
     const argv = {
       clipboard: true,
       name: "MY_PROJECT",
@@ -72,7 +73,7 @@ describe("clipboard flag", () => {
     };
 
     const source = "test/fixtures/sample-project";
-    const resultFilePath = "test-result.md";
+    const resultFilePath = getTestTempFilePath("result.md");
     const argv = {
       pipe: true,
       test: true,
@@ -91,7 +92,7 @@ describe("clipboard flag", () => {
     };
 
     const source = "test/fixtures/sample-project";
-    const resultFilePath = "test-result.md";
+    const resultFilePath = getTestTempFilePath("result.md");
     const argv = {
       clipboard: true,
       pipe: true,

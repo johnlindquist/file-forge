@@ -10,6 +10,30 @@ import {
 } from "./constants.js";
 
 /**
+ * Checks if a branch exists in the repository
+ */
+async function branchExists(
+  repoPath: string,
+  branch: string,
+  useRegularGit: boolean
+): Promise<boolean> {
+  try {
+    if (useRegularGit) {
+      execSync(`git show-ref --verify --quiet refs/heads/${branch}`, {
+        cwd: repoPath,
+      });
+      return true;
+    } else {
+      const git = createGit(repoPath);
+      const branches = await git.branch();
+      return branches.all.includes(branch);
+    }
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Resets and optionally checks out a specific branch or commit in a git repository.
  * Handles both regular git commands and simple-git API.
  *
@@ -18,30 +42,77 @@ import {
  */
 export async function resetGitRepo(options: GitResetOptions = {}) {
   const { branch, commit, useRegularGit, repoPath } = options;
+
+  if (!repoPath) {
+    throw new Error("Repository path is required");
+  }
+
   const spinner = p.spinner();
   try {
     if (useRegularGit) {
-      spinner.start(formatSpinnerMessage("Resetting repository using git..."));
       if (commit) {
-        execSync(`git checkout ${commit}`, { cwd: repoPath, stdio: "ignore" });
+        spinner.start(formatSpinnerMessage(`Checking out commit ${commit}...`));
+        try {
+          // First try to fetch if this is a cloned repo
+          execSync("git fetch", { cwd: repoPath, stdio: "ignore" });
+        } catch {
+          // Ignore fetch errors for local repos
+        }
+
+        execSync(`git -c advice.detachedHead=false checkout ${commit}`, {
+          cwd: repoPath,
+          stdio: "ignore",
+        });
+        console.log(CHECKOUT_COMMIT_STATUS(commit));
         spinner.stop(formatSpinnerMessage(CHECKOUT_COMMIT_STATUS(commit)));
-      } else if (branch) {
-        execSync(`git checkout ${branch}`, { cwd: repoPath, stdio: "ignore" });
+      } else if (typeof branch === "string") {
+        // Type guard for branch
+        spinner.start(formatSpinnerMessage(`Checking out branch ${branch}...`));
+        const exists = await branchExists(repoPath, branch, true);
+        if (exists) {
+          execSync(`git checkout ${branch}`, {
+            cwd: repoPath,
+            stdio: "ignore",
+          });
+        } else {
+          execSync(`git checkout -b ${branch}`, {
+            cwd: repoPath,
+            stdio: "ignore",
+          });
+        }
+        console.log(CHECKOUT_BRANCH_STATUS(branch));
         spinner.stop(formatSpinnerMessage(CHECKOUT_BRANCH_STATUS(branch)));
       }
     } else {
-      spinner.start(
-        formatSpinnerMessage("Resetting repository using simple-git...")
-      );
       const git = createGit(repoPath);
       if (commit) {
+        spinner.start(formatSpinnerMessage(`Checking out commit ${commit}...`));
+        try {
+          // First try to fetch if this is a cloned repo
+          await git.fetch();
+        } catch {
+          // Ignore fetch errors for local repos
+        }
+
+        // Set config before checkout
+        await git.addConfig("advice.detachedHead", "false", false, "local");
         await git.checkout(commit);
+        console.log(CHECKOUT_COMMIT_STATUS(commit));
         spinner.stop(formatSpinnerMessage(CHECKOUT_COMMIT_STATUS(commit)));
-      } else if (branch) {
-        await git.checkout(branch);
+      } else if (typeof branch === "string") {
+        // Type guard for branch
+        spinner.start(formatSpinnerMessage(`Checking out branch ${branch}...`));
+        const exists = await branchExists(repoPath, branch, false);
+        if (exists) {
+          await git.checkout(branch);
+        } else {
+          await git.checkoutLocalBranch(branch);
+        }
+        console.log(CHECKOUT_BRANCH_STATUS(branch));
         spinner.stop(formatSpinnerMessage(CHECKOUT_BRANCH_STATUS(branch)));
       }
     }
+    console.log(REPO_RESET_COMPLETE);
     spinner.stop(formatSpinnerMessage(REPO_RESET_COMPLETE));
   } catch (error) {
     spinner.stop(formatErrorMessage(`Failed to reset repository: ${error}`));
