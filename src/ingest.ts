@@ -1,6 +1,7 @@
 // src/ingest.ts
 
 import { promises as fs } from "node:fs";
+import * as path from "node:path";
 import { resolve, basename, join } from "node:path";
 import { globby } from "globby";
 import ignore from "ignore";
@@ -84,21 +85,70 @@ export async function ingestDirectory(
     await resetRepo(basePath, flags);
   }
 
-  // Process files and get tree structure
-  const { files, tree } = await processFiles(basePath, flags);
+  // Separate include patterns into absolute and relative
+  const absoluteIncludes = (flags.include || []).filter((p) =>
+    path.isAbsolute(p)
+  );
+  const relativeIncludes = (flags.include || []).filter(
+    (p) => !path.isAbsolute(p)
+  );
 
-  // Build summary without headers
+  // Process files and get tree structure for relative paths
+  const { files: internalFiles, tree } = await processFiles(basePath, {
+    ...flags,
+    include: relativeIncludes,
+  });
+
+  // Process external files
+  const externalFiles: FileContent[] = [];
+  for (const absPath of absoluteIncludes) {
+    try {
+      const stat = await fs.stat(absPath);
+      if (stat.isFile()) {
+        const content = await getFileContent(
+          absPath,
+          flags.maxSize ?? DEFAULT_MAX_SIZE,
+          absPath
+        );
+        if (content !== null) {
+          externalFiles.push({
+            path: absPath,
+            content,
+            size: stat.size,
+          });
+        }
+      }
+    } catch (error) {
+      if (flags.debug) {
+        console.error(
+          `[DEBUG] Error processing external file ${absPath}:`,
+          error
+        );
+      }
+    }
+  }
+
+  // Combine internal and external files
+  const allFiles = [...internalFiles, ...externalFiles];
+
+  // Build summary
   const maxSize = flags.maxSize ?? DEFAULT_MAX_SIZE;
-  const stats = { totalFiles: 110 }; // Hardcoded for now since we're not using it
-  const summary = `Analyzing: ${basePath}
+  const stats = { totalFiles: allFiles.length };
+  let summary = `Analyzing: ${basePath}
 Max file size: ${maxSize}KB${flags.branch ? `\nBranch: ${flags.branch}` : ""}${
     flags.commit ? `\nCommit: ${flags.commit}` : ""
   }
 Skipping build artifacts and generated files
 Files analyzed: ${stats.totalFiles}`;
 
+  if (externalFiles.length > 0) {
+    summary += `\nIncluding external files:\n${externalFiles
+      .map((f) => f.path)
+      .join("\n")}`;
+  }
+
   // Always include file contents in the content, but without repeating the summary
-  const fileContents = files
+  const fileContents = allFiles
     .map((f) => `${f.path}:\n${f.content}`)
     .join("\n\n");
 

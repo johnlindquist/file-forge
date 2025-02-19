@@ -28,10 +28,12 @@
     "pre-commit": "pnpm lint && pnpm build:check && pnpm verify:bin",
     "semantic-release": "semantic-release",
     "check:include": "pnpm build && pnpm exec node dist/index.js src",
+    "check:include-external": "pnpm build && pnpm exec node dist/index.js /Users/johnlindquist/dev/kit/package.json",
     "check:graph": "pnpm build && pnpm exec node dist/index.js -g src/graph.ts",
     "check:clipboard": "pnpm build && pnpm exec node dist/index.js -i src/graph.ts -y",
     "check:name": "pnpm build && pnpm exec node dist/index.js -i src --name MY_PROJECT",
-    "check:help": "pnpm build && pnpm exec node dist/index.js --help"
+    "check:help": "pnpm build && pnpm exec node dist/index.js --help",
+    "check:full": "pnpm build && pnpm exec node dist/index.js -i src/graph.ts"
   },
   "publishConfig": {
     "access": "public"
