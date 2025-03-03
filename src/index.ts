@@ -386,8 +386,17 @@ ${contentStr}
   await handleOutput(digest, source, resultFilePath, argv);
 }
 
+// Helper function to check if we're the main module
+function isMainModule(): boolean {
+  const importPath = new URL(import.meta.url).pathname;
+  const execPath = process.argv[1];
+  if (!execPath) return false;
+  // Compare last 3 path segments (e.g., '@org/package/dist/index.js')
+  return importPath.endsWith(execPath.split('/').slice(-3).join('/'));
+}
+
 // Only run main if this is the main module
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule()) {
   main().catch((error) => {
     console.error(error);
     process.exit(1);
