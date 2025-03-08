@@ -48,6 +48,7 @@ export interface TreeNode {
   dir_count: number;
   parent?: TreeNode;
   tooLarge?: boolean;
+  isBinary?: boolean;
 }
 
 export interface GitResetOptions {

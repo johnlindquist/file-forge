@@ -53,6 +53,9 @@ describe("Binary file handling", () => {
         expect(stdout).toContain("docs.png");
         expect(stdout).toContain("test-file.txt");
 
+        // The binary file should be marked as excluded in the tree
+        expect(stdout).toContain("docs.png (excluded - binary)");
+
         // Without the verbose flag, file contents aren't included in the output
     });
 
@@ -70,8 +73,11 @@ describe("Binary file handling", () => {
         // The text file should be included in the output
         expect(stdout).toContain("This is a text file");
 
-        // The PNG file should be marked as binary
-        expect(stdout).toContain("Binary file - content not displayed");
+        // The binary file should be marked as excluded in the tree
+        expect(stdout).toContain("docs.png (excluded - binary)");
+
+        // Binary files are excluded from the content section
+        // We don't expect to see "Binary file - content not displayed" in the output
 
         // Make sure we don't have any error messages for the PNG file
         expect(stdout).not.toContain("Error reading file");

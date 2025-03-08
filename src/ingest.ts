@@ -7,7 +7,7 @@ import { globby } from "globby";
 import ignore from "ignore";
 import { fileExists } from "./utils.js";
 import { IngestFlags, ScanStats, TreeNode } from "./types.js";
-import { getFileContent } from "./fileUtils.js";
+import { getFileContent, isBinaryFile } from "./fileUtils.js";
 import { resetGitRepo } from "./gitUtils.js";
 import {
   FILE_SIZE_MESSAGE,
@@ -525,6 +525,7 @@ export async function gatherFiles(
   const files: FileContent[] = [];
   const seenPaths = new Set<string>();
   const ignoredFiles = new Set<string>();
+  const binaryFiles = new Set<string>();
 
   async function processNode(node: TreeNode) {
     if (node.type === "file") {
@@ -537,6 +538,22 @@ export async function gatherFiles(
       seenPaths.add(node.path);
 
       try {
+        // Check if the file is binary
+        const buffer = await fs.readFile(node.path);
+        const isBinary = isBinaryFile(buffer);
+
+        // Set the isBinary flag on the node
+        node.isBinary = isBinary;
+
+        if (isBinary) {
+          if (options.debug) {
+            console.log("[DEBUG] Binary file detected:", node.path);
+          }
+          binaryFiles.add(node.path);
+          // Still include the file in the tree, but mark it as binary
+          return;
+        }
+
         const content = await getFileContent(
           node.path,
           options.maxSize ?? DEFAULT_MAX_SIZE,
@@ -573,8 +590,10 @@ export async function gatherFiles(
   await processNode(node);
   if (options.debug) {
     console.log("[DEBUG] Total files gathered:", files.length);
+    console.log("[DEBUG] Total binary files:", binaryFiles.size);
     console.log("[DEBUG] Total files ignored:", ignoredFiles.size);
     console.log("[DEBUG] Ignored files:", Array.from(ignoredFiles));
+    console.log("[DEBUG] Binary files:", Array.from(binaryFiles));
   }
   return files;
 }
@@ -586,10 +605,20 @@ export function createTree(
   isLast = true
 ): string {
   const branchStr = isLast ? "└── " : "├── ";
-  const sizeInfo =
-    node.type === "file" && node.tooLarge ? FILE_SIZE_MESSAGE(node.size) : "";
-  const tree = `${prefix}${branchStr}${node.name}${node.type === "directory" ? "/" : sizeInfo
-    }\n`;
+
+  // Handle file size and binary information
+  let additionalInfo = "";
+  if (node.type === "file") {
+    if (node.tooLarge) {
+      additionalInfo = FILE_SIZE_MESSAGE(node.size);
+    }
+    if (node.isBinary) {
+      additionalInfo += " (excluded - binary)";
+    }
+  }
+
+  const tree = `${prefix}${branchStr}${node.name}${node.type === "directory" ? "/" : additionalInfo}\n`;
+
   if (node.type === "directory" && node.children && node.children.length > 0) {
     const newPrefix = `${prefix}${isLast ? "    " : "│   "}`;
     return (
