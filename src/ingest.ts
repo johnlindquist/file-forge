@@ -31,10 +31,22 @@ const ARTIFACT_FILES = [
   "*.bundle.js",
   "*.chunk.js",
   "*.map",
+  // Image formats
+  "*.png",
+  "*.jpg",
+  "*.jpeg",
+  "*.gif",
+  "*.bmp",
+  "*.tiff",
+  "*.webp",
+  "*.svg",
+  "*.ico",
+  // Video formats
   "*.mp4",
   "*.mov",
   "*.avi",
   "*.mkv",
+  // Other binary formats
   "*.iso",
   "*.tar",
   "*.tar.gz",
@@ -135,9 +147,8 @@ export async function ingestDirectory(
   const maxSize = flags.maxSize ?? DEFAULT_MAX_SIZE;
   const stats = { totalFiles: allFiles.length };
   let summary = `Analyzing: ${basePath}
-Max file size: ${maxSize}KB${flags.branch ? `\nBranch: ${flags.branch}` : ""}${
-    flags.commit ? `\nCommit: ${flags.commit}` : ""
-  }
+Max file size: ${maxSize}KB${flags.branch ? `\nBranch: ${flags.branch}` : ""}${flags.commit ? `\nCommit: ${flags.commit}` : ""
+    }
 Skipping build artifacts and generated files
 Files analyzed: ${stats.totalFiles}`;
 
@@ -214,59 +225,59 @@ export async function scanDirectory(
         .split(/\r?\n/)
         .map((line) => line.trim())
         .filter((line) => line && !line.startsWith("#"));
-    } catch {}
+    } catch { }
   }
 
   // Handle include patterns correctly
   const patterns = options.include?.length
     ? options.include.map((pattern) => {
-        // If pattern already contains a star, leave it unchanged.
-        if (pattern.includes("*")) {
-          return pattern;
-        }
+      // If pattern already contains a star, leave it unchanged.
+      if (pattern.includes("*")) {
+        return pattern;
+      }
 
-        // Resolve the pattern relative to the base path
-        const resolvedPath = resolve(dir, pattern);
+      // Resolve the pattern relative to the base path
+      const resolvedPath = resolve(dir, pattern);
 
-        // Check if the resolved path exists
-        if (existsSync(resolvedPath)) {
-          try {
-            const stats = lstatSync(resolvedPath);
-            if (stats.isFile()) {
-              // For files, use the exact path
-              return resolvedPath;
-            } else if (stats.isDirectory()) {
-              // For directories, include all files within
-              return join(pattern, "**/*");
-            }
-          } catch (error) {
-            // If an error occurs (e.g., permission error), fallback to default behavior.
-            if (options.debug) {
-              console.log("[DEBUG] Error checking path:", resolvedPath, error);
-            }
+      // Check if the resolved path exists
+      if (existsSync(resolvedPath)) {
+        try {
+          const stats = lstatSync(resolvedPath);
+          if (stats.isFile()) {
+            // For files, use the exact path
+            return resolvedPath;
+          } else if (stats.isDirectory()) {
+            // For directories, include all files within
             return join(pattern, "**/*");
           }
-        }
-
-        // Fallback: if the path does not exist, use the heuristic:
-        // If pattern does not contain a slash, assume it's a directory.
-        if (!pattern.includes("/")) {
+        } catch (error) {
+          // If an error occurs (e.g., permission error), fallback to default behavior.
+          if (options.debug) {
+            console.log("[DEBUG] Error checking path:", resolvedPath, error);
+          }
           return join(pattern, "**/*");
         }
+      }
 
-        return pattern;
-      })
+      // Fallback: if the path does not exist, use the heuristic:
+      // If pattern does not contain a slash, assume it's a directory.
+      if (!pattern.includes("/")) {
+        return join(pattern, "**/*");
+      }
+
+      return pattern;
+    })
     : ["**/*", "**/.*"];
 
   const ignorePatterns =
     options.ignore === false
       ? [...(options.exclude ?? [])]
       : [
-          ...(options.skipArtifacts ? DEFAULT_IGNORE : []),
-          ...(options.skipArtifacts ? ARTIFACT_FILES : []),
-          ...gitignorePatterns,
-          ...(options.exclude ?? []),
-        ];
+        ...(options.skipArtifacts ? DEFAULT_IGNORE : []),
+        ...(options.skipArtifacts ? ARTIFACT_FILES : []),
+        ...gitignorePatterns,
+        ...(options.exclude ?? []),
+      ];
 
   if (options.debug) {
     console.log("[DEBUG] Globby patterns:", patterns);
@@ -290,12 +301,12 @@ export async function scanDirectory(
     isRoot && options.include?.length
       ? await globby(patterns, globbyOptions)
       : await globby(["**/*", "**/.*"], {
-          ...globbyOptions,
-          ignore: [
-            ...ignorePatterns,
-            ...(options.include?.length ? ["**/*"] : []),
-          ],
-        });
+        ...globbyOptions,
+        ignore: [
+          ...ignorePatterns,
+          ...(options.include?.length ? ["**/*"] : []),
+        ],
+      });
 
   let filteredFiles = files;
   const rawFindTerms =
@@ -577,9 +588,8 @@ export function createTree(
   const branchStr = isLast ? "└── " : "├── ";
   const sizeInfo =
     node.type === "file" && node.tooLarge ? FILE_SIZE_MESSAGE(node.size) : "";
-  const tree = `${prefix}${branchStr}${node.name}${
-    node.type === "directory" ? "/" : sizeInfo
-  }\n`;
+  const tree = `${prefix}${branchStr}${node.name}${node.type === "directory" ? "/" : sizeInfo
+    }\n`;
   if (node.type === "directory" && node.children && node.children.length > 0) {
     const newPrefix = `${prefix}${isLast ? "    " : "│   "}`;
     return (
