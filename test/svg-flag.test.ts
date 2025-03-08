@@ -32,7 +32,7 @@ describe("SVG file handling", () => {
         await fs.rm(testDir, { recursive: true, force: true });
     });
 
-    it("should exclude SVG files by default and mark them as excluded", async () => {
+    it("should exclude SVG files by default", async () => {
         const { stdout, exitCode } = await runCLI([
             "--path",
             testDir,
@@ -45,9 +45,9 @@ describe("SVG file handling", () => {
         // The text file should be listed in the directory structure
         expect(stdout).toContain("test-file.txt");
 
-        // The SVG files should be listed but marked as excluded
-        expect(stdout).toContain("test-icon.svg (excluded - svg)");
-        expect(stdout).toContain("file.svg (excluded - svg)");
+        // The SVG files should not be included in the output (without the --svg flag)
+        expect(stdout).not.toContain("test-icon.svg");
+        expect(stdout).not.toContain("file.svg");
     });
 
     it("should include SVG files when using --svg flag without exclusion marker", async () => {

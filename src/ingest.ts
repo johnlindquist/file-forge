@@ -331,6 +331,7 @@ export async function scanDirectory(
       absolute: true,
       onlyFiles: true,
       followSymbolicLinks: false,
+      ignore: ignorePatterns,
     });
 
     if (options.debug) {
