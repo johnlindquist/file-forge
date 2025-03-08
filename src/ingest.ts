@@ -274,7 +274,15 @@ export async function scanDirectory(
       ? [...(options.exclude ?? [])]
       : [
         ...(options.skipArtifacts ? DEFAULT_IGNORE : []),
-        ...(options.skipArtifacts ? ARTIFACT_FILES : []),
+        ...(options.skipArtifacts
+          ? ARTIFACT_FILES.filter(pattern => {
+            // If the svg flag is true, don't exclude SVG files
+            if (options.svg && pattern === "*.svg") {
+              return false;
+            }
+            return true;
+          })
+          : []),
         ...gitignorePatterns,
         ...(options.exclude ?? []),
       ];

@@ -25,6 +25,7 @@ describe("help flag", () => {
     expect(stdout).toContain("--clipboard");
     expect(stdout).toContain("--pipe");
     expect(stdout).toContain("--debug");
+    expect(stdout).toContain("--svg");
   });
 
   test("should display help text with -h alias", async () => {

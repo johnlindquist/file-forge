@@ -30,6 +30,7 @@ export type IngestFlags = {
   name?: string | undefined;
   basePath?: string;
   extension?: string[];
+  svg?: boolean | undefined;
 };
 
 export type ScanStats = {

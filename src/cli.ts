@@ -121,6 +121,11 @@ export function runCli() {
       type: "string",
       describe: "Custom name to use in header and XML wrapping tags",
     })
+    .option("svg", {
+      type: "boolean",
+      default: false,
+      describe: "Include SVG files in the output (excluded by default)",
+    })
     .example("$0 --path /path/to/project", "Analyze a local project directory")
     .example(
       "$0 https://github.com/owner/repo --branch develop",
