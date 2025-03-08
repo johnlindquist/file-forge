@@ -287,9 +287,15 @@ export async function scanDirectory(
         ...(options.exclude ?? []),
       ];
 
+  // Special handling for SVG files - we want to include them in the tree even when excluded
+  const svgPatterns = options.svg ? [] : ["*.svg"];
+
   if (options.debug) {
     console.log("[DEBUG] Globby patterns:", patterns);
     console.log("[DEBUG] Globby ignore patterns:", ignorePatterns);
+    if (!options.svg) {
+      console.log("[DEBUG] SVG patterns:", svgPatterns);
+    }
   }
 
   // If we're at the root directory and have include patterns, adjust the search
@@ -316,7 +322,32 @@ export async function scanDirectory(
         ],
       });
 
-  let filteredFiles = files;
+  // Find SVG files separately if they're excluded but we want to show them in the tree
+  let svgFiles: string[] = [];
+  if (!options.svg) {
+    svgFiles = await globby(["**/*.svg"], {
+      cwd: searchDir,
+      dot: true,
+      absolute: true,
+      onlyFiles: true,
+      followSymbolicLinks: false,
+    });
+
+    if (options.debug) {
+      console.log("[DEBUG] Found SVG files:", svgFiles);
+    }
+  }
+
+  // Combine regular files and SVG files
+  const allFiles = [...files, ...svgFiles];
+
+  let filteredFiles = allFiles;
+
+  // Filter out SVG files from the TypeScript files when using include patterns
+  if (options.include?.some(pattern => pattern.includes('.ts'))) {
+    filteredFiles = filteredFiles.filter(file => !file.toLowerCase().endsWith('.svg'));
+  }
+
   const rawFindTerms =
     typeof options.find === "string" ? [options.find] : options.find || [];
   const rawRequireTerms =
@@ -418,6 +449,12 @@ export async function scanDirectory(
           dir_count: 0,
           tooLarge: fstat.size > maxSize,
         };
+
+        // Set isSvgIncluded flag for SVG files
+        if (fileName.toLowerCase().endsWith('.svg')) {
+          fileNode.isSvgIncluded = !!options.svg;
+        }
+
         currentNode.children = currentNode.children || [];
         currentNode.children.push(fileNode);
         currentNode.file_count++;
@@ -534,6 +571,7 @@ export async function gatherFiles(
   const seenPaths = new Set<string>();
   const ignoredFiles = new Set<string>();
   const binaryFiles = new Set<string>();
+  const svgFiles = new Set<string>();
 
   async function processNode(node: TreeNode) {
     if (node.type === "file") {
@@ -544,6 +582,18 @@ export async function gatherFiles(
         return;
       }
       seenPaths.add(node.path);
+
+      // Check if the file is an SVG file
+      if (node.name.toLowerCase().endsWith('.svg')) {
+        if (!options.svg) {
+          if (options.debug) {
+            console.log("[DEBUG] SVG file excluded:", node.path);
+          }
+          svgFiles.add(node.path);
+          // Still include the file in the tree, but mark it as excluded SVG
+          return;
+        }
+      }
 
       try {
         // Check if the file is binary
@@ -579,16 +629,13 @@ export async function gatherFiles(
           content: content,
           size: node.size,
         });
-      } catch (err) {
+      } catch (error) {
         if (options.debug) {
-          console.log("[DEBUG] Error reading file:", node.path, err);
+          console.log("[DEBUG] Error processing file:", node.path, error);
         }
-        // Only add to ignoredFiles if it's a real error, not just a large file
-        if (!node.tooLarge) {
-          ignoredFiles.add(node.path);
-        }
+        ignoredFiles.add(node.path);
       }
-    } else if (node.children) {
+    } else if (node.type === "directory" && node.children) {
       for (const child of node.children) {
         await processNode(child);
       }
@@ -596,12 +643,15 @@ export async function gatherFiles(
   }
 
   await processNode(node);
+
   if (options.debug) {
     console.log("[DEBUG] Total files gathered:", files.length);
     console.log("[DEBUG] Total binary files:", binaryFiles.size);
+    console.log("[DEBUG] Total SVG files:", svgFiles.size);
     console.log("[DEBUG] Total files ignored:", ignoredFiles.size);
     console.log("[DEBUG] Ignored files:", Array.from(ignoredFiles));
     console.log("[DEBUG] Binary files:", Array.from(binaryFiles));
+    console.log("[DEBUG] SVG files:", Array.from(svgFiles));
   }
   return files;
 }
@@ -622,6 +672,10 @@ export function createTree(
     }
     if (node.isBinary) {
       additionalInfo += " (excluded - binary)";
+    }
+    // Add indication for SVG files that are excluded
+    if (node.name.toLowerCase().endsWith('.svg') && !node.isSvgIncluded) {
+      additionalInfo += " (excluded - svg)";
     }
   }
 

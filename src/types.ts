@@ -50,6 +50,7 @@ export interface TreeNode {
   parent?: TreeNode;
   tooLarge?: boolean;
   isBinary?: boolean;
+  isSvgIncluded?: boolean;
 }
 
 export interface GitResetOptions {

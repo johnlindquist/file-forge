@@ -8,6 +8,7 @@ describe("SVG file handling", () => {
     const testDir = "test/fixtures/svg-file-project";
     const svgFilePath = join(testDir, "test-icon.svg");
     const textFilePath = join(testDir, "test-file.txt");
+    const fileSvgPath = join(testDir, "file.svg");
 
     beforeAll(async () => {
         // Create test directory
@@ -19,6 +20,9 @@ describe("SVG file handling", () => {
     </svg>`;
         await fs.writeFile(svgFilePath, svgContent);
 
+        // Create another SVG file
+        await fs.writeFile(fileSvgPath, svgContent);
+
         // Create a text file for comparison
         await fs.writeFile(textFilePath, "This is a text file");
     });
@@ -28,7 +32,7 @@ describe("SVG file handling", () => {
         await fs.rm(testDir, { recursive: true, force: true });
     });
 
-    it("should exclude SVG files by default", async () => {
+    it("should exclude SVG files by default and mark them as excluded", async () => {
         const { stdout, exitCode } = await runCLI([
             "--path",
             testDir,
@@ -41,11 +45,12 @@ describe("SVG file handling", () => {
         // The text file should be listed in the directory structure
         expect(stdout).toContain("test-file.txt");
 
-        // The SVG file should NOT be listed in the directory structure
-        expect(stdout).not.toContain("test-icon.svg");
+        // The SVG files should be listed but marked as excluded
+        expect(stdout).toContain("test-icon.svg (excluded - svg)");
+        expect(stdout).toContain("file.svg (excluded - svg)");
     });
 
-    it("should include SVG files when using --svg flag", async () => {
+    it("should include SVG files when using --svg flag without exclusion marker", async () => {
         const { stdout, exitCode } = await runCLI([
             "--path",
             testDir,
@@ -55,9 +60,14 @@ describe("SVG file handling", () => {
 
         expect(exitCode).toBe(0);
 
-        // Both files should be listed in the directory structure
+        // All files should be listed in the directory structure
         expect(stdout).toContain("test-icon.svg");
+        expect(stdout).toContain("file.svg");
         expect(stdout).toContain("test-file.txt");
+
+        // The SVG files should NOT be marked as excluded
+        expect(stdout).not.toContain("test-icon.svg (excluded - svg)");
+        expect(stdout).not.toContain("file.svg (excluded - svg)");
     });
 
     it("should include SVG file contents when using --svg and --verbose flags", async () => {
