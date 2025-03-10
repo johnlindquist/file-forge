@@ -84,6 +84,50 @@ interface FileContent {
 }
 
 /**
+ * Normalize gitignore patterns for use with globby
+ * This handles leading slashes and other gitignore-specific syntax
+ */
+function normalizeGitignorePatterns(patterns: string[]): string[] {
+  return patterns.map(pattern => {
+    // Skip negated patterns (those starting with !)
+    if (pattern.startsWith('!')) {
+      return pattern;
+    }
+
+    // Remove leading slash - in gitignore, a leading slash means the pattern is relative to the .gitignore location
+    // but globby expects patterns without leading slashes
+    if (pattern.startsWith('/')) {
+      pattern = pattern.substring(1);
+    }
+
+    // If pattern ends with a slash, it's a directory pattern
+    // Add ** to match all files inside that directory
+    if (pattern.endsWith('/')) {
+      pattern = `${pattern}**`;
+    }
+
+    // Handle patterns with /** at the end - don't create additional patterns for these
+    // as they're already correctly formatted for globby
+    if (pattern.endsWith('/**')) {
+      return pattern;
+    }
+
+    // If pattern doesn't have any glob characters, make it match both the directory and its contents
+    // but only if it doesn't contain path separators (which might indicate a specific file path)
+    // and doesn't look like a file extension pattern
+    if (!pattern.includes('*') && !pattern.includes('?') && !pattern.includes('[')) {
+      // Don't add /** to patterns that might be file paths, contain path separators,
+      // or look like file extension patterns (starting with *)
+      if (!pattern.includes('/') && !pattern.startsWith('*')) {
+        return pattern;
+      }
+    }
+
+    return pattern;
+  }).flat();
+}
+
+/**
  * Core: Ingest a directory or repository.
  * This function builds a digest by scanning the directory,
  * filtering files, and reading file content.
@@ -225,6 +269,13 @@ export async function scanDirectory(
         .split(/\r?\n/)
         .map((line) => line.trim())
         .filter((line) => line && !line.startsWith("#"));
+
+      // Normalize gitignore patterns for use with globby
+      gitignorePatterns = normalizeGitignorePatterns(gitignorePatterns);
+
+      if (options.debug) {
+        console.log("[DEBUG] Raw gitignore patterns:", gitignorePatterns);
+      }
     } catch { }
   }
 
