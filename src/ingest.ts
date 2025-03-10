@@ -650,7 +650,7 @@ export async function gatherFiles(
       try {
         // Check if the file is binary
         const buffer = await fs.readFile(node.path);
-        const isBinary = isBinaryFile(buffer);
+        const isBinary = isBinaryFile(buffer, node.path);
 
         // Set the isBinary flag on the node
         node.isBinary = isBinary;

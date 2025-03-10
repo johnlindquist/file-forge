@@ -42,6 +42,9 @@ describe("Binary file handling", () => {
         await fs.unlink(largeBinaryFilePath).catch(() => {
             // Ignore errors if file doesn't exist
         });
+        await fs.unlink(join(testDir, "debug_output.txt")).catch(() => {
+            // Ignore errors if file doesn't exist
+        });
     });
 
     it("should exclude binary files by default", async () => {
@@ -132,5 +135,40 @@ describe("Binary file handling", () => {
 
         // Large binary file should be labeled as both too large and binary
         expect(stdout).toContain("large-binary-file.bin [11.00 MB - too large] (excluded - binary)");
+    });
+
+    it("should not label large text files as binary", async () => {
+        // Create a large text file with a .txt extension
+        const largeLogFilePath = join(testDir, "debug_output.txt");
+
+        // Create a 13MB text file (similar to the one in the user's example)
+        const oneKB = "x".repeat(1024);
+        const oneMB = oneKB.repeat(1024);
+        const thirteenMB = oneMB.repeat(13);
+        await fs.writeFile(largeLogFilePath, thirteenMB);
+
+        try {
+            const { stdout, exitCode } = await runCLI([
+                "--path",
+                testDir,
+                "--pipe",
+                "--ignore=false", // Don't ignore any files
+                "--max-size",
+                "10240", // 10MB max size
+            ]);
+
+            expect(exitCode).toBe(0);
+
+            // The large text file should be labeled as too large but NOT as binary
+            expect(stdout).toContain("debug_output.txt [13.00 MB - too large]");
+            expect(stdout).not.toContain("debug_output.txt [13.00 MB - too large] (excluded - binary)");
+
+            // Clean up
+            await fs.unlink(largeLogFilePath);
+        } catch (error) {
+            // Clean up even if test fails
+            await fs.unlink(largeLogFilePath);
+            throw error;
+        }
     });
 }); 
