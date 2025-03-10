@@ -1,0 +1,7 @@
+---
+description: running tests
+globs: 
+alwaysApply: true
+---
+
+Never run tests in "watch" mode

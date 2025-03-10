@@ -655,6 +655,13 @@ export async function gatherFiles(
         // Set the isBinary flag on the node
         node.isBinary = isBinary;
 
+        // For binary files that are not too large by size, we should override the tooLarge flag
+        // This ensures binary files like small PNGs are only labeled as binary, not as too large
+        const maxSize = options.maxSize ?? DEFAULT_MAX_SIZE;
+        if (isBinary && node.size <= maxSize) {
+          node.tooLarge = false;
+        }
+
         if (isBinary) {
           if (options.debug) {
             console.log("[DEBUG] Binary file detected:", node.path);
@@ -663,6 +670,10 @@ export async function gatherFiles(
           // Still include the file in the tree, but mark it as binary
           return;
         }
+
+        // For non-binary files, ensure the isBinary flag is explicitly set to false
+        // This ensures large text files are not incorrectly labeled as binary
+        node.isBinary = false;
 
         const content = await getFileContent(
           node.path,
@@ -719,12 +730,17 @@ export function createTree(
   // Handle file size and binary information
   let additionalInfo = "";
   if (node.type === "file") {
+    // Add file size information if the file is too large
     if (node.tooLarge) {
       additionalInfo = FILE_SIZE_MESSAGE(node.size);
     }
-    if (node.isBinary) {
+
+    // Add binary file indication only if the file is actually binary
+    // This ensures large text files don't get incorrectly labeled as binary
+    if (node.isBinary === true) {
       additionalInfo += " (excluded - binary)";
     }
+
     // Add indication for SVG files that are excluded
     if (node.name.toLowerCase().endsWith('.svg') && !node.isSvgIncluded) {
       additionalInfo += " (excluded - svg)";
