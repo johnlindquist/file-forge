@@ -31,6 +31,8 @@ export type IngestFlags = {
   basePath?: string;
   extension?: string[];
   svg?: boolean | undefined;
+  template?: string | undefined;
+  listTemplates?: boolean | undefined;
 };
 
 export type ScanStats = {

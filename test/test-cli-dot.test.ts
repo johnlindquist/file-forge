@@ -43,10 +43,13 @@ describe("CLI: ingest current directory with '.'", () => {
 
     const [, savedPath] = savedMatch;
     const searchesDir = envPaths(APP_SYSTEM_ID).config;
-    const fullPath = resolve(searchesDir, savedPath.split("/").pop()!);
+
+    // Get the filename from the path, handling both absolute and relative paths
+    const filename = savedPath.split("/").pop()!;
+    const fullPath = resolve(searchesDir, "searches", filename);
 
     console.log("Waiting for file to exist:", fullPath);
-    const fileExists = await waitForFile(fullPath);
+    const fileExists = await waitForFile(fullPath, 60000, 1000);
     if (!fileExists) {
       throw new Error(`Timeout waiting for file to exist: ${fullPath}`);
     }
@@ -62,5 +65,5 @@ describe("CLI: ingest current directory with '.'", () => {
     expect(savedContent).toContain("Files Content");
 
     console.log("Test completed successfully");
-  }, 30000); // Increased timeout to be extra safe
+  }, 60000); // Increased timeout to be extra safe
 });

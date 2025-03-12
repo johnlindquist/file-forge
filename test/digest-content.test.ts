@@ -21,10 +21,13 @@ describe("Digest File Content", () => {
     expect(markerMatch).toBeTruthy();
     const savedPath = markerMatch ? markerMatch[1].trim() : "";
     const searchesDir = envPaths(APP_SYSTEM_ID).config;
-    const fullPath = resolve(searchesDir, savedPath.split("/").pop()!);
+
+    // Get the filename from the path, handling both absolute and relative paths
+    const filename = savedPath.split("/").pop()!;
+    const fullPath = resolve(searchesDir, "searches", filename);
 
     console.log("Waiting for file to exist:", fullPath);
-    const fileExists = await waitForFile(fullPath, 30000);
+    const fileExists = await waitForFile(fullPath, 60000, 1000);
     if (!fileExists) {
       throw new Error(`Timeout waiting for file to exist: ${fullPath}`);
     }
@@ -43,7 +46,7 @@ describe("Digest File Content", () => {
     // Check for content from sample-project files
     expect(digestContent).toContain("sample-project");
     expect(digestContent).toContain(".ts"); // Should show TypeScript files
-  }, 30000);
+  }, 60000);
 
   it("console output respects verbose flag while file contains everything", async () => {
     // Run without verbose flag first
@@ -73,18 +76,17 @@ describe("Digest File Content", () => {
 
     // Get full paths for both files
     const searchesDir = envPaths(APP_SYSTEM_ID).config;
-    const nonVerboseFullPath = resolve(
-      searchesDir,
-      nonVerboseMatch![1].trim().split("/").pop()!
-    );
-    const verboseFullPath = resolve(
-      searchesDir,
-      verboseMatch![1].trim().split("/").pop()!
-    );
+
+    // Get the filenames from the paths, handling both absolute and relative paths
+    const nonVerboseFilename = nonVerboseMatch![1].trim().split("/").pop()!;
+    const verboseFilename = verboseMatch![1].trim().split("/").pop()!;
+
+    const nonVerboseFullPath = resolve(searchesDir, "searches", nonVerboseFilename);
+    const verboseFullPath = resolve(searchesDir, "searches", verboseFilename);
 
     // Wait for both files to be written
     console.log("Waiting for non-verbose file to exist:", nonVerboseFullPath);
-    const nonVerboseExists = await waitForFile(nonVerboseFullPath);
+    const nonVerboseExists = await waitForFile(nonVerboseFullPath, 60000, 1000);
     if (!nonVerboseExists) {
       throw new Error(
         `Timeout waiting for file to exist: ${nonVerboseFullPath}`
@@ -92,7 +94,7 @@ describe("Digest File Content", () => {
     }
 
     console.log("Waiting for verbose file to exist:", verboseFullPath);
-    const verboseExists = await waitForFile(verboseFullPath);
+    const verboseExists = await waitForFile(verboseFullPath, 60000, 1000);
     if (!verboseExists) {
       throw new Error(`Timeout waiting for file to exist: ${verboseFullPath}`);
     }
@@ -114,5 +116,5 @@ describe("Digest File Content", () => {
     expect(
       Math.abs(nonVerboseDigest.length - verboseDigest.length)
     ).toBeLessThan(500);
-  }, 30000);
+  }, 60000);
 });

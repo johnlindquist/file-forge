@@ -4,7 +4,7 @@
 import { format } from "date-fns";
 import { mkdirp } from "mkdirp";
 import envPaths from "env-paths";
-import { resolve } from "node:path";
+import { resolve, dirname } from "node:path";
 import { createHash } from "node:crypto";
 import { promises as fs } from "node:fs";
 import * as p from "@clack/prompts";
@@ -22,6 +22,7 @@ import {
   PROP_CONTENT,
   DigestResult,
 } from "./constants.js";
+import { listTemplates } from "./templates.js";
 import clipboard from "clipboardy";
 import {
   formatDebugMessage,
@@ -33,6 +34,7 @@ import {
 } from "./formatter.js";
 import { buildOutput } from "./outputFormatter.js";
 import { getHashedSource } from "./utils.js";
+import { writeFile, mkdir } from "node:fs/promises";
 
 // Handle uncaught errors
 process.on("uncaughtException", (err: unknown) => {
@@ -53,8 +55,6 @@ try {
 
 /** Constants used in the main flow */
 const RESULTS_SAVED_MARKER = "RESULTS_SAVED:";
-const DEFAULT_LOG_DIR = envPaths(APP_SYSTEM_ID).log;
-const DEFAULT_SEARCHES_DIR = envPaths(APP_SYSTEM_ID).config;
 
 // Export handleOutput for testing
 export async function handleOutput(
@@ -65,25 +65,34 @@ export async function handleOutput(
 ) {
   const timestamp = format(new Date(), "yyyyMMdd-HHmmss");
 
+  // If digest is null, create an empty digest
+  const safeDigest = digest || {
+    [PROP_SUMMARY]: "No files found or directory is empty",
+    [PROP_TREE]: "",
+    [PROP_CONTENT]: ""
+  };
+
   // For file output, always include everything
-  const fileOutput = buildOutput(digest as DigestResult, source, timestamp, {
+  const fileOutput = buildOutput(safeDigest, source, timestamp, {
     ...argv,
     verbose: true, // Always include file contents in file output
     pipe: false, // Never pipe for file output to ensure XML wrapping works
   });
 
   // For console output, respect the verbose flag
-  const consoleOutput = buildOutput(digest as DigestResult, source, timestamp, {
+  const consoleOutput = buildOutput(safeDigest, source, timestamp, {
     ...argv,
     name: undefined, // Never use XML wrapping in console output
   });
 
   try {
-    await fs.writeFile(resultFilePath, fileOutput, "utf8");
+    // Create the directory if it doesn't exist
+    await mkdir(dirname(resultFilePath), { recursive: true });
+    await writeFile(resultFilePath, fileOutput);
     if (argv.debug)
       console.log(formatDebugMessage("Results saved to: " + resultFilePath));
-  } catch (err) {
-    console.error(formatErrorMessage("Failed to save results: " + err));
+  } catch (error) {
+    console.error(formatErrorMessage("Failed to save results: " + error));
     if (!process.env["VITEST"]) {
       process.exit(1);
     }
@@ -93,7 +102,7 @@ export async function handleOutput(
   if (argv.test || process.env["NO_INTRO"]) {
     process.stdout.write(consoleOutput);
     if (argv.clipboard) {
-      clipboard.writeSync(fileOutput);
+      clipboard.writeSync(consoleOutput);
       console.log("\n" + formatClipboardMessage());
     }
     if (argv.pipe) {
@@ -102,21 +111,21 @@ export async function handleOutput(
   } else if (argv.pipe) {
     process.stdout.write(consoleOutput);
     if (argv.clipboard) {
-      clipboard.writeSync(fileOutput);
+      clipboard.writeSync(consoleOutput);
       console.log("\n" + formatClipboardMessage());
     }
     process.stdout.write(`\n${RESULTS_SAVED_MARKER} ${resultFilePath}`);
   } else {
     // Normal mode with pretty formatting (fallback)
-    p.intro(digest?.[PROP_SUMMARY] || "");
+    p.intro(safeDigest[PROP_SUMMARY]);
     console.log("\nDirectory Structure:\n");
-    console.log(digest?.[PROP_TREE] || "");
+    console.log(safeDigest[PROP_TREE]);
     if (argv.verbose || argv.debug) {
       console.log("\nFiles Content:\n");
-      console.log(digest?.[PROP_CONTENT] || "");
+      console.log(safeDigest[PROP_CONTENT]);
     }
     if (argv.clipboard) {
-      clipboard.writeSync(fileOutput);
+      clipboard.writeSync(consoleOutput);
       console.log("\n" + formatClipboardMessage());
     }
   }
@@ -130,6 +139,53 @@ export async function handleOutput(
 export async function main() {
   // Parse CLI arguments
   const argv = runCli() as IngestFlags & { _: (string | number)[] };
+
+  // Set up paths
+  const paths = envPaths(APP_SYSTEM_ID);
+  const DEFAULT_CONFIG_DIR = paths.config;
+  const DEFAULT_LOG_DIR = resolve(DEFAULT_CONFIG_DIR, "logs");
+  const DEFAULT_SEARCHES_DIR = resolve(DEFAULT_CONFIG_DIR, "searches");
+
+  // Load user templates if they exist
+  try {
+    const userTemplatesPath = resolve(DEFAULT_CONFIG_DIR, "templates.yaml");
+    const { loadUserTemplates } = await import("./templates.js");
+    await loadUserTemplates(userTemplatesPath);
+    if (argv.debug) {
+      console.log(formatDebugMessage(`Checked for user templates at: ${userTemplatesPath}`));
+    }
+  } catch (error) {
+    if (argv.debug) {
+      console.log(formatDebugMessage(`Error loading user templates: ${error}`));
+    }
+  }
+
+  // Handle template listing
+  if (argv.listTemplates) {
+    console.log("\nAvailable prompt templates:\n");
+    const templates = listTemplates();
+
+    // Group templates by category
+    const categorized = templates.reduce((acc, template) => {
+      const category = template.category || 'uncategorized';
+      if (!acc[category]) {
+        acc[category] = [];
+      }
+      acc[category].push(template);
+      return acc;
+    }, {} as Record<string, typeof templates>);
+
+    // Print templates by category
+    for (const [category, categoryTemplates] of Object.entries(categorized)) {
+      console.log(`\n## ${category.charAt(0).toUpperCase() + category.slice(1)}`);
+      categoryTemplates.forEach(template => {
+        console.log(`  - ${template.name}: ${template.description}`);
+      });
+    }
+
+    console.log("\nUse --template <name> to apply a template to your analysis");
+    return;
+  }
 
   if (argv.debug) {
     console.log(formatDebugMessage(`CLI Arguments:`));

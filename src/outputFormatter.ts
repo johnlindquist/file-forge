@@ -1,4 +1,5 @@
 import { PROP_SUMMARY, PROP_TREE, PROP_CONTENT } from "./constants.js";
+import { getTemplateByName, applyTemplate } from "./templates.js";
 
 interface OutputOptions {
   bulk?: boolean | undefined;
@@ -6,6 +7,8 @@ interface OutputOptions {
   pipe?: boolean | undefined;
   verbose?: boolean | undefined;
   debug?: boolean | undefined;
+  template?: string | undefined;
+  clipboard?: boolean | undefined;
   [key: string]: unknown;
 }
 
@@ -43,6 +46,17 @@ export function buildOutput(
     "```",
   ];
 
+  // Add file contents section if verbose is enabled, saving to file, or clipboard is enabled
+  // This ensures file contents are always included in the saved file and clipboard
+  if (options.verbose || options.debug || !options.pipe || options.clipboard) {
+    contentParts.push(
+      "## Files Content",
+      "```",
+      digest[PROP_CONTENT] || "",
+      "```"
+    );
+  }
+
   // Append AI instructions if bulk mode is enabled
   if (options.bulk) {
     contentParts.push(
@@ -52,14 +66,33 @@ export function buildOutput(
     );
   }
 
-  // Add file contents section if verbose is enabled
-  if (options.verbose || options.debug) {
-    contentParts.push(
-      "## Files Content",
-      "```",
-      digest[PROP_CONTENT] || "",
-      "```"
-    );
+  // Apply template if specified, but only after the standard content
+  if (options.template) {
+    const template = getTemplateByName(options.template);
+    if (template) {
+      // Combine all content for the template
+      const allContent = [
+        digest[PROP_SUMMARY] || "",
+        "```",
+        digest[PROP_TREE] || "",
+        "```",
+        digest[PROP_CONTENT] || ""
+      ].join("\n\n");
+
+      // Apply the template to the content
+      const promptContent = applyTemplate(template, allContent);
+
+      contentParts.push(
+        "## AI Prompt Template",
+        `Using template: ${template.name} (${template.description})`,
+        promptContent
+      );
+    } else {
+      contentParts.push(
+        "## Template Error",
+        `Template "${options.template}" not found. Use --list-templates to see available templates.`
+      );
+    }
   }
 
   // Combine header and content

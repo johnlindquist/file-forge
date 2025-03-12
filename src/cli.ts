@@ -126,6 +126,15 @@ export function runCli() {
       default: false,
       describe: "Include SVG files in the output (excluded by default)",
     })
+    .option("template", {
+      alias: "t",
+      type: "string",
+      describe: "Apply a prompt template to the output (use --list-templates to see available templates)",
+    })
+    .option("list-templates", {
+      type: "boolean",
+      describe: "List all available prompt templates",
+    })
     .example("$0 --path /path/to/project", "Analyze a local project directory")
     .example(
       "$0 https://github.com/owner/repo --branch develop",
@@ -138,6 +147,10 @@ export function runCli() {
     .example(
       '$0 /path/to/project --find "console,debug" --require "log"',
       "Find files containing either 'console' or 'debug' and require them to contain 'log'"
+    )
+    .example(
+      '$0 /path/to/project --template "refactor"',
+      "Analyze a project and apply the 'refactor' prompt template for AI processing"
     )
     .help()
     .alias("help", "h")
@@ -161,6 +174,15 @@ export function runCli() {
       noColor: true,
       noIntro: true,
     };
+  }
+
+  // Map --list-templates to listTemplates for consistency with other flags
+  if (argv["list-templates"]) {
+    // Create a new object with all properties from argv except for "list-templates"
+    const result = { ...argv, listTemplates: argv["list-templates"] };
+    // TypeScript doesn't allow us to delete properties from the original argv
+    // So we'll return a new object without the "list-templates" property
+    return result;
   }
 
   return argv;
