@@ -136,6 +136,12 @@ export async function ingestDirectory(
   basePath: string,
   flags: IngestFlags
 ): Promise<DigestResult> {
+  // Add debug logging
+  if (flags.debug) {
+    console.log("[DEBUG] Starting ingestDirectory with basePath:", basePath);
+    console.log("[DEBUG] Flags:", JSON.stringify(flags, null, 2));
+  }
+
   // Handle branch/commit checkout if needed
   if (flags.branch || flags.commit) {
     await resetRepo(basePath, flags);
@@ -149,69 +155,90 @@ export async function ingestDirectory(
     (p) => !path.isAbsolute(p)
   );
 
-  // Process files and get tree structure for relative paths
-  const { files: internalFiles, tree } = await processFiles(basePath, {
-    ...flags,
-    include: relativeIncludes,
-  });
-
-  // Process external files
-  const externalFiles: FileContent[] = [];
-  for (const absPath of absoluteIncludes) {
-    try {
-      const stat = await fs.stat(absPath);
-      if (stat.isFile()) {
-        const content = await getFileContent(
-          absPath,
-          flags.maxSize ?? DEFAULT_MAX_SIZE,
-          absPath
-        );
-        if (content !== null) {
-          externalFiles.push({
-            path: absPath,
-            content,
-            size: stat.size,
-          });
-        }
-      }
-    } catch (error) {
-      if (flags.debug) {
-        console.error(
-          `[DEBUG] Error processing external file ${absPath}:`,
-          error
-        );
-      }
-    }
+  if (flags.debug) {
+    console.log("[DEBUG] Absolute includes:", absoluteIncludes);
+    console.log("[DEBUG] Relative includes:", relativeIncludes);
   }
 
-  // Combine internal and external files
-  const allFiles = [...internalFiles, ...externalFiles];
+  try {
+    // Process files and get tree structure for relative paths
+    const { files: internalFiles, tree } = await processFiles(basePath, {
+      ...flags,
+      include: relativeIncludes,
+    });
 
-  // Build summary
-  const maxSize = flags.maxSize ?? DEFAULT_MAX_SIZE;
-  const stats = { totalFiles: allFiles.length };
-  let summary = `Analyzing: ${basePath}
-Max file size: ${maxSize}KB${flags.branch ? `\nBranch: ${flags.branch}` : ""}${flags.commit ? `\nCommit: ${flags.commit}` : ""
+    if (flags.debug) {
+      console.log("[DEBUG] Internal files found:", internalFiles.length);
+      console.log("[DEBUG] Tree structure generated");
     }
+
+    // Process external files
+    const externalFiles: FileContent[] = [];
+    for (const absPath of absoluteIncludes) {
+      try {
+        const stat = await fs.stat(absPath);
+        if (stat.isFile()) {
+          const content = await getFileContent(
+            absPath,
+            flags.maxSize ?? DEFAULT_MAX_SIZE,
+            absPath
+          );
+          if (content !== null) {
+            externalFiles.push({
+              path: absPath,
+              content,
+              size: stat.size,
+            });
+          }
+        }
+      } catch (error) {
+        if (flags.debug) {
+          console.error(
+            `[DEBUG] Error processing external file ${absPath}:`,
+            error
+          );
+        }
+      }
+    }
+
+    // Combine internal and external files
+    const allFiles = [...internalFiles, ...externalFiles];
+
+    if (flags.debug) {
+      console.log("[DEBUG] Total files found:", allFiles.length);
+    }
+
+    // Build summary
+    const maxSize = flags.maxSize ?? DEFAULT_MAX_SIZE;
+    const stats = { totalFiles: allFiles.length };
+    let summary = `Analyzing: ${basePath}
+Max file size: ${maxSize}KB${flags.branch ? `\nBranch: ${flags.branch}` : ""}${flags.commit ? `\nCommit: ${flags.commit}` : ""
+      }
 Skipping build artifacts and generated files
 Files analyzed: ${stats.totalFiles}`;
 
-  if (externalFiles.length > 0) {
-    summary += `\nIncluding external files:\n${externalFiles
-      .map((f) => f.path)
-      .join("\n")}`;
+    if (externalFiles.length > 0) {
+      summary += `\nIncluding external files:\n${externalFiles
+        .map((f) => f.path)
+        .join("\n")}`;
+    }
+
+    // Always include file contents in the content, but without repeating the summary
+    const fileContents = allFiles
+      .map((f) => `${f.path}:\n${f.content}`)
+      .join("\n\n");
+
+    return {
+      [PROP_SUMMARY]: summary,
+      [PROP_TREE]: tree,
+      [PROP_CONTENT]: fileContents,
+    };
+  } catch (error) {
+    if (flags.debug) {
+      console.error("[DEBUG] Error in ingestDirectory:", error);
+    }
+    throw error;
   }
-
-  // Always include file contents in the content, but without repeating the summary
-  const fileContents = allFiles
-    .map((f) => `${f.path}:\n${f.content}`)
-    .join("\n\n");
-
-  return {
-    [PROP_SUMMARY]: summary,
-    [PROP_TREE]: tree,
-    [PROP_CONTENT]: fileContents,
-  };
 }
 
 /** Reset a Git repository to a specific state */
@@ -678,7 +705,8 @@ export async function gatherFiles(
         const content = await getFileContent(
           node.path,
           options.maxSize ?? DEFAULT_MAX_SIZE,
-          basename(node.path)
+          basename(node.path),
+          { skipHeader: options.xml ?? false }
         );
         if (content === null) {
           if (options.debug) {

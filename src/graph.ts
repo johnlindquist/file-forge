@@ -38,7 +38,8 @@ function buildDependencyTree(
 // Gather file contents for the files in the dependency graph
 async function gatherGraphFiles(
   files: string[],
-  maxSize: number
+  maxSize: number,
+  flags: IngestFlags
 ): Promise<{
   fileContents: { [filePath: string]: string };
   contentStr: string;
@@ -54,7 +55,7 @@ async function gatherGraphFiles(
     seenPaths.add(relativePath);
 
     try {
-      const content = await getFileContent(file, maxSize, basename(file));
+      const content = await getFileContent(file, maxSize, basename(file), { skipHeader: flags.xml ?? false });
       if (content === null) {
         console.log(`[DEBUG] File ignored by getFileContent: ${file}`);
         continue;
@@ -64,7 +65,9 @@ async function gatherGraphFiles(
       console.error(`[DEBUG] Error reading file ${file}:`, error);
       fileContents[
         relativePath
-      ] = `================================\nFile: ${relativePath}\n================================\n[Error reading file]`;
+      ] = flags.xml ?? false
+          ? `[Error reading file]`
+          : `================================\nFile: ${relativePath}\n================================\n[Error reading file]`;
     }
   }
 
@@ -129,7 +132,8 @@ export async function ingestGraph(
   // Gather file contents
   const { contentStr } = await gatherGraphFiles(
     Array.from(allFiles),
-    flags.maxSize || 10 * 1024 * 1024
+    flags.maxSize || 10 * 1024 * 1024,
+    flags
   );
 
   // Build summary

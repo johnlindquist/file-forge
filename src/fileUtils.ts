@@ -76,12 +76,15 @@ export function isBinaryFile(buffer: Buffer, filePath?: string): boolean {
  * @param filePath - The absolute (or resolved) file path to read.
  * @param maxSize - Maximum file size in bytes.
  * @param displayPath - The path to display in the header (relative or full path).
+ * @param options - Optional configuration object
+ * @param options.skipHeader - If true, skips adding the file header
  * @returns A Promise resolving to a string with the file header and either its content or an appropriate placeholder.
  */
 export async function getFileContent(
   filePath: string,
   maxSize: number,
-  displayPath: string
+  displayPath: string,
+  options?: { skipHeader?: boolean }
 ): Promise<string | null> {
   try {
     const stat = await fs.stat(filePath);
@@ -92,9 +95,9 @@ export async function getFileContent(
           `[DEBUG] File too large: ${filePath} (${stat.size} bytes > ${maxSize} bytes)`
         );
       }
-      return `================================\nFile: ${displayPath}\n================================\n[${FILE_SIZE_MESSAGE(
-        stat.size
-      )}]`;
+      return options?.skipHeader
+        ? `[${FILE_SIZE_MESSAGE(stat.size)}]`
+        : `================================\nFile: ${displayPath}\n================================\n[${FILE_SIZE_MESSAGE(stat.size)}]`;
     }
 
     // Read file as buffer first to check if it's binary
@@ -105,17 +108,22 @@ export async function getFileContent(
       if (process.env["DEBUG"]) {
         console.log(`[DEBUG] Binary file detected: ${filePath}`);
       }
-      return `================================\nFile: ${displayPath}\n================================\n[Binary file - content not displayed]`;
+      return options?.skipHeader
+        ? `[Binary file - content not displayed]`
+        : `================================\nFile: ${displayPath}\n================================\n[Binary file - content not displayed]`;
     }
 
     // If not binary, convert to string
     const content = buffer.toString('utf8');
-    return `================================\nFile: ${displayPath}\n================================\n${content}`;
+    return options?.skipHeader
+      ? content
+      : `================================\nFile: ${displayPath}\n================================\n${content}`;
   } catch (error) {
     if (process.env["DEBUG"]) {
       console.error(`[DEBUG] Error reading file ${filePath}:`, error);
     }
-    return `================================\nFile: ${displayPath}\n================================\n[Error reading file: ${error instanceof Error ? error.message : String(error)
-      }]`;
+    return options?.skipHeader
+      ? `[Error reading file: ${error instanceof Error ? error.message : String(error)}]`
+      : `================================\nFile: ${displayPath}\n================================\n[Error reading file: ${error instanceof Error ? error.message : String(error)}]`;
   }
 }

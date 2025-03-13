@@ -135,6 +135,10 @@ export function runCli() {
       type: "boolean",
       describe: "List all available prompt templates",
     })
+    .option("xml", {
+      type: "boolean",
+      description: "Output in XML format",
+    })
     .example("$0 --path /path/to/project", "Analyze a local project directory")
     .example(
       "$0 https://github.com/owner/repo --branch develop",

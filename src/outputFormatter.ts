@@ -1,5 +1,6 @@
 import { PROP_SUMMARY, PROP_TREE, PROP_CONTENT } from "./constants.js";
 import { getTemplateByName, applyTemplate } from "./templates.js";
+import { buildXMLOutput } from "./xmlFormatter.js";
 
 interface OutputOptions {
   bulk?: boolean | undefined;
@@ -9,17 +10,18 @@ interface OutputOptions {
   debug?: boolean | undefined;
   template?: string | undefined;
   clipboard?: boolean | undefined;
+  xml?: boolean | undefined;
   [key: string]: unknown;
 }
 
 /**
- * Builds the full markdown output for a digest.
+ * Builds the full output for a digest.
  *
  * @param digest - An object containing the summary, tree, and file contents.
  * @param source - The analyzed source path.
  * @param timestamp - A formatted timestamp string.
  * @param options - IngestFlags/options that may affect output (e.g. bulk, name, pipe).
- * @returns The complete markdown string.
+ * @returns The complete output string in either XML or markdown format.
  */
 export function buildOutput(
   digest: {
@@ -31,7 +33,17 @@ export function buildOutput(
   timestamp: string,
   options: OutputOptions
 ): string {
-  // Determine the main header based on name option
+  // If XML output is explicitly requested and not piping to console, use XML formatter
+  if (options.xml && !options.pipe) {
+    return buildXMLOutput(digest, source, timestamp, {
+      name: options.name,
+      template: options.template,
+      bulk: options.bulk,
+      verbose: options.verbose || options.debug || !options.pipe || options.clipboard,
+    });
+  }
+
+  // Otherwise use markdown format
   const header = options.name ? `# ${options.name}` : "# File Forge Analysis";
 
   // Build the content parts
@@ -47,7 +59,6 @@ export function buildOutput(
   ];
 
   // Add file contents section if verbose is enabled, saving to file, or clipboard is enabled
-  // This ensures file contents are always included in the saved file and clipboard
   if (options.verbose || options.debug || !options.pipe || options.clipboard) {
     contentParts.push(
       "## Files Content",
@@ -99,7 +110,7 @@ export function buildOutput(
   let output = `${header}\n\n${contentParts.join("\n\n")}`;
 
   // Wrap in XML tags if name is provided and not piping
-  if (options.name && !options.pipe) {
+  if (options.name && !options.pipe && !options.xml) {
     output = `<${options.name}>\n${output}\n</${options.name}>`;
   }
 

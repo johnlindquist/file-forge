@@ -32,6 +32,7 @@
     "check:graph": "pnpm build && pnpm exec node dist/index.js -g src/graph.ts",
     "check:clipboard": "pnpm build && pnpm exec node dist/index.js -i src/graph.ts -y",
     "check:name": "pnpm build && pnpm exec node dist/index.js -i src --name MY_PROJECT",
+    "check:xml": "pnpm build && pnpm exec node dist/index.js --include src --xml",
     "check:help": "pnpm build && pnpm exec node dist/index.js --help",
     "check:full": "pnpm build && pnpm exec node dist/index.js -i src/graph.ts",
     "check:templates": "pnpm build && pnpm exec node dist/index.js --list-templates",
