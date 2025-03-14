@@ -706,7 +706,7 @@ export async function gatherFiles(
           node.path,
           options.maxSize ?? DEFAULT_MAX_SIZE,
           basename(node.path),
-          { skipHeader: options.xml ?? false }
+          { skipHeader: false }
         );
         if (content === null) {
           if (options.debug) {

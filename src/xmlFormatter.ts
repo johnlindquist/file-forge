@@ -65,20 +65,17 @@ export function buildXMLOutput(
     if (options.verbose) {
         xml += `  <files>\n`;
         // Split content by file sections and wrap each in a file tag
-        const fileContents = (digest[PROP_CONTENT] || "").split(/(?=\/.*?\n={20,})/);
+        const fileContents = (digest[PROP_CONTENT] || "").split(/(?=^=+\nFile: .*\n=+\n)/m);
         for (const fileContent of fileContents) {
             if (!fileContent.trim()) continue;
 
-            // Extract filename from the content
-            const match = fileContent.match(/^(\/.*?):/);
-            if (!match || !match[1]) continue;
+            // Extract filename from the content using the actual header format
+            const headerMatch = fileContent.match(/^=+\nFile: (.*)\n=+\n/);
+            if (!headerMatch || !headerMatch[1]) continue;
 
-            const filename = match[1].trim();
-            // Strip out the markdown-style separators and file header
-            const content = fileContent
-                .slice(match[0].length)
-                .replace(/^================================\nFile: .*?\n================================\n/, '')
-                .trim();
+            const filename = headerMatch[1].trim();
+            // Remove the header to get the file content
+            const content = fileContent.replace(/^=+\nFile: .*\n=+\n/, "").trim();
 
             xml += `    <file path="${escapeXML(filename)}">\n`;
             xml += `      ${wrapInCDATA(content)}\n`;

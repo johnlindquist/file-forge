@@ -1,4 +1,3 @@
-// src/graph.ts
 import madge from "madge";
 import { resolve, dirname, basename } from "node:path";
 import { IngestFlags } from "./types.js";
@@ -38,8 +37,7 @@ function buildDependencyTree(
 // Gather file contents for the files in the dependency graph
 async function gatherGraphFiles(
   files: string[],
-  maxSize: number,
-  flags: IngestFlags
+  maxSize: number
 ): Promise<{
   fileContents: { [filePath: string]: string };
   contentStr: string;
@@ -55,7 +53,7 @@ async function gatherGraphFiles(
     seenPaths.add(relativePath);
 
     try {
-      const content = await getFileContent(file, maxSize, basename(file), { skipHeader: flags.xml ?? false });
+      const content = await getFileContent(file, maxSize, basename(file), { skipHeader: false });
       if (content === null) {
         console.log(`[DEBUG] File ignored by getFileContent: ${file}`);
         continue;
@@ -65,9 +63,7 @@ async function gatherGraphFiles(
       console.error(`[DEBUG] Error reading file ${file}:`, error);
       fileContents[
         relativePath
-      ] = flags.xml ?? false
-          ? `[Error reading file]`
-          : `================================\nFile: ${relativePath}\n================================\n[Error reading file]`;
+      ] = `================================\nFile: ${relativePath}\n================================\n[Error reading file]`;
     }
   }
 
@@ -132,16 +128,23 @@ export async function ingestGraph(
   // Gather file contents
   const { contentStr } = await gatherGraphFiles(
     Array.from(allFiles),
-    flags.maxSize || 10 * 1024 * 1024,
-    flags
+    flags.maxSize || 10 * 1024 * 1024
   );
 
   // Build summary
-  const summary = `Dependency Graph Analysis starting from: ${entryFile}\nFiles analyzed: ${allFiles.size}`;
-  console.log("[DEBUG] Generated summary:", summary);
+  const summary = `# Dependency Graph Analysis
 
-  console.log("[DEBUG] Graph analysis complete");
+## Entry Point
+${entryFile}
 
-  // Return the results to be handled by the main output logic
+## Dependency Tree
+\`\`\`
+${treeStr}
+\`\`\`
+
+## Files Analyzed
+Files analyzed: ${Array.from(allFiles).length} files were analyzed in the dependency graph.
+`;
+
   return { summary, treeStr, contentStr };
 }
