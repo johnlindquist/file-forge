@@ -1,0 +1,7 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+[README.md](mdc:README.md)
+[package.json](mdc:package.json)
