@@ -156,6 +156,7 @@
     "node-fetch": "^3.3.2",
     "sanitize-filename": "^1.6.3",
     "simple-git": "^3.27.0",
+    "tiktoken": "^1.0.20",
     "yargs": "^17.7.2",
     "zx": "^8.4.1"
   }

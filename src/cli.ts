@@ -5,10 +5,14 @@ import { getVersion } from "./version.js";
 
 const DEFAULT_MAX_SIZE = 10 * 1024 * 1024; // 10MB
 
-export function runCli() {
-  const argv = yargs(hideBin(process.argv))
+export async function runCli() {
+  const argv = await yargs(hideBin(process.argv))
     .scriptName(APP_COMMAND)
-    .usage("$0 [options] <include...>")
+    .usage(`${APP_COMMAND} [options] <path|repo>`)
+    .positional("path", {
+      describe: "Path to directory or file to analyze",
+      type: "string",
+    })
     .epilogue(APP_DESCRIPTION)
     .version("version", "Show version number", getVersion())
     .alias("version", "v")
@@ -139,6 +143,11 @@ export function runCli() {
       type: "boolean",
       description: "Output in XML format",
     })
+    .option("no-token-count", {
+      describe: "Disable token counting in the output",
+      type: "boolean",
+      default: false,
+    })
     .example("$0 --path /path/to/project", "Analyze a local project directory")
     .example(
       "$0 https://github.com/owner/repo --branch develop",
@@ -189,5 +198,11 @@ export function runCli() {
     return result;
   }
 
-  return argv;
+  // Convert kebab-case to camelCase for no-token-count
+  const parsedArgs = {
+    ...argv,
+    noTokenCount: argv["no-token-count"],
+  };
+
+  return parsedArgs;
 }

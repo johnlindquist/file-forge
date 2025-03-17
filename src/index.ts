@@ -31,10 +31,12 @@ import {
   formatSpinnerMessage,
   formatClipboardMessage,
   formatSaveMessage,
+  formatTokenCountMessage,
 } from "./formatter.js";
 import { buildOutput } from "./outputFormatter.js";
 import { getHashedSource } from "./utils.js";
 import { writeFile, mkdir } from "node:fs/promises";
+import { countTokens } from "./tokenCounter.js";
 
 // Handle uncaught errors
 process.on("uncaughtException", (err: unknown) => {
@@ -85,6 +87,9 @@ export async function handleOutput(
     name: undefined, // Never use XML wrapping in console output
   });
 
+  // Only count tokens if not disabled
+  let tokenCount = 0;
+
   try {
     // Create the directory if it doesn't exist
     await mkdir(dirname(resultFilePath), { recursive: true });
@@ -130,6 +135,16 @@ export async function handleOutput(
     }
   }
 
+  // Check both the parsed argv and the raw process.argv for the --no-token-count flag
+  const hasNoTokenCountFlag = argv.noTokenCount || process.argv.includes("--no-token-count");
+
+  // Display token count information if not disabled
+  if (!hasNoTokenCountFlag) {
+    // Only calculate tokens if we're going to display them
+    tokenCount = countTokens(fileOutput);
+    console.log(formatTokenCountMessage(tokenCount));
+  }
+
   if (!argv.test && !process.env["NO_INTRO"] && !argv.pipe) {
     formatSaveMessage(resultFilePath, true);
   }
@@ -138,7 +153,7 @@ export async function handleOutput(
 // Main function that handles the CLI flow
 export async function main() {
   // Parse CLI arguments
-  const argv = runCli() as IngestFlags & { _: (string | number)[] };
+  const argv = await runCli() as IngestFlags & { _: (string | number)[] };
 
   // Set up paths
   const paths = envPaths(APP_SYSTEM_ID);

@@ -34,6 +34,7 @@ export type IngestFlags = {
   template?: string | undefined;
   listTemplates?: boolean | undefined;
   xml?: boolean | undefined;
+  noTokenCount?: boolean;
 };
 
 export type ScanStats = {

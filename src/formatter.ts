@@ -15,19 +15,17 @@
 import * as p from "@clack/prompts";
 
 /**
- * Formats a message for introduction/header display.
- * Uses clack/prompts intro for consistent and attractive formatting.
- *
- * @example
- * formatIntroMessage("Analyzing repository...") // Returns styled intro message
- *
- * @param message The message to format
- * @param useClack Whether to use clack/prompts output (default: true)
- * @returns Formatted message with clack/prompts styling
+ * Formats an intro message with optional styling
+ * @param message - The message to format
+ * @param showIntro - Whether to show the intro (default: true)
+ * @returns A formatted intro message
  */
-export function formatIntroMessage(message: string, useClack = true): string {
+export function formatIntroMessage(
+  message: string,
+  showIntro = true
+): string {
   const formattedMessage = `\x1b[1m\x1b[32m🔍 ${message}\x1b[0m`;
-  if (useClack) {
+  if (showIntro) {
     p.intro(message);
   }
   return formattedMessage;
@@ -106,4 +104,13 @@ export function formatSaveMessage(path: string, useClack = true): string {
     p.outro(`📑 Results saved: ${path}`);
   }
   return formattedMessage;
+}
+
+/**
+ * Formats a token count message
+ * @param count - The token count to format
+ * @returns A formatted token count message
+ */
+export function formatTokenCountMessage(count: number): string {
+  return `✓ Token count: ${count.toLocaleString()} tokens`;
 }
