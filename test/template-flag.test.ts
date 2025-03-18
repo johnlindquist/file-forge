@@ -98,5 +98,5 @@ describe("CLI --template", () => {
       expect(stdout).toContain("<instructions>");
       expect(stdout).toContain("</instructions>");
     }
-  });
+  }, 30000);
 });

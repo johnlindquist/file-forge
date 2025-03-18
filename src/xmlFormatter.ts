@@ -82,17 +82,15 @@ export function buildXMLOutput(
     xml += `    <source>${escapeXML(source)}</source>\n`;
     xml += `    <timestamp>${escapeXML(timestamp)}</timestamp>\n`;
 
-    // Add Git information if available and verbose is true
-    if (options.verbose) {
-        const gitInfo = getGitInfo(source);
-        if (Object.keys(gitInfo).length > 0) {
-            xml += `    <git>\n`;
-            if (gitInfo['branch']) xml += `      <branch>${escapeXML(gitInfo['branch'])}</branch>\n`;
-            if (gitInfo['remote']) xml += `      <remote>${escapeXML(gitInfo['remote'])}</remote>\n`;
-            if (gitInfo['commit']) xml += `      <commit>${escapeXML(gitInfo['commit'])}</commit>\n`;
-            if (gitInfo['commitDate']) xml += `      <commitDate>${escapeXML(gitInfo['commitDate'])}</commitDate>\n`;
-            xml += `    </git>\n`;
-        }
+    // Add Git information if available
+    const gitInfo = getGitInfo(source);
+    if (Object.keys(gitInfo).length > 0) {
+        xml += `    <git>\n`;
+        if (gitInfo['branch']) xml += `      <branch>${escapeXML(gitInfo['branch'])}</branch>\n`;
+        if (gitInfo['remote']) xml += `      <remote>${escapeXML(gitInfo['remote'])}</remote>\n`;
+        if (gitInfo['commit']) xml += `      <commit>${escapeXML(gitInfo['commit'])}</commit>\n`;
+        if (gitInfo['commitDate']) xml += `      <commitDate>${escapeXML(gitInfo['commitDate'])}</commitDate>\n`;
+        xml += `    </git>\n`;
     }
 
     xml += `  </project>\n`;
