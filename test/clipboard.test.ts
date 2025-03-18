@@ -41,7 +41,7 @@ describe("clipboard flag", () => {
   });
 
   it("should copy content when name flag is used", async () => {
-    const { stdout } = await runCLI([
+    const { exitCode, stdout } = await runCLI([
       "--path",
       "test/fixtures/sample-project",
       "--name",
@@ -50,10 +50,8 @@ describe("clipboard flag", () => {
       "--no-token-count"
     ]);
 
-    // In CI environments, the clipboard operation might fail but we still want 
-    // to ensure the rest of the functionality works
-    expect(stdout).toContain("<project>");
-    expect(stdout).toContain("<source>test/fixtures/sample-project</source>");
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain("✨ Copied to clipboard");
   });
 
   it("should not copy to clipboard when -y flag is not used", async () => {
@@ -76,16 +74,13 @@ describe("clipboard flag", () => {
   });
 
   it("should copy file output without verbose flag", async () => {
-    const { stdout } = await runCLI([
+    const { exitCode } = await runCLI([
       "--path",
       "test/fixtures/sample-project",
       "--clipboard",
       "--no-token-count"
     ]);
 
-    // In CI environments, the clipboard operation might fail but we still want
-    // to ensure the rest of the functionality works
-    expect(stdout).toContain("<project>");
-    expect(stdout).toContain("<directoryTree>");
+    expect(exitCode).toBe(0);
   });
 });

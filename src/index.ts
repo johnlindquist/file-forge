@@ -79,7 +79,6 @@ export async function handleOutput(
     ...argv,
     verbose: true, // Always include file contents in file output
     pipe: false, // Never pipe for file output to ensure XML wrapping works
-    markdown: argv.markdown, // Make sure to pass the markdown flag to the file output
   });
 
   // For console output, respect the verbose flag and preserve the name property

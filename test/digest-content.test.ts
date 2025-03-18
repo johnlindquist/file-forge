@@ -3,12 +3,12 @@ import { runCLI } from "./test-helpers.js";
 
 describe("Digest File Content", () => {
   it("includes all file names and file contents by default in XML format", async () => {
-    // Run without verbose flag
+    // Run with verbose flag
     const { stdout, exitCode } = await runCLI([
       "--path",
       "test/fixtures/sample-project",
       "--pipe",
-      "--verbose" // Add verbose flag to ensure file contents section is included
+      "--verbose"
     ]);
     expect(exitCode).toBe(0);
 
@@ -29,7 +29,7 @@ describe("Digest File Content", () => {
   }, 60000);
 
   it("includes all file names and file contents in Markdown format when --markdown flag is used", async () => {
-    // Run with markdown flag and save to file with pipe to ensure we get RESULTS_SAVED
+    // Run with markdown flag and verbose flag
     const { stdout, exitCode } = await runCLI([
       "--path",
       "test/fixtures/sample-project",
@@ -44,8 +44,6 @@ describe("Digest File Content", () => {
     expect(stdout).toContain("**Source**:");
     expect(stdout).toContain("**Timestamp**:");
     expect(stdout).toContain("## Directory Structure");
-
-    // With verbose flag, it should include file contents
     expect(stdout).toContain("## Files Content");
 
     // Check for content from sample-project files in the stdout
