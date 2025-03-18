@@ -35,10 +35,11 @@ export let TEMPLATES: PromptTemplate[] = [
 **Context:**  
 {code}
 
-**Instructions:**  
+<instructions>
 - Describe what the code does and how it works.  
 - Keep the explanation concise and in plain language (no code output).  
-- Do **not** modify or rewrite the code; only explain it.`,
+- Do **not** modify or rewrite the code; only explain it.
+</instructions>`,
   },
   {
     name: "document",
@@ -49,11 +50,12 @@ export let TEMPLATES: PromptTemplate[] = [
 **Context:**  
 {code}
 
-**Instructions:**  
+<instructions>
 - Insert concise comments or docstrings in the code to clarify its functionality.  
 - Preserve the original code logic and formatting.  
 - Mark new comments clearly (e.g., start lines with \`//\` or \`#\` as appropriate).  
-- Return the updated code with the new comments and no other alterations.`,
+- Return the updated code with the new comments and no other alterations.
+</instructions>`,
   },
 
   // Refactoring & Improvement Templates
@@ -66,11 +68,12 @@ export let TEMPLATES: PromptTemplate[] = [
 **Context:**  
 {code}
 
-**Instructions:**  
+<instructions>
 - Simplify and restructure the code for clarity (e.g. break up complex functions, improve naming).  
 - Do **not** change any functionality or introduce new bugs.  
 - Ensure the output format is a unified diff or the full updated code with changes, so that modifications can be applied easily.  
-- Do not include explanatory text—only provide the refactored code or diff.`,
+- Do not include explanatory text—only provide the refactored code or diff.
+</instructions>`,
   },
   {
     name: "optimize",
@@ -81,11 +84,12 @@ export let TEMPLATES: PromptTemplate[] = [
 **Context:**  
 {code}
 
-**Instructions:**  
+<instructions>
 - Identify any inefficiencies or slow operations and refactor them for speed or lower resource usage.  
 - Preserve the code's functionality and results exactly.  
 - Present the optimized code changes (preferably as a diff or clearly marked modifications).  
-- Only output the code changes; avoid extra commentary.`,
+- Only output the code changes; avoid extra commentary.
+</instructions>`,
   },
   {
     name: "fix",
@@ -96,11 +100,12 @@ export let TEMPLATES: PromptTemplate[] = [
 **Context:**  
 {code}
 
-**Instructions:**  
+<instructions>
 - Analyze the code for logical errors, bugs, or any edge cases that might fail.  
 - For each identified issue, modify the code to fix the problem. Ensure that fixes do not introduce new bugs.  
 - Output the corrected code (or a diff of changes) with all fixes applied.  
-- Exclude any explanatory text aside from necessary comments for the fixes.`,
+- Exclude any explanatory text aside from necessary comments for the fixes.
+</instructions>`,
   },
 
   // Code Generation Templates
@@ -113,11 +118,38 @@ export let TEMPLATES: PromptTemplate[] = [
 **Context:**  
 {code}
 
-**Instructions:**  
+<instructions>
 - Generate a set of unit tests that thoroughly exercise the code's functions and critical paths.  
 - Use an appropriate testing framework and assume the code above is imported or accessible.  
 - Ensure tests are comprehensive and readable (cover normal cases, edge cases, and error conditions if applicable).  
-- Output only the test code (e.g., in a file with test functions), without additional explanation.`,
+- Output only the test code (e.g., in a file with test functions), without additional explanation.
+</instructions>`,
+  },
+
+  {
+    name: "plan",
+    category: TemplateCategory.GENERATION,
+    description: "Create an implementation plan - Generate step-by-step instructions with task tags",
+    prompt: `**Goal:** Create a detailed implementation plan for the provided code.
+
+**Context:**  
+{code}
+
+<instructions>
+Using the provided codebase, create step-by-step instructions for a junior developer to complete the <task/>:
+
+- Begin with a high-level summary clearly describing the goal of the task.
+- Step 0 must always instruct the junior developer to create a new branch using git flow to specifically address the <task/>.
+- Steps should be concise, explicit, and unambiguous.
+- Each step must contain a code snippet, command, or clear action that directly modifies the codebase.
+- Ensure each step is small, focused, and individually verifiable.
+- Wherever feasible, include instructions to programmatically verify each commit. If this isn't possible, explicitly instruct the developer to manually confirm changes.
+- End each step by clearly instructing the junior developer to commit their changes using the Commitizen commit message format.
+</instructions>
+
+<task>
+Enter your task here.
+</task>`,
   },
 ];
 

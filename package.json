@@ -41,7 +41,8 @@
     "check:template:refactor": "pnpm build && pnpm exec node dist/index.js -i src/index.ts --template refactor",
     "check:template:optimize": "pnpm build && pnpm exec node dist/index.js -i src/graph.ts --template optimize",
     "check:template:test": "pnpm build && pnpm exec node dist/index.js -i src/cli.ts --template test",
-    "check:template:fix": "pnpm build && pnpm exec node dist/index.js -i src/outputFormatter.ts --template fix"
+    "check:template:fix": "pnpm build && pnpm exec node dist/index.js -i src/outputFormatter.ts --template fix",
+    "check:template:plan": "pnpm build && pnpm exec node dist/index.js -i src/cli.ts --template plan"
   },
   "publishConfig": {
     "access": "public"
