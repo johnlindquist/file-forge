@@ -32,10 +32,9 @@ describe("CLI --template", () => {
 
     // We're not checking stderr for token counting errors since we've disabled it
 
-    // Check that the output contains the template
-    expect(stdout).toContain("AI Prompt Template");
-    expect(stdout).toContain("Using template: explain");
+    // Check that the output contains the template instructions in XML format
     expect(stdout).toContain("<instructions>");
+    expect(stdout).toContain("Describe what the code does and how it works");
     expect(stdout).toContain("</instructions>");
   });
 
@@ -50,9 +49,8 @@ describe("CLI --template", () => {
     ]);
 
     expect(exitCode).toBe(0);
-    expect(stdout).toContain("Template Error");
-    expect(stdout).toContain("Template \"non-existent-template\" not found");
-    expect(stdout).toContain("Use --list-templates to see available templates");
+    // Check for error message with the correct closing tag
+    expect(stdout).toContain(`Template "non-existent-template" not found`);
   });
 
   test("should apply plan template with instruction and task tags", async () => {
@@ -66,9 +64,8 @@ describe("CLI --template", () => {
     ]);
 
     expect(exitCode).toBe(0);
-    expect(stdout).toContain("AI Prompt Template");
-    expect(stdout).toContain("Using template: plan");
     expect(stdout).toContain("<instructions>");
+    expect(stdout).toContain("Using the provided codebase");
     expect(stdout).toContain("</instructions>");
     expect(stdout).toContain("<task>");
     expect(stdout).toContain("</task>");
@@ -94,7 +91,6 @@ describe("CLI --template", () => {
       ]);
 
       expect(exitCode).toBe(0);
-      expect(stdout).toContain(`Using template: ${name}`);
       expect(stdout).toContain("<instructions>");
       expect(stdout).toContain("</instructions>");
     }

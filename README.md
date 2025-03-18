@@ -15,7 +15,7 @@
   - Pipe output to stdout with `--pipe`
   - Open results in your default editor with `--open`
   - Copy output to clipboard using `--clipboard`
-  - Generate structured XML output with `--xml`
+  - Generate Markdown output with `--markdown` (default output is XML)
 - **Advanced Modes**:
   - **Bulk Mode**: Append AI processing instructions with `--bulk`
   - **Debug/Verbose**: Enable additional logging with `--debug` or `--verbose`
@@ -88,9 +88,9 @@ ffg --graph src/index.js
   ```bash
   ffg src --clipboard
   ```
-- **Generate XML output:**
+- **Generate Markdown output (default is XML):**
   ```bash
-  ffg src --xml
+  ffg src --markdown
   ```
 - **Bulk Analysis Mode:**
   ```bash

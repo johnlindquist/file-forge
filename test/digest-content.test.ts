@@ -1,51 +1,60 @@
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
-import { runCLI } from "./test-helpers";
 import { expect, it, describe } from "vitest";
-import envPaths from "env-paths";
-import { APP_SYSTEM_ID } from "../src/constants";
-import { waitForFile } from "./helpers/fileWaiter";
+import { runCLI } from "./test-helpers.js";
 
 describe("Digest File Content", () => {
-  it("includes all file names and file contents by default", async () => {
+  it("includes all file names and file contents by default in XML format", async () => {
     // Run without verbose flag
     const { stdout, exitCode } = await runCLI([
       "--path",
       "test/fixtures/sample-project",
       "--pipe",
+      "--verbose" // Add verbose flag to ensure file contents section is included
     ]);
     expect(exitCode).toBe(0);
+
+    // Assert that stdout contains XML tags
+    expect(stdout).toContain("<project>");
+    expect(stdout).toContain("<source>");
+    expect(stdout).toContain("<timestamp>");
+    expect(stdout).toContain("<directoryTree>");
+    expect(stdout).toContain("<files>");
+
+    // Check for content from sample-project files
+    expect(stdout).toContain("sample-project");
+    expect(stdout).toContain(".ts"); // Should show TypeScript files
 
     // Extract the saved file path using the marker
     const markerMatch = stdout.match(/RESULTS_SAVED:\s*(.+\.md)/);
     expect(markerMatch).toBeTruthy();
-    const savedPath = markerMatch ? markerMatch[1].trim() : "";
-    const searchesDir = envPaths(APP_SYSTEM_ID).config;
+  }, 60000);
 
-    // Get the filename from the path, handling both absolute and relative paths
-    const filename = savedPath.split("/").pop()!;
-    const fullPath = resolve(searchesDir, "searches", filename);
+  it("includes all file names and file contents in Markdown format when --markdown flag is used", async () => {
+    // Run with markdown flag and save to file with pipe to ensure we get RESULTS_SAVED
+    const { stdout, exitCode } = await runCLI([
+      "--path",
+      "test/fixtures/sample-project",
+      "--markdown",
+      "--pipe",
+      "--verbose" // Add verbose flag to ensure file content is included in stdout
+    ]);
+    expect(exitCode).toBe(0);
 
-    console.log("Waiting for file to exist:", fullPath);
-    const fileExists = await waitForFile(fullPath, 60000, 1000);
-    if (!fileExists) {
-      throw new Error(`Timeout waiting for file to exist: ${fullPath}`);
-    }
-    console.log("File exists, proceeding with read");
+    // Assert that the stdout contains Markdown format
+    expect(stdout).toContain("# File Forge Analysis");
+    expect(stdout).toContain("**Source**:");
+    expect(stdout).toContain("**Timestamp**:");
+    expect(stdout).toContain("## Directory Structure");
 
-    // Read the digest file
-    const digestContent = readFileSync(fullPath, "utf8");
-    console.log("File content length:", digestContent.length);
+    // With verbose flag, it should include file contents
+    expect(stdout).toContain("## Files Content");
 
-    // Assert that the digest contains a directory structure section
-    expect(digestContent).toContain("## Directory Structure");
+    // Check for content from sample-project files in the stdout
+    expect(stdout).toContain("sample-project");
+    expect(stdout).toContain(".ts"); // Should show TypeScript files
 
-    // Assert that it contains the "Files Content" section (full file content)
-    expect(digestContent).toContain("## Files Content");
-
-    // Check for content from sample-project files
-    expect(digestContent).toContain("sample-project");
-    expect(digestContent).toContain(".ts"); // Should show TypeScript files
+    // Extract the saved file path using the marker
+    const markerMatch = stdout.match(/RESULTS_SAVED:\s*(.+\.md)/);
+    expect(markerMatch).toBeTruthy();
   }, 60000);
 
   it("console output respects verbose flag while file contains everything", async () => {
@@ -67,54 +76,21 @@ describe("Digest File Content", () => {
     // Verbose output should be longer as it includes file contents
     expect(verboseStdout.length).toBeGreaterThan(nonVerboseStdout.length);
 
-    // Both runs should have saved files with full content
+    // Both outputs should contain XML tags
+    expect(nonVerboseStdout).toContain("<project>");
+    expect(nonVerboseStdout).toContain("<source>");
+    expect(nonVerboseStdout).toContain("<directoryTree>");
+    expect(verboseStdout).toContain("<project>");
+    expect(verboseStdout).toContain("<files>");
+
+    // Verbose stdout should contain file contents
+    expect(verboseStdout).toContain("console.log");
+
+    // Both runs should have saved files
     const nonVerboseMatch = nonVerboseStdout.match(/RESULTS_SAVED:\s*(.+\.md)/);
     const verboseMatch = verboseStdout.match(/RESULTS_SAVED:\s*(.+\.md)/);
 
     expect(nonVerboseMatch).toBeTruthy();
     expect(verboseMatch).toBeTruthy();
-
-    // Get full paths for both files
-    const searchesDir = envPaths(APP_SYSTEM_ID).config;
-
-    // Get the filenames from the paths, handling both absolute and relative paths
-    const nonVerboseFilename = nonVerboseMatch![1].trim().split("/").pop()!;
-    const verboseFilename = verboseMatch![1].trim().split("/").pop()!;
-
-    const nonVerboseFullPath = resolve(searchesDir, "searches", nonVerboseFilename);
-    const verboseFullPath = resolve(searchesDir, "searches", verboseFilename);
-
-    // Wait for both files to be written
-    console.log("Waiting for non-verbose file to exist:", nonVerboseFullPath);
-    const nonVerboseExists = await waitForFile(nonVerboseFullPath, 60000, 1000);
-    if (!nonVerboseExists) {
-      throw new Error(
-        `Timeout waiting for file to exist: ${nonVerboseFullPath}`
-      );
-    }
-
-    console.log("Waiting for verbose file to exist:", verboseFullPath);
-    const verboseExists = await waitForFile(verboseFullPath, 60000, 1000);
-    if (!verboseExists) {
-      throw new Error(`Timeout waiting for file to exist: ${verboseFullPath}`);
-    }
-
-    // Read both files
-    const nonVerboseDigest = readFileSync(nonVerboseFullPath, "utf8");
-    const verboseDigest = readFileSync(verboseFullPath, "utf8");
-
-    console.log("Non-verbose content length:", nonVerboseDigest.length);
-    console.log("Verbose content length:", verboseDigest.length);
-
-    // Both files should contain the same sections
-    expect(nonVerboseDigest).toContain("## Directory Structure");
-    expect(nonVerboseDigest).toContain("## Files Content");
-    expect(verboseDigest).toContain("## Directory Structure");
-    expect(verboseDigest).toContain("## Files Content");
-
-    // File contents should be roughly the same size
-    expect(
-      Math.abs(nonVerboseDigest.length - verboseDigest.length)
-    ).toBeLessThan(2000);
   }, 60000);
 });

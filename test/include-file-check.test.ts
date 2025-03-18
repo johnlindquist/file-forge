@@ -33,6 +33,7 @@ describe("Include flag for specific file and directory paths", () => {
     const { stdout, exitCode } = await runCLI([
       "--path",
       tempDir,
+      "--include",
       "package.json",
       "--pipe",
       "--verbose",
@@ -40,7 +41,7 @@ describe("Include flag for specific file and directory paths", () => {
     expect(exitCode).toBe(0);
 
     // The output should contain package.json and its content
-    expect(stdout).toContain("package.json:");
+    expect(stdout).toContain('<file path="package.json">');
     expect(stdout).toContain(packageJsonContent);
 
     // The output should not contain the content from index.js
@@ -63,6 +64,7 @@ describe("Include flag for specific file and directory paths", () => {
     const { stdout, exitCode } = await runCLI([
       "--path",
       tempDir,
+      "--include",
       ".github",
       "--pipe",
       "--verbose",

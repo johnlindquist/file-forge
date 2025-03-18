@@ -139,9 +139,10 @@ export async function runCli() {
       type: "boolean",
       describe: "List all available prompt templates",
     })
-    .option("xml", {
+    .option("markdown", {
       type: "boolean",
-      description: "Output in XML format",
+      description: "Output in Markdown format (default output is XML)",
+      default: false,
     })
     .option("no-token-count", {
       describe: "Disable token counting in the output",

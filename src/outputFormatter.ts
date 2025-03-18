@@ -11,6 +11,7 @@ interface OutputOptions {
   template?: string | undefined;
   clipboard?: boolean | undefined;
   xml?: boolean | undefined;
+  markdown?: boolean | undefined;
   [key: string]: unknown;
 }
 
@@ -33,86 +34,87 @@ export function buildOutput(
   timestamp: string,
   options: OutputOptions
 ): string {
-  // If XML output is explicitly requested and not piping to console, use XML formatter
-  if (options.xml && !options.pipe) {
-    return buildXMLOutput(digest, source, timestamp, {
-      name: options.name,
-      template: options.template,
-      bulk: options.bulk,
-      verbose: options.verbose || options.debug || !options.pipe || options.clipboard,
-    });
-  }
+  // Use Markdown format only when explicitly requested with --markdown flag
+  if (options.markdown) {
+    // Use markdown format
+    const header = options.name ? `# ${options.name}` : "# File Forge Analysis";
 
-  // Otherwise use markdown format
-  const header = options.name ? `# ${options.name}` : "# File Forge Analysis";
-
-  // Build the content parts
-  const contentParts = [
-    `**Source**: \`${source}\``,
-    `**Timestamp**: ${timestamp}`,
-    "## Summary",
-    digest[PROP_SUMMARY] || "",
-    "## Directory Structure",
-    "```",
-    digest[PROP_TREE] || "",
-    "```",
-  ];
-
-  // Add file contents section if verbose is enabled, saving to file, or clipboard is enabled
-  if (options.verbose || options.debug || !options.pipe || options.clipboard) {
-    contentParts.push(
-      "## Files Content",
+    // Build the content parts
+    const contentParts = [
+      `**Source**: \`${source}\``,
+      `**Timestamp**: ${timestamp}`,
+      "## Summary",
+      digest[PROP_SUMMARY] || "",
+      "## Directory Structure",
       "```",
-      digest[PROP_CONTENT] || "",
-      "```"
-    );
-  }
+      digest[PROP_TREE] || "",
+      "```",
+    ];
 
-  // Append AI instructions if bulk mode is enabled
-  if (options.bulk) {
-    contentParts.push(
-      "## AI Instructions",
-      "When I provide a set of files with paths and content, please return **one single shell script**",
-      "Use `#!/usr/bin/env bash` at the start"
-    );
-  }
-
-  // Apply template if specified, but only after the standard content
-  if (options.template) {
-    const template = getTemplateByName(options.template);
-    if (template) {
-      // Combine all content for the template
-      const allContent = [
-        digest[PROP_SUMMARY] || "",
-        "```",
-        digest[PROP_TREE] || "",
-        "```",
-        digest[PROP_CONTENT] || ""
-      ].join("\n\n");
-
-      // Apply the template to the content
-      const promptContent = applyTemplate(template, allContent);
-
+    // Add file contents section if verbose is enabled, saving to file, or clipboard is enabled
+    if (options.verbose || options.debug || !options.pipe || options.clipboard) {
       contentParts.push(
-        "## AI Prompt Template",
-        `Using template: ${template.name} (${template.description})`,
-        promptContent
-      );
-    } else {
-      contentParts.push(
-        "## Template Error",
-        `Template "${options.template}" not found. Use --list-templates to see available templates.`
+        "## Files Content",
+        "```",
+        digest[PROP_CONTENT] || "",
+        "```"
       );
     }
+
+    // Append AI instructions if bulk mode is enabled
+    if (options.bulk) {
+      contentParts.push(
+        "## AI Instructions",
+        "When I provide a set of files with paths and content, please return **one single shell script**",
+        "Use `#!/usr/bin/env bash` at the start"
+      );
+    }
+
+    // Apply template if specified, but only after the standard content
+    if (options.template) {
+      const template = getTemplateByName(options.template);
+      if (template) {
+        // Combine all content for the template
+        const allContent = [
+          digest[PROP_SUMMARY] || "",
+          "```",
+          digest[PROP_TREE] || "",
+          "```",
+          digest[PROP_CONTENT] || ""
+        ].join("\n\n");
+
+        // Apply the template to the content
+        const promptContent = applyTemplate(template, allContent);
+
+        contentParts.push(
+          "## AI Prompt Template",
+          `Using template: ${template.name} (${template.description})`,
+          promptContent
+        );
+      } else {
+        contentParts.push(
+          "## Template Error",
+          `Template "${options.template}" not found. Use --list-templates to see available templates.`
+        );
+      }
+    }
+
+    // Combine header and content
+    let output = `${header}\n\n${contentParts.join("\n\n")}`;
+
+    // Wrap in XML tags if name is provided and not piping
+    if (options.name && !options.pipe) {
+      output = `<${options.name}>\n${output}\n</${options.name}>`;
+    }
+
+    return output;
   }
 
-  // Combine header and content
-  let output = `${header}\n\n${contentParts.join("\n\n")}`;
-
-  // Wrap in XML tags if name is provided and not piping
-  if (options.name && !options.pipe && !options.xml) {
-    output = `<${options.name}>\n${output}\n</${options.name}>`;
-  }
-
-  return output;
+  // Default to XML output
+  return buildXMLOutput(digest, source, timestamp, {
+    name: options.name,
+    template: options.template,
+    bulk: options.bulk,
+    verbose: options.verbose || options.debug || !options.pipe || options.clipboard,
+  });
 }

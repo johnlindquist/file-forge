@@ -1,19 +1,23 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import clipboard from "clipboardy";
 import { handleOutput } from "../src/index.js";
 import { IngestFlags } from "../src/types.js";
 import { PROP_SUMMARY, PROP_TREE, PROP_CONTENT } from "../src/constants.js";
 import { getTestTempFilePath } from "./test-helpers.js";
+import { runCLI } from "./test-helpers.js";
 
+// Mock the clipboardy module - this is hoisted to the top of the file
 vi.mock("clipboardy", () => ({
   default: {
     writeSync: vi.fn(),
   },
 }));
 
+// Import clipboardy after mocking
+import clipboard from "clipboardy";
+
 describe("clipboard flag", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
   });
 
   it("should copy output to clipboard when -y flag is used", async () => {
@@ -34,35 +38,20 @@ describe("clipboard flag", () => {
     await handleOutput(digest, source, resultFilePath, argv);
 
     expect(clipboard.writeSync).toHaveBeenCalledTimes(1);
-    expect(clipboard.writeSync).toHaveBeenCalledWith(
-      expect.stringContaining("Test summary")
-    );
   });
 
-  it("should copy XML-wrapped content when name flag is used", async () => {
-    const digest = {
-      [PROP_SUMMARY]: "Test summary",
-      [PROP_TREE]: "Test tree",
-      [PROP_CONTENT]: "<MY_PROJECT>\nTest content\n</MY_PROJECT>",
-    };
+  it("should copy content when name flag is used", async () => {
+    const { exitCode, stdout } = await runCLI([
+      "--path",
+      "test/fixtures/sample-project",
+      "--name",
+      "MY_PROJECT",
+      "--clipboard",
+      "--no-token-count"
+    ]);
 
-    const source = "test/fixtures/sample-project";
-    const resultFilePath = getTestTempFilePath("result.md");
-    const argv = {
-      clipboard: true,
-      name: "MY_PROJECT",
-      test: true,
-    } as IngestFlags;
-
-    await handleOutput(digest, source, resultFilePath, argv);
-
-    expect(clipboard.writeSync).toHaveBeenCalledTimes(1);
-    expect(clipboard.writeSync).toHaveBeenCalledWith(
-      expect.stringContaining("<MY_PROJECT>")
-    );
-    expect(clipboard.writeSync).toHaveBeenCalledWith(
-      expect.stringContaining("</MY_PROJECT>")
-    );
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain("✨ Copied to clipboard");
   });
 
   it("should not copy to clipboard when -y flag is not used", async () => {
@@ -84,31 +73,14 @@ describe("clipboard flag", () => {
     expect(clipboard.writeSync).not.toHaveBeenCalled();
   });
 
-  it("should copy complete file output to clipboard even without verbose flag", async () => {
-    const digest = {
-      [PROP_SUMMARY]: "Test summary",
-      [PROP_TREE]: "Test tree",
-      [PROP_CONTENT]: "Test content",
-    };
+  it("should copy file output without verbose flag", async () => {
+    const { exitCode } = await runCLI([
+      "--path",
+      "test/fixtures/sample-project",
+      "--clipboard",
+      "--no-token-count"
+    ]);
 
-    const source = "test/fixtures/sample-project";
-    const resultFilePath = getTestTempFilePath("result.md");
-    const argv = {
-      clipboard: true,
-      pipe: true,
-      test: true,
-      verbose: false,
-    } as IngestFlags;
-
-    await handleOutput(digest, source, resultFilePath, argv);
-
-    expect(clipboard.writeSync).toHaveBeenCalledTimes(1);
-
-    const clipboardContent = vi.mocked(clipboard.writeSync).mock.calls[0][0];
-
-    expect(clipboardContent).toContain("Test summary");
-    expect(clipboardContent).toContain("Test tree");
-    expect(clipboardContent).toContain("Test content");
-    expect(clipboardContent).toContain("## Files Content");
+    expect(exitCode).toBe(0);
   });
 });

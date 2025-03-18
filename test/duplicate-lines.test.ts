@@ -1,91 +1,123 @@
-import { describe, expect, it } from "vitest";
-import { execSync } from "child_process";
-import path from "path";
-import fs from "fs";
-import { ingestDirectory } from "../src/ingest.js";
-import { buildOutput } from "../src/outputFormatter.js";
-import { format } from "date-fns";
+import { describe, it, expect } from "vitest";
+import { runCLI } from "./test-helpers.js";
 
 describe("duplicate lines", () => {
-  it("should not have duplicate markdown headers in output", () => {
-    // Run the command and capture output
-    const output = execSync("node dist/index.js -i src --name MY_PROJECT", {
-      cwd: path.resolve(__dirname, ".."),
-      encoding: "utf8",
-      env: { ...process.env, VITEST: "1" },
-    });
+  it("should not have duplicate markdown headers at the same level when using --markdown", async () => {
+    const { stdout, exitCode } = await runCLI([
+      "--path",
+      "test/fixtures/sample-project",
+      "--markdown",
+      "--no-token-count"
+    ]);
 
-    console.log("Full output:", output);
+    expect(exitCode).toBe(0);
 
-    // Split output into lines and filter to only include markdown headers
-    const lines = output
-      .split("\n")
-      .map((line) => line.trim())
-      .filter((line) => line.startsWith("#")); // Only check markdown headers
+    // Extract all markdown headers from the output
+    const allHeaders = stdout.match(/^#{1,2}\s.+$/gm) || [];
 
-    console.log("All markdown headers found:", lines);
+    // We'll only check h1 and h2 level headers, ignoring any headers in file content
+    // Create a map to count how many times each header appears in the same output section
+    const headerCounts = {};
+    let currentSection = "";
 
-    // Create a Set to track unique lines
-    const uniqueLines = new Set<string>();
-    const duplicates: string[] = [];
-
-    // Check each line for duplicates
-    lines.forEach((line) => {
-      if (uniqueLines.has(line)) {
-        // Only add to duplicates if we've seen it before
-        duplicates.push(line);
+    for (const header of allHeaders) {
+      if (header.startsWith("# ")) {
+        currentSection = "main";
+      } else if (header.startsWith("## ")) {
+        // Only count duplicate h2 headers within the same section
+        const key = `${currentSection}:${header}`;
+        headerCounts[key] = (headerCounts[key] || 0) + 1;
       }
-      uniqueLines.add(line);
-    });
-
-    // Log duplicates for debugging if test fails
-    if (duplicates.length > 0) {
-      console.log("Found duplicate headers:", duplicates);
-      console.log("All unique headers:", Array.from(uniqueLines));
     }
 
-    // We should have no duplicates, but we can have headers
-    expect(duplicates).toHaveLength(0);
+    // Check if any header appears more than once in the same section
+    const duplicateHeaders = Object.entries(headerCounts)
+      .filter(([, count]) => count > 1)
+      .map(([header]) => header.split(":")[1]);
+
+    expect(duplicateHeaders).toEqual([]);
   });
 
-  it("should always include file contents in the output file", async () => {
-    // Create a test directory with some files
-    const testDir = path.resolve(__dirname, "fixtures/test-project");
-    await fs.promises.mkdir(testDir, { recursive: true });
-    await fs.promises.writeFile(
-      path.join(testDir, "test1.ts"),
-      "console.log('test1');"
-    );
-    await fs.promises.writeFile(
-      path.join(testDir, "test2.ts"),
-      "console.log('test2');"
-    );
+  it("should properly handle XML tags in default output", async () => {
+    const { stdout, exitCode } = await runCLI([
+      "--path",
+      "test/fixtures/sample-project",
+      "--no-token-count"
+    ]);
 
-    try {
-      // Get the digest and build output with file contents always included
-      const flags = {
-        path: testDir,
-        name: "TEST_PROJECT",
-        test: true,
-        verbose: true, // Force verbose to ensure file contents
-      };
+    expect(exitCode).toBe(0);
 
-      const digest = await ingestDirectory(testDir, flags);
-      const timestamp = format(new Date(), "yyyyMMdd-HHmmss");
-      const output = buildOutput(digest, testDir, timestamp, flags);
+    // For self-closing tags like <file path="..." .../>
+    const selfClosingTags = (stdout.match(/<([a-zA-Z]+)[^>]*\/>/g) || [])
+      .map(tag => tag.match(/<([a-zA-Z]+)/)?.[1])
+      .filter(Boolean);
 
-      // Verify file contents section exists and has content
-      expect(output).toContain("## Files Content");
-      expect(output).toContain("```");
+    // For regular opening and closing tags
+    const openingTags = (stdout.match(/<([a-zA-Z]+)(?![^>]*\/>)[^>]*>/g) || [])
+      .map(tag => tag.match(/<([a-zA-Z]+)/)?.[1])
+      .filter(Boolean);
 
-      // Verify some actual file content exists
-      expect(output).toContain("test1.ts");
-      expect(output).toContain("console.log('test1');");
-      expect(output).toContain("test2.ts");
-      expect(output).toContain("console.log('test2');");
-    } finally {
-      // Clean up test directory
-      await fs.promises.rm(testDir, { recursive: true, force: true });
-    }
+    const closingTags = (stdout.match(/<\/([a-zA-Z]+)>/g) || [])
+      .map(tag => tag.match(/<\/([a-zA-Z]+)>/)?.[1])
+      .filter(Boolean);
+
+    // Count tags, accounting for self-closing tags that don't need a closing tag
+    const tagCounts = {};
+
+    // Self-closing tags don't need a matching closing tag
+    selfClosingTags.forEach(tag => {
+      if (tag) tagCounts[tag] = (tagCounts[tag] || 0);
+    });
+
+    openingTags.forEach(tag => {
+      if (tag) tagCounts[tag] = (tagCounts[tag] || 0) + 1;
+    });
+
+    closingTags.forEach(tag => {
+      if (tag) tagCounts[tag] = (tagCounts[tag] || 0) - 1;
+    });
+
+    // Any tag with non-zero count is potentially unbalanced
+    const unbalancedTags = Object.entries(tagCounts)
+      .filter(([, count]) => count !== 0)
+      .map(([tag]) => tag);
+
+    // We expect properly balanced XML (empty array means all balanced)
+    expect(unbalancedTags).toEqual([]);
+  });
+
+  it("should always include file contents in the markdown output file", async () => {
+    // Run FFG against a simple test project
+    const { stdout: output, exitCode } = await runCLI([
+      "--path",
+      "test/fixtures/test-project",
+      "--markdown",
+      "--no-token-count"
+    ]);
+
+    expect(exitCode).toBe(0);
+
+    // Verify file contents section exists and has content
+    expect(output).toContain("## Files Content");
+    expect(output).toContain("```");
+    expect(output).toContain("console.log('test1')");
+    expect(output).toContain("console.log('test2')");
+  });
+
+  it("should always include file contents in the XML output file", async () => {
+    // Run FFG against a simple test project
+    const { stdout: output, exitCode } = await runCLI([
+      "--path",
+      "test/fixtures/test-project",
+      "--no-token-count"
+    ]);
+
+    expect(exitCode).toBe(0);
+
+    // Verify file contents section exists and has content
+    expect(output).toContain("<files>");
+    expect(output).toContain("<file");
+    expect(output).toContain("console.log('test1')");
+    expect(output).toContain("console.log('test2')");
   });
 });

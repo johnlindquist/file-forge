@@ -15,7 +15,7 @@
     "dist"
   ],
   "scripts": {
-    "test": "pnpm build && vitest --watch false",
+    "test": "pnpm build && vitest run --silent",
     "test:watch": "pnpm build && vitest --watch",
     "dev": "node --experimental-strip-types src/index.ts",
     "build": "tsc",
@@ -32,7 +32,7 @@
     "check:graph": "pnpm build && pnpm exec node dist/index.js -g src/graph.ts",
     "check:clipboard": "pnpm build && pnpm exec node dist/index.js -i src/graph.ts -y",
     "check:name": "pnpm build && pnpm exec node dist/index.js -i src --name MY_PROJECT",
-    "check:xml": "pnpm build && pnpm exec node dist/index.js --include src --xml",
+    "check:markdown": "pnpm build && pnpm exec node dist/index.js --include src --markdown",
     "check:help": "pnpm build && pnpm exec node dist/index.js --help",
     "check:full": "pnpm build && pnpm exec node dist/index.js -i src/graph.ts",
     "check:templates": "pnpm build && pnpm exec node dist/index.js --list-templates",
@@ -42,7 +42,7 @@
     "check:template:optimize": "pnpm build && pnpm exec node dist/index.js -i src/graph.ts --template optimize",
     "check:template:test": "pnpm build && pnpm exec node dist/index.js -i src/cli.ts --template test",
     "check:template:fix": "pnpm build && pnpm exec node dist/index.js -i src/outputFormatter.ts --template fix",
-    "check:template:plan": "pnpm build && pnpm exec node dist/index.js -i src/cli.ts --xml --template plan --exclude test/fixtures --exclude .husky"
+    "check:template:plan": "pnpm build && pnpm exec node dist/index.js -i src/cli.ts --template plan --exclude test/fixtures --exclude .husky"
   },
   "publishConfig": {
     "access": "public"

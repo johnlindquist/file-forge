@@ -61,8 +61,8 @@ describe("CLI: ingest current directory with '.'", () => {
     // Now check the actual content of the saved file
     expect(savedContent).toContain("hello.js");
     expect(savedContent).toContain("test.ts");
-    expect(savedContent).toContain("Directory Structure");
-    expect(savedContent).toContain("Files Content");
+    expect(savedContent).toContain("<directoryTree>");
+    expect(savedContent).toContain("<files>");
 
     console.log("Test completed successfully");
   }, 60000); // Increased timeout to be extra safe

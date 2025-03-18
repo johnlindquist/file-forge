@@ -9,5 +9,12 @@ export default defineConfig({
 			provider: "v8",
 			reporter: ["text", "json", "html"],
 		},
+		silent: true,
+		reporters: [
+			["default", {
+				summary: false
+			}]
+		],
+		logHeapUsage: false,
 	},
 });
