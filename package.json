@@ -42,7 +42,7 @@
     "check:template:optimize": "pnpm build && pnpm exec node dist/index.js -i src/graph.ts --template optimize",
     "check:template:test": "pnpm build && pnpm exec node dist/index.js -i src/cli.ts --template test",
     "check:template:fix": "pnpm build && pnpm exec node dist/index.js -i src/outputFormatter.ts --template fix",
-    "check:template:plan": "pnpm build && pnpm exec node dist/index.js -i src/cli.ts --template plan"
+    "check:template:plan": "pnpm build && pnpm exec node dist/index.js -i src/cli.ts --xml --template plan --exclude test/fixtures --exclude .husky"
   },
   "publishConfig": {
     "access": "public"

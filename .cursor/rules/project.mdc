@@ -5,3 +5,161 @@ alwaysApply: true
 ---
 [README.md](mdc:README.md)
 [package.json](mdc:package.json)
+
+# File Forge Project Reference
+
+This document provides a quick reference to the functionality of each source file within the `File Forge` project (`@johnlindquist/file-forge`). It's designed to help users quickly understand the purpose of each file and how they contribute to the overall project.
+
+## Overview
+
+`File Forge` is a CLI tool for in-depth codebase analysis. It generates markdown reports, which are designed to feed into AI reasoning models.  It can analyze local directories or clone Git repositories, handling various filtering options, and outputting detailed summaries, directory structures, and file contents.
+
+## File Reference
+
+The core logic resides within the `src/` directory.  Test files are located in `test/` and primarily serve to validate the functionality of the source files, but can sometimes show use cases.
+
+### `src/cli.ts`
+
+*   **Path:** `/Users/johnlindquist/dev/github-ingest/src/cli.ts`
+*   **Functionality:** Handles command-line argument parsing using `yargs`. Defines all the CLI options (flags) that control the behavior of the tool, such as:
+    *   `--include` / `-i`:  Specifies file inclusion patterns (globs).
+    *   `--exclude` / `-e`: Specifies file exclusion patterns (globs).
+    *   `--find` / `-f`: Specifies terms to search for within files (OR logic).
+    *    `--require` / `-r`: Specifies terms that must be present within files (AND logic).
+    *   `--branch` / `-b`:  Specifies a Git branch to checkout.
+    *   `--commit` / `-c`:  Specifies a Git commit to checkout.
+    *   `--max-size` / `-s`: Sets the maximum file size to process.
+    *   `--pipe` / `-p`:  Directs output to stdout instead of opening an editor.
+    *   `--debug`: Enables debug logging.
+    *   `--bulk` / `-k`: Appends specific AI processing instructions.
+    *   `--ignore`:  Controls whether to respect `.gitignore` files (defaults to `true`).
+    *   `--skip-artifacts`: Controls skipping build artifacts (defaults to `true`).
+    *   `--clipboard` / `-y`: Copies the results to the clipboard.
+    *    `--no-editor` / `-n`: Prevents opening of results in editor.
+    *   `--use-regular-git`:  Uses system Git commands instead of `simple-git`.
+    *   `--open` / `-o`: Opens result in the users defined editor.
+    *   `--verbose` / `-v`: Includes detailed file contents in the output.
+    *   `--graph` / `-g`: Analyzes a dependency graph, starting from a specified file.
+    *   `--help` / `-h`: Displays help information.
+    *   `--version` / `-v`: Displays the version number.
+*   **Key Functions:**
+    *   `runCli()`: Parses command-line arguments and returns an object representing the parsed options.
+    *   `getVersion()`: Retrieves the application version from `package.json`.
+
+### `src/constants.ts`
+
+*   **Path:** `/Users/johnlindquist/dev/github-ingest/src/constants.ts`
+*   **Functionality:** Defines constant values used throughout the application, such as:
+    *   `APP_NAME`:  The application's name (`@johnlindquist/file-forge`).
+    *   `APP_COMMAND`: The CLI command (`ffg`).
+    *   `APP_DISPLAY_NAME`: Display name for the application ("File Forge").
+    *    `APP_DESCRIPTION`: Short description of the app for help texts.
+    *   `APP_SYSTEM_ID`: Used for system-level identifiers (like config directories).
+    *   `APP_HEADER`, `APP_ANALYSIS_HEADER`:  Used for markdown headers.
+    *   Status messages:  Functions that format status messages (e.g., `BRANCH_STATUS`, `COMMIT_STATUS`).
+    *   `getAnalysisFilename()`:  Generates a filename for the analysis report.
+
+### `src/editor.ts`
+
+*   **Path:** `/Users/johnlindquist/dev/github-ingest/src/editor.ts`
+*   **Functionality:** Manages editor configuration.  Allows the user to specify which editor to use when opening the generated report.
+*   **Key Functions:**
+    *   `getEditorConfig()`:  Retrieves or prompts for the editor configuration (command and whether to skip opening the editor).  Uses the `conf` library to store the configuration persistently.
+
+### `src/fileUtils.ts`
+
+*   **Path:** `/Users/johnlindquist/dev/github-ingest/src/fileUtils.ts`
+*   **Functionality:** Provides utility functions for file system operations.
+*   **Key Functions:**
+    *   `getFileContent()`: Reads a file's content and adds a standardized header.  Also checks if the file exceeds the maximum allowed size (`maxSize`), returning a placeholder message if it does.
+
+### `src/formatter.ts`
+
+*   **Path:** `/Users/johnlindquist/dev/github-ingest/src/formatter.ts`
+*   **Functionality:** Provides functions for consistent message formatting (colors, icons, etc.) in the CLI output.  Uses ANSI escape codes for styling.  Leverages `@clack/prompts` for interactive prompts.
+*   **Key Functions:**
+    *   `formatIntroMessage()`: Formats introductory messages.
+    *   `formatErrorMessage()`: Formats error messages.
+    *   `formatSpinnerMessage()`: Formats messages related to ongoing operations.
+    *   `formatDebugMessage()`: Formats debug messages.
+    *   `formatClipboardMessage()`: Formats clipboard success messages.
+    *   `formatSaveMessage()`: Formats messages indicating where results were saved.
+
+### `src/gitUtils.ts`
+
+*   **Path:** `/Users/johnlindquist/dev/github-ingest/src/gitUtils.ts`
+*   **Functionality:** Handles Git-related operations, primarily resetting a repository to a specific branch or commit.  Supports both `simple-git` and regular system Git commands.
+*   **Key Functions:**
+    *   `resetGitRepo()`: Resets a Git repository to a specified branch or commit. Uses either `simple-git` or `execSync` to run Git commands, depending on the `useRegularGit` option.
+
+### `src/graph.ts`
+
+*   **Path:** `/Users/johnlindquist/dev/github-ingest/src/graph.ts`
+*   **Functionality:** Generates and analyzes dependency graphs using the `madge` library.  This is triggered by the `--graph` CLI flag.
+*   **Key Functions:**
+    *   `buildDependencyTree()`: Recursively builds a tree string representation of the dependency graph.
+    *   `gatherGraphFiles()`: Gathers the content of files involved in the dependency graph, respecting the `maxSize` limit.
+    *   `ingestGraph()`: The main function for graph analysis. It takes an entry file and flags, uses `madge` to generate the dependency graph, builds the tree structure, gathers file contents, and returns a summary, tree string, and content string.
+
+### `src/index.ts`
+
+*   **Path:** `/Users/johnlindquist/dev/github-ingest/src/index.ts`
+*   **Functionality:** The main entry point of the CLI application.  Coordinates the entire process:
+    1.  Handles uncaught exceptions.
+    2.  Parses CLI arguments using `runCli()`.
+    3.  Determines whether to ingest a directory or a Git repository.
+    4.  Calls `ingestDirectory()` or `ingestGraph()` based on the presence of the `--graph` flag.
+    5.  Creates necessary directories (log and searches).
+    6.  Formats the output based on CLI flags (e.g., `--pipe`, `--verbose`, `--clipboard`).
+    7.  Saves the output to a file.
+    8.  Handles output to the console, including interactive prompts (using `@clack/prompts`).
+    9. Handles copying results to clipboard.
+*   **Key Functions:**
+    *   `handleOutput()`: Formats and outputs the results (to console and/or file).
+    *   `main()`: The main function that drives the CLI flow.
+
+### `src/ingest.ts`
+
+*   **Path:** `/Users/johnlindquist/dev/github-ingest/src/ingest.ts`
+*   **Functionality:** Contains the core logic for ingesting a directory and building the text digest.  Handles file filtering, directory traversal, and content gathering.
+*   **Key Functions:**
+    *   `ingestDirectory()`: The main function for ingesting a directory.  Handles branch/commit checkout, file processing, summary generation, and content string building.
+    *   `resetRepo()`: Resets a Git repository (calls `resetGitRepo` from `gitUtils.ts`).
+    *   `scanDirectory()`: Recursively scans a directory, respecting `.gitignore`, include/exclude patterns, and depth/size limits.  Returns a tree structure representing the directory.
+    *   `sortTree()`: Sorts the directory tree alphabetically.
+    *   `filterFilesByContent()`: Filters files based on content, using `find` and `require` terms.
+    *   `gatherFiles()`: Gathers file content from a directory tree, respecting the `maxSize` limit.
+    *   `createTree()`: Creates a string representation of the directory tree.
+    *   `processFiles()`: Processes files from a directory to generate a summary.
+     *   `buildContentString()`:  Builds a formatted string of collected file contents.
+
+### `src/repo.ts`
+
+*   **Path:** `/Users/johnlindquist/dev/github-ingest/src/repo.ts`
+*   **Functionality:** Handles Git repository cloning and updating.  Manages a cache of cloned repositories to avoid redundant cloning.
+*   **Key Functions:**
+    *   `isGitUrl()`: Checks if a given string is a Git URL.
+    *   `getRepoPath()`:  Gets the local path to a repository.  If the repository is a Git URL, it clones the repository to a cache directory. If the repository already exists in the cache, it updates it (fetches and pulls).  Handles corrupted repositories by removing and recloning them.
+
+### `src/types.ts`
+
+*   **Path:** `/Users/johnlindquist/dev/github-ingest/src/types.ts`
+*   **Functionality:** Defines TypeScript types used throughout the project.
+*   **Key Types:**
+    *   `EditorConfig`: Configuration for the editor (command and skipEditor flag).
+    *   `IngestFlags`:  Represents all the CLI flags.
+    *   `ScanStats`:  Statistics collected during directory scanning.
+    *   `TreeNode`: Represents a node in the directory tree (file or directory).
+    *   `GitResetOptions`: Options for resetting a Git repository.
+
+### `src/utils.ts`
+
+*   **Path:** `/Users/johnlindquist/dev/github-ingest/src/utils.ts`
+*   **Functionality:** Provides general utility functions.
+*   **Key Functions:**
+    *   `fileExists()`: Asynchronously checks if a file or directory exists.
+    *    `parsePatterns()`: Parses comma separated patterns.
+
+## Summary
+
+This reference sheet provides a high-level overview of the purpose and functionality of each source file in the `File Forge` project. It's a valuable resource for understanding the codebase and quickly locating the relevant files for specific tasks.

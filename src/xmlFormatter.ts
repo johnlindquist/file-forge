@@ -1,5 +1,8 @@
-import { format } from "date-fns";
+// import { format } from "date-fns";
 import { DigestResult, PROP_SUMMARY, PROP_TREE, PROP_CONTENT } from "./constants.js";
+import { getTemplateByName } from "./templates.js";
+import { existsSync } from "node:fs";
+import { execSync } from "node:child_process";
 
 interface XMLOutputOptions {
     name?: string | undefined;
@@ -24,10 +27,39 @@ function escapeXML(str: string): string {
  * Wraps content in CDATA if it contains special characters
  */
 function wrapInCDATA(content: string): string {
-    if (/[<>&'"]/.test(content)) {
-        return `<![CDATA[${content}]]>`;
-    }
     return content;
+}
+
+/**
+ * Gets Git information for the current directory
+ */
+function getGitInfo(source: string): Record<string, string> {
+    const gitInfo: Record<string, string> = {};
+
+    try {
+        // Check if .git directory exists
+        if (!existsSync(`${source}/.git`)) {
+            return gitInfo;
+        }
+
+        // Get current branch
+        gitInfo['branch'] = execSync('git rev-parse --abbrev-ref HEAD', { cwd: source }).toString().trim();
+
+        // Get remote URL
+        gitInfo['remote'] = execSync('git remote get-url origin', { cwd: source }).toString().trim();
+
+        // Get current commit hash
+        gitInfo['commit'] = execSync('git rev-parse HEAD', { cwd: source }).toString().trim();
+
+        // Get commit date
+        gitInfo['commitDate'] = execSync('git log -1 --format=%cd', { cwd: source }).toString().trim();
+
+    } catch (error) {
+        // If any Git command fails, return empty info
+        console.warn('Failed to get Git information:', error);
+    }
+
+    return gitInfo;
 }
 
 /**
@@ -39,16 +71,30 @@ export function buildXMLOutput(
     timestamp: string,
     options: XMLOutputOptions
 ): string {
-    const projectName = options.name || "FileForgeAnalysis";
-    const generatedDate = format(new Date(), "yyyy-MM-dd'T'HH:mm:ss.SSSxxx");
+    // const projectName = options.name || "FileForgeAnalysis";
+    // const generatedDate = format(new Date(), "yyyy-MM-dd'T'HH:mm:ss.SSSxxx");
 
-    let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
-    xml += `<analysis name="${escapeXML(projectName)}" generated="${generatedDate}">\n`;
+    // let xml = `<analysis name="${escapeXML(projectName)}" generated="${generatedDate}">\n`;
+    let xml = ``;
 
     // Project metadata
     xml += `  <project>\n`;
     xml += `    <source>${escapeXML(source)}</source>\n`;
     xml += `    <timestamp>${escapeXML(timestamp)}</timestamp>\n`;
+
+    // Add Git information if available and verbose is true
+    if (options.verbose) {
+        const gitInfo = getGitInfo(source);
+        if (Object.keys(gitInfo).length > 0) {
+            xml += `    <git>\n`;
+            if (gitInfo['branch']) xml += `      <branch>${escapeXML(gitInfo['branch'])}</branch>\n`;
+            if (gitInfo['remote']) xml += `      <remote>${escapeXML(gitInfo['remote'])}</remote>\n`;
+            if (gitInfo['commit']) xml += `      <commit>${escapeXML(gitInfo['commit'])}</commit>\n`;
+            if (gitInfo['commitDate']) xml += `      <commitDate>${escapeXML(gitInfo['commitDate'])}</commitDate>\n`;
+            xml += `    </git>\n`;
+        }
+    }
+
     xml += `  </project>\n`;
 
     // Summary section
@@ -92,13 +138,29 @@ export function buildXMLOutput(
         xml += `  </aiInstructions>\n`;
     }
 
-    // Template section if specified
+    // xml += `</analysis>`;
+
+    // Template section if specified (moved after analysis tag)
     if (options.template) {
-        xml += `  <template>\n`;
-        xml += `    <name>${escapeXML(options.template)}</name>\n`;
-        xml += `  </template>\n`;
+        const template = getTemplateByName(options.template);
+        if (template) {
+            xml += `\n`;
+
+            // Extract instructions and task content
+            const instructionsMatch = template.prompt.match(/<instructions>([\s\S]*?)<\/instructions>/);
+            const taskMatch = template.prompt.match(/<task>([\s\S]*?)<\/task>/);
+
+            if (instructionsMatch?.[1]) {
+                xml += `<instructions>\n${wrapInCDATA(instructionsMatch[1].trim())}\n</instructions>\n`;
+            }
+
+            if (taskMatch?.[1]) {
+                xml += `<task>\n${wrapInCDATA(taskMatch[1].trim())}\n</task>\n`;
+            }
+        } else {
+            xml += `\n<error>Template "${escapeXML(options.template)}" not found. Use --list-templates to see available templates.</error>\n`;
+        }
     }
 
-    xml += `</analysis>`;
     return xml;
 } 

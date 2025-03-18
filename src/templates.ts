@@ -148,7 +148,7 @@ Using the provided codebase, create step-by-step instructions for a junior devel
 </instructions>
 
 <task>
-Enter your task here.
+The user needs to replace this text with their task. If they forget to replace this text, prompt them with: "Please describe your task "
 </task>`,
   },
 ];
