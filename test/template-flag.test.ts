@@ -65,7 +65,7 @@ describe("CLI --template", () => {
 
     expect(exitCode).toBe(0);
     expect(stdout).toContain("<instructions>");
-    expect(stdout).toContain("Using the provided codebase");
+    expect(stdout).toContain("Begin with a high-level summary");
     expect(stdout).toContain("</instructions>");
     expect(stdout).toContain("<task>");
     expect(stdout).toContain("</task>");
