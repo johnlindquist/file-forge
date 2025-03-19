@@ -15,6 +15,8 @@ import {
   PROP_TREE,
   PROP_CONTENT,
   DigestResult,
+  PERMANENT_IGNORE_PATTERNS,
+  PERMANENT_IGNORE_DIRS,
 } from "./constants.js";
 import { existsSync, lstatSync } from "fs";
 
@@ -356,7 +358,11 @@ export async function scanDirectory(
     options.ignore === false
       ? [...(options.exclude ?? [])]
       : [
-        ...(options.skipArtifacts ? DEFAULT_IGNORE : []),
+        // Always exclude these directories regardless of nesting
+        ...PERMANENT_IGNORE_PATTERNS,
+        ...(options.skipArtifacts ? DEFAULT_IGNORE.filter(p =>
+          !PERMANENT_IGNORE_DIRS.includes(p as typeof PERMANENT_IGNORE_DIRS[number])
+        ) : []),
         ...(options.skipArtifacts
           ? ARTIFACT_FILES.filter(pattern => {
             // If the svg flag is true, don't exclude SVG files

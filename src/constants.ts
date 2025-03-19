@@ -39,3 +39,20 @@ export type DigestResult = {
   [PROP_TREE]: string;
   [PROP_CONTENT]: string;
 };
+
+/** Directories that should always be ignored, regardless of nesting */
+export const PERMANENT_IGNORE_DIRS = [
+  "node_modules",
+  ".git",
+  "dist",
+  "build",
+  "__pycache__",
+  ".cache",
+  "coverage",
+  ".next",
+  ".nuxt",
+  "bower_components",
+] as const;
+
+/** Glob patterns for permanently ignored directories */
+export const PERMANENT_IGNORE_PATTERNS = PERMANENT_IGNORE_DIRS.map(dir => `**/${dir}/**`);
