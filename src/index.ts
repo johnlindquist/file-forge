@@ -118,8 +118,8 @@ export async function handleOutput(
     process.stdout.write(consoleOutput);
     if (argv.clipboard) {
       try {
-        // In CI test environments, don't actually try to use the clipboard
-        if (isTestEnvironment() && (process.env["CI"] === "true" || process.env["CI"] === "1")) {
+        // In CI test environments, still call writeSync if VITEST is set
+        if (isTestEnvironment() && (process.env["CI"] === "true" || process.env["CI"] === "1") && !process.env["VITEST"]) {
           console.log("\n" + formatClipboardMessage());
         } else {
           clipboard.writeSync(consoleOutput);
@@ -140,8 +140,8 @@ export async function handleOutput(
     process.stdout.write(consoleOutput);
     if (argv.clipboard) {
       try {
-        // In CI test environments, don't actually try to use the clipboard
-        if (isTestEnvironment() && (process.env["CI"] === "true" || process.env["CI"] === "1")) {
+        // In CI test environments, still call writeSync if VITEST is set
+        if (isTestEnvironment() && (process.env["CI"] === "true" || process.env["CI"] === "1") && !process.env["VITEST"]) {
           console.log("\n" + formatClipboardMessage());
         } else {
           clipboard.writeSync(consoleOutput);
@@ -167,8 +167,8 @@ export async function handleOutput(
     }
     if (argv.clipboard) {
       try {
-        // In CI test environments, don't actually try to use the clipboard
-        if (isTestEnvironment() && (process.env["CI"] === "true" || process.env["CI"] === "1")) {
+        // In CI test environments, still call writeSync if VITEST is set
+        if (isTestEnvironment() && (process.env["CI"] === "true" || process.env["CI"] === "1") && !process.env["VITEST"]) {
           console.log("\n" + formatClipboardMessage());
         } else {
           clipboard.writeSync(consoleOutput);
