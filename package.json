@@ -62,6 +62,15 @@
               "release": "minor"
             },
             {
+              "breaking": true,
+              "release": "major"
+            },
+            {
+              "type": "feat",
+              "scope": "BREAKING CHANGE",
+              "release": "major"
+            },
+            {
               "type": "fix",
               "release": "patch"
             },
