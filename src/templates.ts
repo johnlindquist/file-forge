@@ -136,16 +136,68 @@ export let TEMPLATES: PromptTemplate[] = [
 {code}
 
 <instructions>
-Using the provided codebase, create step-by-step instructions for a junior developer to complete the <task/>:
-
 - Begin with a high-level summary clearly describing the goal of the task.
-- Step 0 must always instruct the junior developer to create a new branch using git flow to specifically address the <task/>.
-- Steps should be concise, explicit, and unambiguous.
+- Step 0 must always instruct the junior developer to create a new branch using standard GitHub workflows specifically addressing the <task/>.
+- The numbered steps should be concise, explicit, and unambiguous.
 - Each step must contain a code snippet, command, or clear action that directly modifies the codebase.
 - Ensure each step is small, focused, and individually verifiable.
-- Wherever feasible, include instructions to programmatically verify each commit. If this isn't possible, explicitly instruct the developer to manually confirm changes.
-- End each step by clearly instructing the junior developer to commit their changes using the Commitizen commit message format.
+- Verify:
+  - Include instructions to programmatically verify each commit.
+  - If tests exist, please add a test.
+  - If tests don't exist, add manual instructions to verify.
+- End each step by clearly instructing the junior developer to commit their changes using standard GitHub workflows.
+
+- **High-Level Summary:**
+  - Clearly describe the overall goal of completing the <task/>.
+
+- **Step 0: Create a New Branch**
+  - **Action:** Create and switch to a new branch specifically for the <task/>:
+    ~~~bash
+    git checkout -b feature/<short-description-of-task>
+    ~~~
+  - **Verification:** Confirm the branch was created successfully:
+    ~~~bash
+    git branch
+    ~~~
+  - **Commit:** No commit required at this stage.
+
+- **Step 1: Implement Code Changes**
+  - **Action:** Modify the relevant files to address the <task/>:
+    ~~~bash
+    # Example: edit necessary file
+    vim path/to/file.js
+    ~~~
+  - **Verification:** Run the existing application or relevant commands to verify functionality.
+  - **Commit:** Stage and commit changes:
+    ~~~bash
+    git add .
+    git commit -m "Implement changes for <task/>: brief description"
+    ~~~
+
+- **Step 2: Add or Update Tests**
+  - **Action:** Add new tests or update existing ones covering the changes made:
+    ~~~bash
+    vim path/to/tests/test_file.js
+    ~~~
+  - **Verification:** Ensure tests pass:
+    ~~~bash
+    npm test
+    ~~~
+  - **Commit:** Stage and commit test changes:
+    ~~~bash
+    git add .
+    git commit -m "Add/update tests for <task/>: verify feature behavior"
+    ~~~
+
+- **Step 3: Push Branch and Create Pull Request**
+  - **Action:** Push your branch to GitHub:
+    ~~~bash
+    git push -u origin feature/<short-description-of-task>
+    ~~~
+  - **Verification:** Open GitHub and confirm your branch is visible, then create a Pull Request (PR) targeting the "main" branch.
+  - **Commit:** No commit required; PR creation completes your task.
 </instructions>
+
 
 <task>
 The user needs to replace this text with their task. If they forget to replace this text, prompt them with: "Please describe your task "

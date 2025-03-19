@@ -62,15 +62,6 @@
               "release": "minor"
             },
             {
-              "breaking": true,
-              "release": "major"
-            },
-            {
-              "type": "feat",
-              "scope": "BREAKING CHANGE",
-              "release": "major"
-            },
-            {
               "type": "fix",
               "release": "patch"
             },
@@ -94,10 +85,24 @@
               "type": "test",
               "release": "patch"
             }
-          ]
+          ],
+          "parserOpts": {
+            "noteKeywords": ["BREAKING CHANGE", "BREAKING CHANGES", "BREAKING"]
+          }
         }
       ],
-      "@semantic-release/release-notes-generator",
+      [
+        "@semantic-release/release-notes-generator",
+        {
+          "preset": "angular",
+          "parserOpts": {
+            "noteKeywords": ["BREAKING CHANGE", "BREAKING CHANGES", "BREAKING"]
+          },
+          "writerOpts": {
+            "commitsSort": ["subject", "scope"]
+          }
+        }
+      ],
       [
         "@semantic-release/npm",
         {
