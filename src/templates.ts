@@ -269,7 +269,7 @@ Generate comprehensive unit tests for this code that cover both normal scenarios
     ~~~
   - **Verification:** Confirm the branch was created successfully:
     ~~~bash
-    git branch
+    git branch | cat
     ~~~
   - **Commit:** No commit required at this stage.
 
@@ -301,17 +301,69 @@ Generate comprehensive unit tests for this code that cover both normal scenarios
     git commit -m "fix/feat/etc: Add/update tests for <task/>: verify feature behavior"
     ~~~
 
-- **Step 3: Push Branch and Create Pull Request**
+- **Step 3: Push Branch**
   - **Action:** Push your branch to GitHub:
     ~~~bash
     git push -u origin feature/<short-description-of-task>
     ~~~
-  - **Verification:** Open GitHub and confirm your branch is visible, then create a Pull Request (PR) targeting the "main" branch.
-  - **Commit:** No commit required; PR creation completes your task.
-  - **Switch Back:** Return to the main branch:
+  - **Verification:** Confirm your branch was pushed successfully:
+    ~~~bash
+    git branch -vv | cat
+    ~~~
+  - **Commit:** No commit required for this step.
+
+- **Step 4: Create Pull Request with GitHub CLI**
+  - **Action:** First, create a temporary markdown file with the PR description:
+    ~~~bash
+    cat > /tmp/pr-description.md << 'EOL'
+## Summary
+[Provide a clear, concise overview of what changes were made and why]
+
+## Changes Made
+- [List the key changes implemented]
+- [Include any architectural decisions]
+- [Mention files modified]
+
+## Justification
+- [Explain the rationale behind implementation choices]
+- [Reference any relevant issues or requirements]
+
+## Testing
+- [Describe how the changes were tested]
+- [Include test results if applicable]
+
+## Dependencies
+- [List any dependencies added or modified]
+- [Note any version changes]
+
+## Additional Notes
+- [Include any other relevant information]
+- [Mention any follow-up work needed]
+EOL
+    ~~~
+    
+    Then, use the file to create the PR:
+    ~~~bash
+    gh pr create --title "feat/fix: Implement <task/>" --body-file /tmp/pr-description.md | cat
+    ~~~
+    
+    Clean up the temporary file:
+    ~~~bash
+    rm /tmp/pr-description.md
+    ~~~
+  - **Verification:** Confirm the PR was created successfully by checking the URL provided in the output.
+  - **Commit:** No commit required for this step.
+
+- **Step 5: Return to Main Branch**
+  - **Action:** Switch back to the main branch:
     ~~~bash
     git checkout main
     ~~~
+  - **Verification:** Confirm you've returned to the main branch:
+    ~~~bash
+    git branch --show-current | cat
+    ~~~
+  - **Commit:** No commit required; your task is now complete.
 </instructions>
 
 
