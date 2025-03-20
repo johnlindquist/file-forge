@@ -1,6 +1,6 @@
 // test/template-create-edit-flag.test.ts
 import { describe, it, expect, afterEach, beforeEach } from "vitest";
-import { runCLI, getTestTempFilePath } from "./test-helpers.js";
+import { runCLI } from "./test-helpers.js";
 import fs from "node:fs/promises";
 import path from "node:path";
 import envPaths from "env-paths";
@@ -22,7 +22,7 @@ const cleanupFiles = async (files: string[]) => {
             if (dirContents.length === 0) {
                 await fs.rmdir(dir);
             }
-        } catch (error) {
+        } catch {
             // Ignore errors if file doesn't exist
         }
     }
@@ -106,7 +106,7 @@ describe("Template Creation and Editing Flags", () => {
         });
 
         it("should report when a template is not found", async () => {
-            const { stdout, stderr, exitCode } = await runCLI([
+            const { stdout } = await runCLI([
                 "--edit-template",
                 "non-existent-template"
             ]);
