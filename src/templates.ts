@@ -258,6 +258,7 @@ Generate comprehensive unit tests for this code that cover both normal scenarios
   - If tests exist, please add a test.
   - If tests don't exist, add manual instructions to verify.
 - End each step by clearly instructing the junior developer to commit their changes using standard GitHub workflows.
+- IMPORTANT: NEVER use newline characters in Git commit messages as they can break workflows. Always use multiple '- m' parameters instead.
 
 - **High-Level Summary:**
   - Clearly describe the overall goal of completing the <task/>.
@@ -282,8 +283,9 @@ Generate comprehensive unit tests for this code that cover both normal scenarios
   - **Verification:** Run the existing application or relevant commands to verify functionality.
   - **Commit:** Stage and commit changes with a semantic commit message:
     ~~~bash
+    # IMPORTANT: Always use multiple -m parameters instead of newlines
     git add .
-    git commit -m "fix/feat/etc: Implement changes for <task/>: brief description"
+    git commit -m "fix/feat/etc: Implement changes for <task/>" -m "brief description" -m "additional context if needed"
     ~~~
 
 - **Step 2: Add or Update Tests**
@@ -297,8 +299,9 @@ Generate comprehensive unit tests for this code that cover both normal scenarios
     ~~~
   - **Commit:** Stage and commit test changes with a semantic commit message:
     ~~~bash
+    # IMPORTANT: Always use multiple -m parameters instead of newlines
     git add .
-    git commit -m "fix/feat/etc: Add/update tests for <task/>: verify feature behavior"
+    git commit -m "fix/feat/etc: Add/update tests for <task/>" -m "verify feature behavior"
     ~~~
 
 - **Step 3: Push Branch**
@@ -313,7 +316,7 @@ Generate comprehensive unit tests for this code that cover both normal scenarios
   - **Commit:** No commit required for this step.
 
 - **Step 4: Create Pull Request with GitHub CLI**
-  - **Action:** First, create a temporary markdown file with the PR description:
+  - **Action:** First, create a PR description file (ALWAYS use a bodyfile for PRs):
     ~~~bash
     cat > /tmp/pr-description.md << 'EOL'
 ## Summary
@@ -344,15 +347,13 @@ EOL
     
     Then, use the file to create the PR:
     ~~~bash
+    # ALWAYS use bodyfile for PR descriptions to avoid newline issues
     gh pr create --title "feat/fix: Implement <task/>" --body-file /tmp/pr-description.md | cat
-    ~~~
     
-    Clean up the temporary file:
-    ~~~bash
+    # Clean up the temporary file
     rm /tmp/pr-description.md
     ~~~
   - **Verification:** Confirm the PR was created successfully by checking the URL provided in the output.
-  - **Commit:** No commit required for this step.
 
 - **Step 5: Return to Main Branch**
   - **Action:** Switch back to the main branch:
@@ -390,6 +391,7 @@ The user needs to replace this text with their task. If they forget to replace t
   - If tests exist, please add a test.
   - If tests don't exist, add manual instructions to verify.
 - End each step by clearly instructing the developer to commit their changes using standard GitHub workflows.
+- IMPORTANT: NEVER use newline characters in Git commit messages as they can break workflows. Always use multiple '- m' parameters instead.
 
 - **High-Level Summary:**
   - Clearly describe the overall goal of completing the <task/>.
@@ -403,8 +405,9 @@ The user needs to replace this text with their task. If they forget to replace t
   - **Verification:** Run the existing application or relevant commands to verify functionality.
   - **Commit:** Stage and commit changes with a semantic commit message:
     ~~~bash
+    # IMPORTANT: Always use multiple -m parameters instead of newlines
     git add .
-    git commit -m "fix/feat/etc: Implement changes for <task/>: brief description"
+    git commit -m "fix/feat/etc: Implement changes for <task/>" -m "brief description" -m "additional context if needed"
     ~~~
 
 - **Step 2: Add or Update Tests**
@@ -418,8 +421,9 @@ The user needs to replace this text with their task. If they forget to replace t
     ~~~
   - **Commit:** Stage and commit test changes with a semantic commit message:
     ~~~bash
+    # IMPORTANT: Always use multiple -m parameters instead of newlines
     git add .
-    git commit -m "fix/feat/etc: Add/update tests for <task/>: verify feature behavior"
+    git commit -m "fix/feat/etc: Add/update tests for <task/>" -m "verify feature behavior"
     ~~~
 
 - **Step 3: Push Changes**
@@ -455,6 +459,7 @@ The user needs to replace this text with their task. If they forget to replace t
   - If tests exist, please add a test.
   - If tests don't exist, add manual instructions to verify.
 - End each step by clearly instructing the developer to commit their changes using standard GitHub workflows.
+- IMPORTANT: NEVER use newline characters in Git commit messages as they can break workflows. Always use multiple '- m' parameters instead.
 
 - **High-Level Summary:**
   - Clearly describe the overall goal of completing the <task/>.
@@ -475,8 +480,9 @@ The user needs to replace this text with their task. If they forget to replace t
   - **Verification:** Run the existing application or relevant commands to verify functionality.
   - **Commit:** Stage and commit changes with a semantic commit message:
     ~~~bash
+    # IMPORTANT: Always use multiple -m parameters instead of newlines
     git add .
-    git commit -m "fix/feat/etc: Implement changes for <task/>: brief description"
+    git commit -m "fix/feat/etc: Implement changes for <task/>" -m "brief description" -m "additional context if needed"
     ~~~
 
 - **Step 3: Add or Update Tests**
@@ -490,8 +496,9 @@ The user needs to replace this text with their task. If they forget to replace t
     ~~~
   - **Commit:** Stage and commit test changes with a semantic commit message:
     ~~~bash
+    # IMPORTANT: Always use multiple -m parameters instead of newlines
     git add .
-    git commit -m "fix/feat/etc: Add/update tests for <task/>: verify feature behavior"
+    git commit -m "fix/feat/etc: Add/update tests for <task/>" -m "verify feature behavior"
     ~~~
 
 - **Step 4: Push Changes**
