@@ -318,7 +318,7 @@ Generate comprehensive unit tests for this code that cover both normal scenarios
 
 - **Step 4: Create Pull Request with GitHub CLI**
   - **Action:** First, create a PR description file (ALWAYS use a bodyfile for PRs):
-  - Create the body file in the /tmp directory:
+  - Create the body file in the /tmp directory using the "edit tool":
   - Example: /tmp/pr-description.md
 ~~~markdown
 ## Summary
@@ -513,7 +513,7 @@ The user needs to replace this text with their task. If they forget to replace t
 
 - **Step 4: Create Pull Request with GitHub CLI**
   - **Action:** First, create a PR description file (ALWAYS use a bodyfile for PRs):
-  - Create the body file in the /tmp directory:
+  - Create the body file in the /tmp directory using the "edit tool":
   - Example: /tmp/pr-description.md
 ~~~markdown
 ## Summary
