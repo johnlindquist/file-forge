@@ -280,10 +280,10 @@ Generate comprehensive unit tests for this code that cover both normal scenarios
     vim path/to/file.js
     ~~~
   - **Verification:** Run the existing application or relevant commands to verify functionality.
-  - **Commit:** Stage and commit changes:
+  - **Commit:** Stage and commit changes with a semantic commit message:
     ~~~bash
     git add .
-    git commit -m "Implement changes for <task/>: brief description"
+    git commit -m "fix/feat/etc: Implement changes for <task/>: brief description"
     ~~~
 
 - **Step 2: Add or Update Tests**
@@ -295,10 +295,10 @@ Generate comprehensive unit tests for this code that cover both normal scenarios
     ~~~bash
     npm test
     ~~~
-  - **Commit:** Stage and commit test changes:
+  - **Commit:** Stage and commit test changes with a semantic commit message:
     ~~~bash
     git add .
-    git commit -m "Add/update tests for <task/>: verify feature behavior"
+    git commit -m "fix/feat/etc: Add/update tests for <task/>: verify feature behavior"
     ~~~
 
 - **Step 3: Push Branch and Create Pull Request**
@@ -310,6 +310,70 @@ Generate comprehensive unit tests for this code that cover both normal scenarios
   - **Commit:** No commit required; PR creation completes your task.
 </instructions>
 
+
+<task>
+The user needs to replace this text with their task. If they forget to replace this text, prompt them with: "Please describe your task "
+</task>`,
+  },
+  {
+    name: "plan-no-branch",
+    category: TemplateCategory.GENERATION,
+    description: "Create an implementation plan without branch creation - Generate step-by-step instructions with task tags",
+    prompt: `**Goal:** Create a detailed implementation plan for the provided code.
+
+**Context:**  
+{code}
+
+<instructions>
+- Begin with a high-level summary clearly describing the goal of the task.
+- The numbered steps should be concise, explicit, and unambiguous.
+- Each step must contain a code snippet, command, or clear action that directly modifies the codebase.
+- Ensure each step is small, focused, and individually verifiable.
+- Verify:
+  - Include instructions to programmatically verify each commit.
+  - If tests exist, please add a test.
+  - If tests don't exist, add manual instructions to verify.
+- End each step by clearly instructing the developer to commit their changes using standard GitHub workflows.
+
+- **High-Level Summary:**
+  - Clearly describe the overall goal of completing the <task/>.
+
+- **Step 1: Implement Code Changes**
+  - **Action:** Modify the relevant files to address the <task/>:
+    ~~~bash
+    # Example: edit necessary file
+    vim path/to/file.js
+    ~~~
+  - **Verification:** Run the existing application or relevant commands to verify functionality.
+  - **Commit:** Stage and commit changes with a semantic commit message:
+    ~~~bash
+    git add .
+    git commit -m "fix/feat/etc: Implement changes for <task/>: brief description"
+    ~~~
+
+- **Step 2: Add or Update Tests**
+  - **Action:** Add new tests or update existing ones covering the changes made:
+    ~~~bash
+    vim path/to/tests/test_file.js
+    ~~~
+  - **Verification:** Ensure tests pass:
+    ~~~bash
+    npm test
+    ~~~
+  - **Commit:** Stage and commit test changes with a semantic commit message:
+    ~~~bash
+    git add .
+    git commit -m "fix/feat/etc: Add/update tests for <task/>: verify feature behavior"
+    ~~~
+
+- **Step 3: Push Changes**
+  - **Action:** Push your changes:
+    ~~~bash
+    git push
+    ~~~
+  - **Verification:** Open GitHub and confirm your changes are visible.
+  - **Commit:** No commit required; pushing completes your task.
+</instructions>
 
 <task>
 The user needs to replace this text with their task. If they forget to replace this text, prompt them with: "Please describe your task "
