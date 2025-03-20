@@ -135,7 +135,15 @@ alwaysApply: true
 - Testing with Vitest
 - Semantic versioning and releases
 </example>
-</instructions>`,
+</instructions>
+
+<task>
+Generate the project.mdc content in a markdown codefence for easy copy/paste:
+
+\`\`\`markdown
+[Your generated project.mdc content here]
+\`\`\`
+</task>`,
   },
 
   // Refactoring & Improvement Templates
