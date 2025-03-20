@@ -39,7 +39,11 @@ export let TEMPLATES: PromptTemplate[] = [
 - Describe what the code does and how it works.  
 - Keep the explanation concise and in plain language (no code output).  
 - Do **not** modify or rewrite the code; only explain it.
-</instructions>`,
+</instructions>
+
+<task>
+Provide a clear and concise explanation of what this code does and how it works in plain language.
+</task>`,
   },
   {
     name: "document",
@@ -55,7 +59,11 @@ export let TEMPLATES: PromptTemplate[] = [
 - Preserve the original code logic and formatting.  
 - Mark new comments clearly (e.g., start lines with \`//\` or \`#\` as appropriate).  
 - Return the updated code with the new comments and no other alterations.
-</instructions>`,
+</instructions>
+
+<task>
+Add clear, helpful comments to the code that explain each major section, function, or logic flow.
+</task>`,
   },
   {
     name: "add-project-mdc",
@@ -161,7 +169,11 @@ Generate the project.mdc content in a markdown codefence for easy copy/paste:
 - Do **not** change any functionality or introduce new bugs.  
 - Ensure the output format is a unified diff or the full updated code with changes, so that modifications can be applied easily.  
 - Do not include explanatory text—only provide the refactored code or diff.
-</instructions>`,
+</instructions>
+
+<task>
+Refactor this code to improve readability and maintainability while preserving the exact same behavior.
+</task>`,
   },
   {
     name: "optimize",
@@ -177,7 +189,11 @@ Generate the project.mdc content in a markdown codefence for easy copy/paste:
 - Preserve the code's functionality and results exactly.  
 - Present the optimized code changes (preferably as a diff or clearly marked modifications).  
 - Only output the code changes; avoid extra commentary.
-</instructions>`,
+</instructions>
+
+<task>
+Optimize this code for better performance while maintaining the exact same behavior and output.
+</task>`,
   },
   {
     name: "fix",
@@ -193,7 +209,11 @@ Generate the project.mdc content in a markdown codefence for easy copy/paste:
 - For each identified issue, modify the code to fix the problem. Ensure that fixes do not introduce new bugs.  
 - Output the corrected code (or a diff of changes) with all fixes applied.  
 - Exclude any explanatory text aside from necessary comments for the fixes.
-</instructions>`,
+</instructions>
+
+<task>
+Identify and fix any bugs, logical errors, or issues in this code.
+</task>`,
   },
 
   // Code Generation Templates
@@ -211,7 +231,11 @@ Generate the project.mdc content in a markdown codefence for easy copy/paste:
 - Use an appropriate testing framework and assume the code above is imported or accessible.  
 - Ensure tests are comprehensive and readable (cover normal cases, edge cases, and error conditions if applicable).  
 - Output only the test code (e.g., in a file with test functions), without additional explanation.
-</instructions>`,
+</instructions>
+
+<task>
+Generate comprehensive unit tests for this code that cover both normal scenarios and edge cases.
+</task>`,
   },
 
   {
