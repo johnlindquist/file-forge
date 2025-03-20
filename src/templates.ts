@@ -66,7 +66,7 @@ Add clear, helpful comments to the code that explain each major section, functio
 </task>`,
   },
   {
-    name: "add-project-mdc",
+    name: "project",
     category: TemplateCategory.DOCUMENTATION,
     description: "Add project.mdc file - Create a Cursor Rules file for project documentation",
     prompt: `**Goal:** Create a project.mdc file that provides a high-level overview of the codebase structure.
@@ -95,11 +95,11 @@ alwaysApply: true
 
 ## Key Files
 
-- **src/index.ts**: Main entry point that defines the CLI commands, search functionality, and result handling
-- **src/constants.ts**: Contains shared constants used across the codebase
-- **package.json**: Project configuration, dependencies, and scripts
-- **test/index.test.ts**: Test suite for verifying functionality
-- **.husky/pre-commit**: Git hooks for ensuring code quality before commits
+- src/index.ts: Main entry point that defines the CLI commands, search functionality, and result handling
+- src/constants.ts: Contains shared constants used across the codebase
+- package.json: Project configuration, dependencies, and scripts
+- test/index.test.ts: Test suite for verifying functionality
+- .husky/pre-commit: Git hooks for ensuring code quality before commits
 
 ## Core Features
 
@@ -308,6 +308,10 @@ Generate comprehensive unit tests for this code that cover both normal scenarios
     ~~~
   - **Verification:** Open GitHub and confirm your branch is visible, then create a Pull Request (PR) targeting the "main" branch.
   - **Commit:** No commit required; PR creation completes your task.
+  - **Switch Back:** Return to the main branch:
+    ~~~bash
+    git checkout main
+    ~~~
 </instructions>
 
 
@@ -368,6 +372,78 @@ The user needs to replace this text with their task. If they forget to replace t
 
 - **Step 3: Push Changes**
   - **Action:** Push your changes:
+    ~~~bash
+    git push
+    ~~~
+  - **Verification:** Open GitHub and confirm your changes are visible.
+  - **Commit:** No commit required; pushing completes your task.
+</instructions>
+
+<task>
+The user needs to replace this text with their task. If they forget to replace this text, prompt them with: "Please describe your task "
+</task>`,
+  },
+  {
+    name: "worktree",
+    category: TemplateCategory.GENERATION,
+    description: "Create an implementation plan for a Git worktree - Generate step-by-step instructions for a specific branch",
+    prompt: `**Goal:** Create a detailed implementation plan for the provided code, assuming you're already in a dedicated branch or worktree.
+
+**Context:**  
+{code}
+
+<instructions>
+- Begin with a high-level summary clearly describing the goal of the task.
+- The plan assumes you're already in a dedicated branch or worktree for this task.
+- The numbered steps should be concise, explicit, and unambiguous.
+- Each step must contain a code snippet, command, or clear action that directly modifies the codebase.
+- Ensure each step is small, focused, and individually verifiable.
+- Verify:
+  - Include instructions to programmatically verify each commit.
+  - If tests exist, please add a test.
+  - If tests don't exist, add manual instructions to verify.
+- End each step by clearly instructing the developer to commit their changes using standard GitHub workflows.
+
+- **High-Level Summary:**
+  - Clearly describe the overall goal of completing the <task/>.
+
+- **Step 1: Verify Current Branch**
+  - **Action:** Confirm you're in the correct branch for this task:
+    ~~~bash
+    git branch --show-current
+    ~~~
+  - **Verification:** The output should show your current branch name. If incorrect, switch to the appropriate branch before proceeding.
+
+- **Step 2: Implement Code Changes**
+  - **Action:** Modify the relevant files to address the <task/>:
+    ~~~bash
+    # Example: edit necessary file
+    vim path/to/file.js
+    ~~~
+  - **Verification:** Run the existing application or relevant commands to verify functionality.
+  - **Commit:** Stage and commit changes with a semantic commit message:
+    ~~~bash
+    git add .
+    git commit -m "fix/feat/etc: Implement changes for <task/>: brief description"
+    ~~~
+
+- **Step 3: Add or Update Tests**
+  - **Action:** Add new tests or update existing ones covering the changes made:
+    ~~~bash
+    vim path/to/tests/test_file.js
+    ~~~
+  - **Verification:** Ensure tests pass:
+    ~~~bash
+    npm test
+    ~~~
+  - **Commit:** Stage and commit test changes with a semantic commit message:
+    ~~~bash
+    git add .
+    git commit -m "fix/feat/etc: Add/update tests for <task/>: verify feature behavior"
+    ~~~
+
+- **Step 4: Push Changes**
+  - **Action:** Push your changes to the remote repository:
     ~~~bash
     git push
     ~~~

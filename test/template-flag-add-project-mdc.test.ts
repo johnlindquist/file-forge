@@ -8,7 +8,7 @@ describe("CLI --template add-project-mdc", () => {
             "--path",
             "test/fixtures/sample-project",
             "--template",
-            "add-project-mdc",
+            "project",
             "--pipe",
             "--no-token-count"
         ]);
