@@ -259,6 +259,7 @@ Generate comprehensive unit tests for this code that cover both normal scenarios
   - If tests don't exist, add manual instructions to verify.
 - End each step by clearly instructing the junior developer to commit their changes using standard GitHub workflows.
 - IMPORTANT: NEVER use newline characters in Git commit messages as they can break workflows. Always use multiple '- m' parameters instead.
+- git and gh commands should always be run with "| cat" to avoid pager behavior
 
 - **High-Level Summary:**
   - Clearly describe the overall goal of completing the <task/>.
@@ -460,6 +461,7 @@ The user needs to replace this text with their task. If they forget to replace t
   - If tests don't exist, add manual instructions to verify.
 - End each step by clearly instructing the developer to commit their changes using standard GitHub workflows.
 - IMPORTANT: NEVER use newline characters in Git commit messages as they can break workflows. Always use multiple '- m' parameters instead.
+- git and gh commands should always be run with "| cat" to avoid pager behavior
 
 - **High-Level Summary:**
   - Clearly describe the overall goal of completing the <task/>.
