@@ -209,7 +209,10 @@ export async function main() {
   const DEFAULT_CONFIG_DIR = paths.config;
   const DEFAULT_LOG_DIR = resolve(DEFAULT_CONFIG_DIR, "logs");
   const DEFAULT_SEARCHES_DIR = resolve(DEFAULT_CONFIG_DIR, "searches");
-  const DEFAULT_TEMPLATES_DIR = resolve(DEFAULT_CONFIG_DIR);
+  // Allow overriding template directory for tests
+  const DEFAULT_TEMPLATES_DIR = process.env["FFG_TEMPLATES_DIR"]
+    ? resolve(process.env["FFG_TEMPLATES_DIR"])
+    : resolve(DEFAULT_CONFIG_DIR);
 
   // Handle template creation
   if (argv.createTemplate) {
@@ -257,9 +260,11 @@ export async function main() {
     }
   }
 
-  // Load user templates if they exist
+  // Load user templates if they exist - use the templates directory from env if available
   try {
-    const userTemplatesPath = resolve(DEFAULT_CONFIG_DIR, "templates.yaml");
+    const userTemplatesPath = process.env["FFG_TEMPLATES_DIR"]
+      ? resolve(process.env["FFG_TEMPLATES_DIR"], "templates.yaml")
+      : resolve(DEFAULT_CONFIG_DIR, "templates.yaml");
     const { loadUserTemplates } = await import("./templates.js");
     await loadUserTemplates(userTemplatesPath);
     if (argv.debug) {
