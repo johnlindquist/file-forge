@@ -139,6 +139,14 @@ export async function runCli() {
       type: "boolean",
       describe: "List all available prompt templates",
     })
+    .option("create-template", {
+      type: "string",
+      describe: "Create a new template file with the given name in the user templates directory",
+    })
+    .option("edit-template", {
+      type: "string",
+      describe: "Find an existing template by name and display its file path for editing",
+    })
     .option("markdown", {
       type: "boolean",
       description: "Output in Markdown format (default output is XML)",
@@ -199,10 +207,12 @@ export async function runCli() {
     return result;
   }
 
-  // Convert kebab-case to camelCase for no-token-count
+  // Convert kebab-case options to camelCase
   const parsedArgs = {
     ...argv,
     noTokenCount: argv["no-token-count"],
+    createTemplate: argv["create-template"],
+    editTemplate: argv["edit-template"],
   };
 
   return parsedArgs;

@@ -546,7 +546,7 @@ export function applyTemplate(template: PromptTemplate, code: string): string {
 }
 
 /**
- * Load user-defined templates from a file
+ * Load user-defined templates from a file (YAML or JSON)
  * @param filePath Path to the user templates file (YAML or JSON)
  * @returns Combined array of built-in and user templates
  */
@@ -613,5 +613,117 @@ export async function loadUserTemplates(filePath: string): Promise<PromptTemplat
   } catch (error) {
     console.error(`Error loading user templates: ${error}`);
     return TEMPLATES;
+  }
+}
+
+/**
+ * Create a new template file with the given name
+ * @param templateName Name of the template to create
+ * @param templatesDir Directory where user templates are stored
+ * @returns Path to the created template file
+ */
+export async function createTemplateFile(templateName: string, templatesDir: string): Promise<string> {
+  try {
+    const fs = await import('node:fs/promises');
+    const path = await import('node:path');
+    const yaml = await import('js-yaml');
+
+    // Create templates directory if it doesn't exist
+    await fs.mkdir(templatesDir, { recursive: true });
+
+    // Sanitize template name to use as filename
+    const sanitizedName = templateName.replace(/[^a-zA-Z0-9_-]/g, '_').toLowerCase();
+    const templateFilePath = path.resolve(templatesDir, `${sanitizedName}.yaml`);
+
+    // Check if file already exists
+    try {
+      await fs.access(templateFilePath);
+      console.log(`Template file already exists at ${templateFilePath}`);
+      return templateFilePath;
+    } catch {
+      // File doesn't exist, create it
+    }
+
+    // Create boilerplate template content
+    const templateContent = yaml.dump([{
+      name: templateName,
+      category: 'documentation',
+      description: 'Custom template',
+      prompt: `<instructions>
+Your instructions here
+</instructions>
+
+<task>
+Describe your task
+</task>`
+    }]);
+
+    // Write the template file
+    await fs.writeFile(templateFilePath, templateContent, 'utf8');
+    console.log(`Created new template file at ${templateFilePath}`);
+
+    return templateFilePath;
+  } catch (error) {
+    console.error(`Error creating template file: ${error}`);
+    throw error;
+  }
+}
+
+/**
+ * Find an existing template file by template name
+ * @param templateName Name of the template to find
+ * @param templatesDir Directory where user templates are stored
+ * @returns Path to the template file, or null if not found
+ */
+export async function findTemplateFile(templateName: string, templatesDir: string): Promise<string | null> {
+  try {
+    const fs = await import('node:fs/promises');
+    const path = await import('node:path');
+
+    // Create templates directory if it doesn't exist
+    await fs.mkdir(templatesDir, { recursive: true });
+
+    // Check if the main templates.yaml file exists
+    const mainTemplateFile = path.resolve(templatesDir, 'templates.yaml');
+    try {
+      await fs.access(mainTemplateFile);
+
+      // Read the templates.yaml file
+      const content = await fs.readFile(mainTemplateFile, 'utf8');
+      const yaml = await import('js-yaml');
+      const templates = yaml.load(content) as PromptTemplate[];
+
+      // Check if the template exists in the file
+      const templateExists = templates.some(t => t.name === templateName);
+      if (templateExists) {
+        return mainTemplateFile;
+      }
+    } catch {
+      // Main template file doesn't exist, continue with individual files
+    }
+
+    // Look for individual template files
+    // First check for exact name
+    const sanitizedName = templateName.replace(/[^a-zA-Z0-9_-]/g, '_').toLowerCase();
+    const yamlPath = path.resolve(templatesDir, `${sanitizedName}.yaml`);
+    const jsonPath = path.resolve(templatesDir, `${sanitizedName}.json`);
+
+    try {
+      await fs.access(yamlPath);
+      return yamlPath;
+    } catch {
+      // YAML file doesn't exist, try JSON
+      try {
+        await fs.access(jsonPath);
+        return jsonPath;
+      } catch {
+        // JSON file doesn't exist either
+        console.log(`No template file found for '${templateName}'`);
+        return null;
+      }
+    }
+  } catch (error) {
+    console.error(`Error finding template file: ${error}`);
+    return null;
   }
 }
