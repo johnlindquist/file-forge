@@ -317,8 +317,9 @@ Generate comprehensive unit tests for this code that cover both normal scenarios
 
 - **Step 4: Create Pull Request with GitHub CLI**
   - **Action:** First, create a PR description file (ALWAYS use a bodyfile for PRs):
-    ~~~bash
-    cat > /tmp/pr-description.md << 'EOL'
+  - Create the body file in the /tmp directory:
+  - Example: /tmp/pr-description.md
+~~~markdown
 ## Summary
 [Provide a clear, concise overview of what changes were made and why]
 
@@ -342,8 +343,7 @@ Generate comprehensive unit tests for this code that cover both normal scenarios
 ## Additional Notes
 - [Include any other relevant information]
 - [Mention any follow-up work needed]
-EOL
-    ~~~
+~~~
     
     Then, use the file to create the PR:
     ~~~bash
@@ -508,6 +508,47 @@ The user needs to replace this text with their task. If they forget to replace t
     ~~~
   - **Verification:** Open GitHub and confirm your changes are visible.
   - **Commit:** No commit required; pushing completes your task.
+
+- **Step 4: Create Pull Request with GitHub CLI**
+  - **Action:** First, create a PR description file (ALWAYS use a bodyfile for PRs):
+  - Create the body file in the /tmp directory:
+  - Example: /tmp/pr-description.md
+~~~markdown
+## Summary
+[Provide a clear, concise overview of what changes were made and why]
+
+## Changes Made
+- [List the key changes implemented]
+- [Include any architectural decisions]
+- [Mention files modified]
+
+## Justification
+- [Explain the rationale behind implementation choices]
+- [Reference any relevant issues or requirements]
+
+## Testing
+- [Describe how the changes were tested]
+- [Include test results if applicable]
+
+## Dependencies
+- [List any dependencies added or modified]
+- [Note any version changes]
+
+## Additional Notes
+- [Include any other relevant information]
+- [Mention any follow-up work needed]
+~~~
+    
+    Then, use the file to create the PR:
+    ~~~bash
+    # ALWAYS use bodyfile for PR descriptions to avoid newline issues
+    gh pr create --title "feat/fix: Implement <task/>" --body-file /tmp/pr-description.md | cat
+    
+    # Clean up the temporary file
+    rm /tmp/pr-description.md
+    ~~~
+  - **Verification:** Confirm the PR was created successfully by checking the URL provided in the output.
+    
 </instructions>
 
 <task>
