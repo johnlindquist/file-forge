@@ -1,0 +1,19 @@
+name: fix
+category: refactoring
+description: Identify and Fix Issues - Find potential bugs or issues and fix them
+prompt: |
+  **Goal:** Review the following code for bugs or issues and fix them.
+
+  **Context:**  
+  {code}
+
+  <instructions>
+  - Analyze the code for logical errors, bugs, or any edge cases that might fail.  
+  - For each identified issue, modify the code to fix the problem. Ensure that fixes do not introduce new bugs.  
+  - Output the corrected code (or a diff of changes) with all fixes applied.  
+  - Exclude any explanatory text aside from necessary comments for the fixes.
+  </instructions>
+
+  <task>
+  Identify and fix any bugs, logical errors, or issues in this code.
+  </task> 

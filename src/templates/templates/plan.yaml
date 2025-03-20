@@ -1,0 +1,25 @@
+name: plan
+category: generation
+description: Create an implementation plan - Generate step-by-step instructions with task tags
+prompt: |
+  **Goal:** Create a detailed implementation plan for the provided code.
+
+  **Context:**  
+  {code}
+
+  <instructions>
+  - Begin with a high-level summary of what needs to be implemented
+  - Break down the implementation into clear, sequential steps
+  - For each step, provide:
+    - A descriptive title
+    - A detailed explanation
+    - Specific technical requirements
+    - Any dependencies or prerequisites
+  - Use task tags like `[TASK]`, `[TODO]`, `[NOTE]`, or `[WARNING]` to highlight important points
+  - Consider edge cases and potential challenges
+  - Include testing strategies where appropriate
+  </instructions>
+
+  <task>
+  Create a comprehensive step-by-step implementation plan for this code with clear instructions and appropriate task tags.
+  </task> 
