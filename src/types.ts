@@ -33,6 +33,8 @@ export type IngestFlags = {
   svg?: boolean | undefined;
   template?: string | undefined;
   listTemplates?: boolean | undefined;
+  createTemplate?: string | undefined;
+  editTemplate?: string | undefined;
   markdown?: boolean | undefined;
   noTokenCount?: boolean;
 };

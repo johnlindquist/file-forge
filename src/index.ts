@@ -209,6 +209,53 @@ export async function main() {
   const DEFAULT_CONFIG_DIR = paths.config;
   const DEFAULT_LOG_DIR = resolve(DEFAULT_CONFIG_DIR, "logs");
   const DEFAULT_SEARCHES_DIR = resolve(DEFAULT_CONFIG_DIR, "searches");
+  const DEFAULT_TEMPLATES_DIR = resolve(DEFAULT_CONFIG_DIR);
+
+  // Handle template creation
+  if (argv.createTemplate) {
+    try {
+      const { createTemplateFile } = await import("./templates.js");
+      const templatePath = await createTemplateFile(
+        argv.createTemplate,
+        DEFAULT_TEMPLATES_DIR
+      );
+      console.log(`Successfully created template file at: ${templatePath}`);
+      return;
+    } catch (error) {
+      console.error(formatErrorMessage(`Failed to create template: ${error}`));
+      if (!process.env["VITEST"]) {
+        process.exit(1);
+      }
+      return;
+    }
+  }
+
+  // Handle template editing
+  if (argv.editTemplate) {
+    try {
+      const { findTemplateFile } = await import("./templates.js");
+      const templatePath = await findTemplateFile(
+        argv.editTemplate,
+        DEFAULT_TEMPLATES_DIR
+      );
+
+      if (templatePath) {
+        console.log(`Open template file for editing at: ${templatePath}`);
+      } else {
+        console.error(formatErrorMessage(`Template '${argv.editTemplate}' not found`));
+        if (!process.env["VITEST"]) {
+          process.exit(1);
+        }
+      }
+      return;
+    } catch (error) {
+      console.error(formatErrorMessage(`Failed to find template: ${error}`));
+      if (!process.env["VITEST"]) {
+        process.exit(1);
+      }
+      return;
+    }
+  }
 
   // Load user templates if they exist
   try {
