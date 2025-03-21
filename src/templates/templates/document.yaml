@@ -1,0 +1,19 @@
+name: document
+category: documentation
+description: Add Comments (Document Code) - Insert explanatory comments into the code
+prompt: |
+  **Goal:** Document the code by adding helpful comments explaining each major section or logic.
+
+  **Context:**  
+  {code}
+
+  <instructions>
+  - Insert concise comments or docstrings in the code to clarify its functionality.  
+  - Preserve the original code logic and formatting.  
+  - Mark new comments clearly (e.g., start lines with `//` or `#` as appropriate).  
+  - Return the updated code with the new comments and no other alterations.
+  </instructions>
+
+  <task>
+  Add clear, helpful comments to the code that explain each major section, function, or logic flow.
+  </task> 

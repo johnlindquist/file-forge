@@ -63,6 +63,9 @@ export async function runCLI(args: string[]): Promise<{
     console.log("[CI-ENV] Running clipboard test in CI environment");
   }
 
+  // Set the templates directory for tests
+  const templatesDir = path.resolve(process.cwd(), 'src');
+
   return new Promise((resolve) => {
     const proc = spawn("pnpm", ["node", "dist/index.js", ...args], {
       env: {
@@ -71,7 +74,9 @@ export async function runCLI(args: string[]): Promise<{
         NO_COLOR: "1",
         NO_INTRO: "1",
         // Set TEST_MODE to help identify tests in the application code
-        TEST_MODE: "1"
+        TEST_MODE: "1",
+        // Point to the templates directory for tests
+        FFG_TEMPLATES_DIR: templatesDir
       },
     });
 
@@ -124,8 +129,18 @@ export function runCLISync(args: string[]): {
   hashedSource: string;
 } {
   try {
+    // Set the templates directory for tests
+    const templatesDir = path.resolve(process.cwd(), 'src');
+
     const result = execSync(`pnpm node dist/index.js ${args.join(" ")}`, {
-      env: { ...process.env, VITEST: "1", NO_COLOR: "1", NO_INTRO: "1" },
+      env: {
+        ...process.env,
+        VITEST: "1",
+        NO_COLOR: "1",
+        NO_INTRO: "1",
+        // Point to the templates directory for tests
+        FFG_TEMPLATES_DIR: templatesDir
+      },
     }) as ExecResult;
 
     const hashedSource = getHashedSource(String(args[0]));
