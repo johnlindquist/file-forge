@@ -77,6 +77,9 @@ export async function handleOutput(
 ) {
   const timestamp = format(new Date(), "yyyyMMdd-HHmmss");
 
+  // Capture the original command
+  const originalCommand = process.argv.slice(2).join(' ');
+
   // If digest is null, create an empty digest
   const safeDigest = digest || {
     [PROP_SUMMARY]: "No files found or directory is empty",
@@ -89,12 +92,13 @@ export async function handleOutput(
     ...argv,
     verbose: true, // Always include file contents in file output
     pipe: false, // Never pipe for file output to ensure XML wrapping works
+    command: originalCommand, // Include the original command
   });
 
   // For console output, respect the verbose flag and preserve the name property
   const consoleOutput = buildOutput(safeDigest, source, timestamp, {
     ...argv,
-    // Preserve name property for header
+    command: originalCommand, // Include the original command
   });
 
   // Only count tokens if not disabled

@@ -12,6 +12,7 @@ interface OutputOptions {
   clipboard?: boolean | undefined;
   xml?: boolean | undefined;
   markdown?: boolean | undefined;
+  command?: string | undefined;
   [key: string]: unknown;
 }
 
@@ -116,5 +117,6 @@ export function buildOutput(
     template: options.template,
     bulk: options.bulk,
     verbose: options.verbose || options.debug || !options.pipe || options.clipboard,
+    command: options.command,
   });
 }
