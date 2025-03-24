@@ -1,4 +1,4 @@
-name: PR Tests
+name: test
 
 on:
   pull_request:
@@ -15,7 +15,6 @@ permissions:
 
 jobs:
   test:
-    name: Test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
