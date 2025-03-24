@@ -89,7 +89,11 @@
             }
           ],
           "parserOpts": {
-            "noteKeywords": ["BREAKING CHANGE", "BREAKING CHANGES", "BREAKING"]
+            "noteKeywords": [
+              "BREAKING CHANGE",
+              "BREAKING CHANGES",
+              "BREAKING"
+            ]
           }
         }
       ],
@@ -98,10 +102,17 @@
         {
           "preset": "angular",
           "parserOpts": {
-            "noteKeywords": ["BREAKING CHANGE", "BREAKING CHANGES", "BREAKING"]
+            "noteKeywords": [
+              "BREAKING CHANGE",
+              "BREAKING CHANGES",
+              "BREAKING"
+            ]
           },
           "writerOpts": {
-            "commitsSort": ["subject", "scope"]
+            "commitsSort": [
+              "subject",
+              "scope"
+            ]
           }
         }
       ],
@@ -155,15 +166,16 @@
     "vitest": "^3.0.8"
   },
   "dependencies": {
-    "clipboardy": "^4.0.0",
     "@clack/prompts": "^0.10.0",
     "@octokit/rest": "^21.1.1",
     "@types/micromatch": "^4.0.9",
+    "clipboardy": "^4.0.0",
     "conf": "^13.1.0",
     "date-fns": "^4.1.0",
     "dotenv": "^16.4.7",
     "env-paths": "^3.0.0",
     "globby": "^14.1.0",
+    "gray-matter": "^4.0.3",
     "ignore": "^7.0.3",
     "js-yaml": "^4.1.0",
     "madge": "^8.0.0",
