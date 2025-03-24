@@ -12,6 +12,7 @@ interface OutputOptions {
   clipboard?: boolean | undefined;
   xml?: boolean | undefined;
   markdown?: boolean | undefined;
+  command?: string | undefined;
   [key: string]: unknown;
 }
 
@@ -43,13 +44,14 @@ export function buildOutput(
     const contentParts = [
       `**Source**: \`${source}\``,
       `**Timestamp**: ${timestamp}`,
+      options.command ? `**Command**: \`${options.command}\`` : null,
       "## Summary",
       digest[PROP_SUMMARY] || "",
       "## Directory Structure",
       "```",
       digest[PROP_TREE] || "",
       "```",
-    ];
+    ].filter(Boolean);
 
     // Add file contents section if verbose is enabled, saving to file, or clipboard is enabled
     if (options.verbose || options.debug || !options.pipe || options.clipboard) {
@@ -116,5 +118,6 @@ export function buildOutput(
     template: options.template,
     bulk: options.bulk,
     verbose: options.verbose || options.debug || !options.pipe || options.clipboard,
+    command: options.command,
   });
 }

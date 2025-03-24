@@ -43,6 +43,7 @@ describe("Digest File Content", () => {
     expect(stdout).toContain("# File Forge Analysis");
     expect(stdout).toContain("**Source**:");
     expect(stdout).toContain("**Timestamp**:");
+    expect(stdout).toContain("**Command**: `ffg --path test/fixtures/sample-project --markdown --pipe --verbose`");
     expect(stdout).toContain("## Directory Structure");
     expect(stdout).toContain("## Files Content");
 

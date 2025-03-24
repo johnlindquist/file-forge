@@ -101,6 +101,15 @@ ffg --graph src/index.js
   ffg src --debug
   ffg src --verbose
   ```
+- **Command Traceability:**
+  The original command used to generate the output is now included in the XML output for better traceability.
+  ```xml
+  <project>
+    <source>/path/to/source</source>
+    <timestamp>20240324-123456</timestamp>
+    <command>ffg src --verbose</command>
+  </project>
+  ```
 - **Using AI Prompt Templates:**
   ```bash
   # List all available templates
