@@ -258,7 +258,8 @@ Generate comprehensive unit tests for this code that cover both normal scenarios
   - If tests exist, please add a test.
   - If tests don't exist, add manual instructions to verify.
 - End each step by clearly instructing the junior developer to commit their changes using standard GitHub workflows.
-- IMPORTANT: NEVER use newline characters in Git commit messages as they can break workflows. Always use multiple '- m' parameters instead.
+- IMPORTANT: NEVER use newline characters in Git commit messages as they can break workflows. Always use multiple '-m' parameters instead.
+- IMPORTANT: NEVER use newline characters in any shell commands. For multiline text in commands, use '\n' escape sequences.
 - git and gh commands should always be run with "| cat" to avoid pager behavior
 
 - **High-Level Summary:**
@@ -285,6 +286,7 @@ Generate comprehensive unit tests for this code that cover both normal scenarios
   - **Commit:** Stage and commit changes with a semantic commit message:
     ~~~bash
     # IMPORTANT: Always use multiple -m parameters instead of newlines
+    # For multiline echo commands, use \n instead of actual newlines
     git add .
     git commit -m "fix/feat/etc: Implement changes for <task/>" -m "brief description" -m "additional context if needed"
     ~~~
@@ -301,6 +303,7 @@ Generate comprehensive unit tests for this code that cover both normal scenarios
   - **Commit:** Stage and commit test changes with a semantic commit message:
     ~~~bash
     # IMPORTANT: Always use multiple -m parameters instead of newlines
+    # For multiline echo commands, use \n instead of actual newlines
     git add .
     git commit -m "fix/feat/etc: Add/update tests for <task/>" -m "verify feature behavior"
     ~~~
@@ -392,7 +395,8 @@ The user needs to replace this text with their task. If they forget to replace t
   - If tests exist, please add a test.
   - If tests don't exist, add manual instructions to verify.
 - End each step by clearly instructing the developer to commit their changes using standard GitHub workflows.
-- IMPORTANT: NEVER use newline characters in Git commit messages as they can break workflows. Always use multiple '- m' parameters instead.
+- IMPORTANT: NEVER use newline characters in Git commit messages as they can break workflows. Always use multiple '-m' parameters instead.
+- IMPORTANT: NEVER use newline characters in any shell commands. For multiline text in commands, use '\n' escape sequences.
 
 - **High-Level Summary:**
   - Clearly describe the overall goal of completing the <task/>.
@@ -407,6 +411,7 @@ The user needs to replace this text with their task. If they forget to replace t
   - **Commit:** Stage and commit changes with a semantic commit message:
     ~~~bash
     # IMPORTANT: Always use multiple -m parameters instead of newlines
+    # For multiline echo commands, use \n instead of actual newlines
     git add .
     git commit -m "fix/feat/etc: Implement changes for <task/>" -m "brief description" -m "additional context if needed"
     ~~~
@@ -423,6 +428,7 @@ The user needs to replace this text with their task. If they forget to replace t
   - **Commit:** Stage and commit test changes with a semantic commit message:
     ~~~bash
     # IMPORTANT: Always use multiple -m parameters instead of newlines
+    # For multiline echo commands, use \n instead of actual newlines
     git add .
     git commit -m "fix/feat/etc: Add/update tests for <task/>" -m "verify feature behavior"
     ~~~
@@ -460,7 +466,8 @@ The user needs to replace this text with their task. If they forget to replace t
   - If tests exist, please add a test.
   - If tests don't exist, add manual instructions to verify.
 - End each step by clearly instructing the developer to commit their changes using standard GitHub workflows.
-- IMPORTANT: NEVER use newline characters in Git commit messages as they can break workflows. Always use multiple '- m' parameters instead.
+- IMPORTANT: NEVER use newline characters in Git commit messages as they can break workflows. Always use multiple '-m' parameters instead.
+- IMPORTANT: NEVER use newline characters in any shell commands. For multiline text in commands, use '\n' escape sequences.
 - git and gh commands should always be run with "| cat" to avoid pager behavior
 
 - **High-Level Summary:**
@@ -483,6 +490,7 @@ The user needs to replace this text with their task. If they forget to replace t
   - **Commit:** Stage and commit changes with a semantic commit message:
     ~~~bash
     # IMPORTANT: Always use multiple -m parameters instead of newlines
+    # For multiline echo commands, use \n instead of actual newlines
     git add .
     git commit -m "fix/feat/etc: Implement changes for <task/>" -m "brief description" -m "additional context if needed"
     ~~~
@@ -499,6 +507,7 @@ The user needs to replace this text with their task. If they forget to replace t
   - **Commit:** Stage and commit test changes with a semantic commit message:
     ~~~bash
     # IMPORTANT: Always use multiple -m parameters instead of newlines
+    # For multiline echo commands, use \n instead of actual newlines
     git add .
     git commit -m "fix/feat/etc: Add/update tests for <task/>" -m "verify feature behavior"
     ~~~
