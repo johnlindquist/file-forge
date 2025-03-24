@@ -12,7 +12,8 @@
     "ffg": "./dist/index.js"
   },
   "files": [
-    "dist"
+    "dist",
+    "templates"
   ],
   "scripts": {
     "test": "pnpm build && vitest run --silent",
