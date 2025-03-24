@@ -41,14 +41,32 @@ async function loadTemplateFile(fileName: string, isPartial = false): Promise<st
   const baseDir = getDirname();
   const projectRoot = path.resolve(baseDir, '..');
   const templateDir = isPartial ? 'templates/partials' : 'templates/main';
-  const filePath = path.join(projectRoot, templateDir, fileName);
 
-  try {
-    return await fs.readFile(filePath, 'utf8');
-  } catch (error) {
-    console.error(`Error loading template file ${filePath}:`, error);
-    throw error;
+  // Try multiple possible locations for the template files
+  const possiblePaths = [
+    // Standard path relative to source files
+    path.join(projectRoot, templateDir, fileName),
+    // Path used in production npm package
+    path.join(projectRoot, '..', templateDir, fileName),
+    // Absolute fallback path from package root
+    path.resolve(projectRoot, '..', templateDir, fileName)
+  ];
+
+  let lastError;
+
+  // Try each path until we find one that works
+  for (const filePath of possiblePaths) {
+    try {
+      return await fs.readFile(filePath, 'utf8');
+    } catch (error) {
+      console.error(`Error loading template file ${filePath}:`, error);
+      lastError = error;
+      // Continue to next path
+    }
   }
+
+  // If we get here, none of the paths worked
+  throw lastError;
 }
 
 /**
