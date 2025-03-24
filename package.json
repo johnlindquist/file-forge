@@ -16,6 +16,8 @@
   ],
   "scripts": {
     "test": "pnpm build && vitest run --silent",
+    "test:clipboard": "pnpm build && vitest run --silent --test-name-pattern clipboard",
+    "test:commit": "pnpm build && vitest run --silent --test-name-pattern commit",
     "test:watch": "pnpm build && vitest --watch",
     "dev": "node --experimental-strip-types src/index.ts",
     "build": "tsc",

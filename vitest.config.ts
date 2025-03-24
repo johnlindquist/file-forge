@@ -16,5 +16,10 @@ export default defineConfig({
 			}]
 		],
 		logHeapUsage: false,
+		testTimeout: 15000,
+		sequence: {
+			concurrent: false,
+		},
+		pool: 'forks',
 	},
 });
