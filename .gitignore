@@ -137,6 +137,7 @@ dist
 
 # test/.gitignore
 !fixtures/**/*
+fixtures/**/binary*
 plans
 *.diff
 diffs

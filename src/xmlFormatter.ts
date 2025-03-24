@@ -9,6 +9,7 @@ interface XMLOutputOptions {
     template?: string | undefined;
     bulk?: boolean | undefined;
     verbose?: boolean | undefined;
+    command?: string | undefined;
 }
 
 /**
@@ -81,6 +82,9 @@ export function buildXMLOutput(
     xml += `  <project>\n`;
     xml += `    <source>${escapeXML(source)}</source>\n`;
     xml += `    <timestamp>${escapeXML(timestamp)}</timestamp>\n`;
+    if (options.command) {
+        xml += `    <command>${escapeXML(options.command)}</command>\n`;
+    }
 
     // Add Git information if available
     const gitInfo = getGitInfo(source);
