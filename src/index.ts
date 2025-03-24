@@ -77,8 +77,8 @@ export async function handleOutput(
 ) {
   const timestamp = format(new Date(), "yyyyMMdd-HHmmss");
 
-  // Capture the original command
-  const originalCommand = process.argv.slice(2).join(' ');
+  // Capture the original command with the executable name
+  const originalCommand = `ffg ${process.argv.slice(2).join(' ')}`;
 
   // If digest is null, create an empty digest
   const safeDigest = digest || {
