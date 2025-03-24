@@ -1,3 +1,3 @@
 <task>
-{task_content}
+{{task_content}}
 </task> 

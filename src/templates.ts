@@ -435,7 +435,41 @@ export function listTemplates(): { name: string; category: string; description: 
  * @returns The prompt with the code inserted
  */
 export function applyTemplate(template: PromptTemplate, code: string): string {
-  return template.prompt.replace('{code}', code);
+  let result = template.prompt;
+
+  // Create a map of variables to replace
+  const variables: Record<string, string> = { code };
+
+  // Extract partial placeholders and their parameters
+  const partialRegex = /\{\{>\s*([^}\s]+)(?:\s+([^}]+))?\s*\}\}/g;
+  let match;
+
+  while ((match = partialRegex.exec(template.prompt)) !== null) {
+    const [, , paramsString = ''] = match;
+
+    // Parse parameters if provided
+    const paramsRegex = /(\w+)="([^"]*)"/g;
+    let paramMatch;
+
+    while ((paramMatch = paramsRegex.exec(paramsString)) !== null) {
+      const [, paramName, paramValue] = paramMatch;
+      if (paramName) {
+        variables[paramName] = paramValue || '';
+      }
+    }
+  }
+
+  // Apply all variables to the template
+  for (const [key, value] of Object.entries(variables)) {
+    result = result.replace(new RegExp(`{${key}}`, 'g'), value);
+  }
+
+  // Handle directives for XML extraction
+  if (template.name === 'plan') {
+    result = result.replace(/<task>.*?<\/task>/s, '<task>Create a detailed implementation plan with specific steps marked as `<task/>` items.</task>');
+  }
+
+  return result;
 }
 
 /**
