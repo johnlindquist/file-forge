@@ -112,7 +112,32 @@ export function buildXMLOutput(
     // File contents (if verbose or saving to file)
     if (options.verbose) {
         xml += `  <files>\n`;
-        // ... existing code ...
+        // Split content by file sections and wrap each in a file tag
+        const fileContents = (digest[PROP_CONTENT] || "").split(/(?=^=+\nFile: .*\n=+\n)/m);
+        for (const fileContent of fileContents) {
+            if (!fileContent.trim()) continue;
+
+            // Extract filename from the content using the actual header format
+            const headerMatch = fileContent.match(/^=+\nFile: (.*)\n=+\n/);
+            if (!headerMatch || !headerMatch[1]) continue;
+
+            const filename = headerMatch[1].trim();
+            // Remove the header to get the file content
+            const content = fileContent.replace(/^=+\nFile: .*\n=+\n/, "").trim();
+
+            xml += `    <file path="${escapeXML(filename)}">\n`;
+            xml += `      ${wrapInCDATA(content)}\n`;
+            xml += `    </file>\n`;
+        }
+        xml += `  </files>\n`;
+    }
+
+    // AI instructions if bulk mode is enabled
+    if (options.bulk) {
+        xml += `  <aiInstructions>\n`;
+        xml += `    <instruction>When I provide a set of files with paths and content, please return **one single shell script**</instruction>\n`;
+        xml += `    <instruction>Use \`#!/usr/bin/env bash\` at the start</instruction>\n`;
+        xml += `  </aiInstructions>\n`;
     }
 
     // Template section if specified (moved after analysis tag)
