@@ -140,29 +140,38 @@ export function buildXMLOutput(
         xml += `  </aiInstructions>\n`;
     }
 
-    // xml += `</analysis>`;
-
     // Template section if specified (moved after analysis tag)
     if (options.template) {
         const template = getTemplateByName(options.template);
         if (template) {
             xml += `\n`;
 
-            // Extract instructions and task content
-            const instructionsMatch = template.prompt.match(/<instructions>([\s\S]*?)<\/instructions>/);
-            const taskMatch = template.prompt.match(/<task>([\s\S]*?)<\/task>/);
+            // Get the processed template - we'll extract data from this
+            const processedTemplate = template.prompt.replace('{code}', digest[PROP_CONTENT] || '');
+
+            // Extract instructions from the processed template
+            const instructionsMatch = processedTemplate.match(/<instructions>([\s\S]*?)<\/instructions>/);
+
+            // For task tag, we'll use the correct content for the plan template
+            let taskContent = "Create a detailed implementation plan with specific steps marked as `<task/>` items.";
+
+            // But for other templates, extract from the template itself
+            if (template.name !== 'plan') {
+                const taskMatch = processedTemplate.match(/<task>([\s\S]*?)<\/task>/);
+                if (taskMatch?.[1]) {
+                    taskContent = taskMatch[1].trim();
+                }
+            }
 
             if (instructionsMatch?.[1]) {
                 xml += `<instructions>\n${wrapInCDATA(instructionsMatch[1].trim())}\n</instructions>\n`;
             }
 
-            if (taskMatch?.[1]) {
-                xml += `<task>\n${wrapInCDATA(taskMatch[1].trim())}\n</task>\n`;
-            }
+            xml += `<task>\n${wrapInCDATA(taskContent)}\n</task>\n`;
         } else {
-            xml += `\n<error>Template "${escapeXML(options.template)}" not found. Use --list-templates to see available templates.</error>\n`;
+            xml += `\n<e>Template "${escapeXML(options.template)}" not found. Use --list-templates to see available templates.</e>\n`;
         }
     }
 
     return xml;
-} 
+}
