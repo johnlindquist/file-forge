@@ -1,6 +1,14 @@
 #!/usr/bin/env sh
 . "$(dirname -- "$0")/_/husky.sh"
 
+# Prevent committing to main branch
+branch="$(git symbolic-ref --short HEAD)"
+if [ "$branch" = "main" ]; then
+  echo "❌ You can't commit directly to the main branch!"
+  echo "Please create a feature branch and use pull requests instead."
+  exit 1
+fi
+
 # Install deps, lint, type check, test
 pnpm install && \
 pnpm eslint . --fix --max-warnings 0 && \
