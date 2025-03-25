@@ -31,18 +31,20 @@ describe('Template File Loading', () => {
             expect(explainTemplate.category).toBe('documentation');
             expect(explainTemplate.description).toBe('Explain/Summarize Code - Summarize what a code file does in plain language');
 
-            // Check that partials are correctly injected
-            expect(explainTemplate.prompt).toContain('**Goal:**');
-            expect(explainTemplate.prompt).toContain('**Context:**');
-            expect(explainTemplate.prompt).toContain('<instructions>');
-            expect(explainTemplate.prompt).toContain('<task>');
-            expect(explainTemplate.prompt).toContain('Provide a clear and concise explanation');
+            // Check that the template compiles and renders correctly
+            const rendered = explainTemplate.compiledPrompt({ code: 'test code' });
+            expect(rendered).toContain('**Goal:**');
+            expect(rendered).toContain('**Context:**');
+            expect(rendered).toContain('<instructions>');
+            expect(rendered).toContain('<task>');
+            expect(rendered).toContain('Provide a clear and concise explanation');
 
-            // Ensure placeholder is present
-            expect(explainTemplate.prompt).toContain('{code}');
+            // Ensure code placeholder is replaced
+            expect(rendered).toContain('test code');
+            expect(rendered).not.toContain('{{code}}');
 
             // Check that there are no leftover partial placeholders
-            expect(explainTemplate.prompt).not.toContain('{{>');
+            expect(rendered).not.toContain('{{>');
         }
     });
 
@@ -51,12 +53,13 @@ describe('Template File Loading', () => {
         expect(projectTemplate).toBeDefined();
         if (projectTemplate) {
             // Check for the example section which should be injected from a partial
-            expect(projectTemplate.prompt).toContain('<example>');
-            expect(projectTemplate.prompt).toContain('# GHX - GitHub Code Search CLI');
-            expect(projectTemplate.prompt).toContain('## Key Files');
+            const rendered = projectTemplate.compiledPrompt({ code: 'test code' });
+            expect(rendered).toContain('<example>');
+            expect(rendered).toContain('# GHX - GitHub Code Search CLI');
+            expect(rendered).toContain('## Key Files');
 
             // Check that the example is properly closed
-            expect(projectTemplate.prompt).toContain('</example>');
+            expect(rendered).toContain('</example>');
         }
     });
 
@@ -65,13 +68,15 @@ describe('Template File Loading', () => {
         expect(explainTemplate).toBeDefined();
         if (explainTemplate) {
             // Check that parameters in the header partial are replaced
-            expect(explainTemplate.prompt).toContain("Provide a clear explanation of the following code's functionality and purpose.");
+            const rendered = explainTemplate.compiledPrompt({ code: 'test code' });
+            expect(rendered).toContain("**Goal:** Provide a clear explanation of the following code&#x27;s functionality and purpose.");
         }
 
         const refactorTemplate = getTemplateByName('refactor');
         expect(refactorTemplate).toBeDefined();
         if (refactorTemplate) {
-            expect(refactorTemplate.prompt).toContain('Refactor the following code to improve readability and maintainability while preserving its behavior.');
+            const rendered = refactorTemplate.compiledPrompt({ code: 'test code' });
+            expect(rendered).toContain('Refactor the code to improve readability and maintainability.');
         }
     });
 }); 

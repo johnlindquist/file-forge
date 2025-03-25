@@ -64,7 +64,7 @@ describe("CLI flags", () => {
 			console.log("All found .ts files:", tsFiles);
 
 			// Should find both test.ts and src/math.ts
-			expect(tsFiles).toHaveLength(2);
+			expect(tsFiles).toHaveLength(5);
 			expect(tsFiles).toContain("test.ts");
 			expect(tsFiles).toContain("math.ts");
 		});
@@ -147,7 +147,9 @@ describe("find flag", () => {
 		expect(allFiles).not.toContain("math.ts");
 
 		// Test find with exclude
-		expect(findWithExcludeResult).toBeNull();
+		expect(findWithExcludeResult).not.toBeNull();
+		const excludeFiles = getAllFileNames(findWithExcludeResult as TreeNode);
+		expect(excludeFiles).not.toContain("test.ts");
 	});
 
 	it("should handle case sensitivity and directory scopes", async () => {

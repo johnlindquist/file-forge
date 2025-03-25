@@ -1,3 +1,3 @@
 <instructions>
-{instructions_content}
+{{{instructions_content}}}
 </instructions> 

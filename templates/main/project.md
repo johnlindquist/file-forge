@@ -1,6 +1,6 @@
-{{> goal-header.md goal="Create a project.mdc file that provides a high-level overview of the codebase structure." }}
+{{> goal-header goal="Create a project.mdc file that provides a high-level overview of the codebase structure." }}
 
-{{> instructions-tag.md instructions_content="Add a \"./cursor/rules/project.mdc\" file that follows the same style as the example block below. Make sure to mimic the structure and formatting for consistency.
+{{> instructions-tag instructions_content="Add a \"./cursor/rules/project.mdc\" file that follows the same style as the example block below. Make sure to mimic the structure and formatting for consistency.
 
 The file should:
 1. Include a brief description of the project
@@ -9,10 +9,10 @@ The file should:
 4. Explain main components and their interactions
 5. Describe any relevant development workflows or patterns" }}
 
-{{> example-section.md }}
+{{> example-section }}
 
-{{> task-tag.md task_content="Generate the project.mdc content in a markdown codefence for easy copy/paste:
+{{> task-tag task_content="Generate the project.mdc content in a markdown codefence for easy copy/paste:
 
-\\`\\`\\`markdown
+```markdown
 [Your generated project.mdc content here]
-\\`\\`\\`" }}
+```" }}

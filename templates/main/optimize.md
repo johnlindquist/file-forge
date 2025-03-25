@@ -1,8 +1,8 @@
-{{> goal-header.md goal="Optimize the following code for performance while keeping its output and behavior unchanged." }}
+{{> goal-header goal="Optimize the code for better performance while maintaining functionality." }}
 
-{{> instructions-tag.md instructions_content="- Identify any inefficiencies or slow operations and refactor them for speed or lower resource usage.  
-- Preserve the code's functionality and results exactly.  
-- Present the optimized code changes (preferably as a diff or clearly marked modifications).  
-- Only output the code changes; avoid extra commentary." }}
+{{> instructions-tag instructions_content="- Analyze the code for performance bottlenecks and inefficiencies.  
+- Identify specific areas that could be optimized.  
+- Propose optimizations that maintain code readability and correctness.  
+- Consider time complexity, memory usage, and resource efficiency." }}
 
-{{> task-tag.md task_content="Optimize this code for better performance while maintaining the exact same behavior and output." }} 
+{{> task-tag task_content="Identify performance bottlenecks and propose specific optimizations." }} 

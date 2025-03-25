@@ -1,4 +1,4 @@
-**Goal:** {goal}
+**Goal:** {{goal}}
 
 **Context:**  
-{code} 
+{{code}} 
