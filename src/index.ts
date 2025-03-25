@@ -204,7 +204,7 @@ export async function handleOutput(
 }
 
 // Main function that handles the CLI flow
-export async function main() {
+export async function main(): Promise<number> {
   // Parse CLI arguments
   const argv = await runCli() as IngestFlags & { _: (string | number)[] };
 
@@ -213,10 +213,12 @@ export async function main() {
   const DEFAULT_CONFIG_DIR = paths.config;
   const DEFAULT_LOG_DIR = resolve(DEFAULT_CONFIG_DIR, "logs");
   const DEFAULT_SEARCHES_DIR = resolve(DEFAULT_CONFIG_DIR, "searches");
-  // Allow overriding template directory for tests
-  const DEFAULT_TEMPLATES_DIR = process.env["FFG_TEMPLATES_DIR"]
+  // Determine the root directory for user templates (allows override via env var)
+  const USER_TEMPLATES_ROOT_DIR = process.env["FFG_TEMPLATES_DIR"]
     ? resolve(process.env["FFG_TEMPLATES_DIR"])
-    : resolve(DEFAULT_CONFIG_DIR);
+    : DEFAULT_CONFIG_DIR;
+  // Define the specific directory where user templates (.md files) should reside
+  const DEFAULT_USER_TEMPLATES_DIR = resolve(USER_TEMPLATES_ROOT_DIR, "templates");
 
   // Handle template creation
   if (argv.createTemplate) {
@@ -224,16 +226,16 @@ export async function main() {
       const { createTemplateFile } = await import("./templates.js");
       const templatePath = await createTemplateFile(
         argv.createTemplate,
-        DEFAULT_TEMPLATES_DIR
+        DEFAULT_USER_TEMPLATES_DIR
       );
       console.log(`Successfully created template file at: ${templatePath}`);
-      return;
+      return 0;
     } catch (error) {
       console.error(formatErrorMessage(`Failed to create template: ${error}`));
       if (!process.env["VITEST"]) {
         process.exit(1);
       }
-      return;
+      return 1;
     }
   }
 
@@ -243,36 +245,36 @@ export async function main() {
       const { findTemplateFile } = await import("./templates.js");
       const templatePath = await findTemplateFile(
         argv.editTemplate,
-        DEFAULT_TEMPLATES_DIR
+        DEFAULT_USER_TEMPLATES_DIR
       );
 
       if (templatePath) {
         console.log(`Open template file for editing at: ${templatePath}`);
+        return 0;
       } else {
         console.error(formatErrorMessage(`Template '${argv.editTemplate}' not found`));
-        if (!process.env["VITEST"]) {
+        if (process.env["VITEST"]) {
+          console.error(`EXIT_CODE:1`);
+          return 1;
+        } else {
           process.exit(1);
         }
       }
-      return;
     } catch (error) {
       console.error(formatErrorMessage(`Failed to find template: ${error}`));
       if (!process.env["VITEST"]) {
         process.exit(1);
       }
-      return;
+      return 1;
     }
   }
 
-  // Load user templates if they exist - use the templates directory from env if available
+  // Load user templates if they exist
   try {
-    const userTemplatesPath = process.env["FFG_TEMPLATES_DIR"]
-      ? resolve(process.env["FFG_TEMPLATES_DIR"], "templates.yaml")
-      : resolve(DEFAULT_CONFIG_DIR, "templates.yaml");
     const { loadUserTemplates } = await import("./templates.js");
-    await loadUserTemplates(userTemplatesPath);
+    await loadUserTemplates(DEFAULT_USER_TEMPLATES_DIR);
     if (argv.debug) {
-      console.log(formatDebugMessage(`Checked for user templates at: ${userTemplatesPath}`));
+      console.log(formatDebugMessage(`Checked for user templates in: ${DEFAULT_USER_TEMPLATES_DIR}`));
     }
   } catch (error) {
     if (argv.debug) {
@@ -303,8 +305,8 @@ export async function main() {
       });
     }
 
-    console.log("\nUse --template <name> to apply a template to your analysis");
-    return;
+    console.log("\nUse --template <n> to apply a template to your analysis");
+    return 0;
   }
 
   if (argv.debug) {
@@ -333,7 +335,7 @@ export async function main() {
       if (!process.env["VITEST"]) {
         process.exit(1);
       }
-      return;
+      return 0;
     }
 
     try {
@@ -378,7 +380,7 @@ export async function main() {
         if (argv.pipe) {
           process.stdout.write(`\n${RESULTS_SAVED_MARKER} ${resultFilePath}`);
         }
-        return;
+        return 0;
       }
 
       // Normal mode with pretty formatting
@@ -425,16 +427,16 @@ ${contentStr}
         if (!process.env["VITEST"]) {
           process.exit(1);
         }
-        return;
+        return 0;
       }
 
-      return;
+      return 0;
     } catch (error) {
       p.cancel(formatErrorMessage(`Graph analysis failed: ${error}`));
       if (!process.env["VITEST"]) {
         process.exit(1);
       }
-      return;
+      return 0;
     }
   }
 
@@ -443,7 +445,7 @@ ${contentStr}
     if (!process.env["VITEST"]) {
       process.exit(1);
     }
-    return;
+    return 0;
   }
 
   if (argv.repo) {
@@ -456,7 +458,7 @@ ${contentStr}
       if (!process.env["VITEST"]) {
         process.exit(1);
       }
-      return;
+      return 0;
     }
   } else if (argv.path) {
     source = argv.path;
@@ -476,7 +478,7 @@ ${contentStr}
       if (!process.env["VITEST"]) {
         process.exit(1);
       }
-      return;
+      return 0;
     }
   } else {
     // Default to the current working directory if neither flag is provided
@@ -503,7 +505,7 @@ ${contentStr}
       if (!process.env["VITEST"]) {
         process.exit(1);
       }
-      return;
+      return 0;
     }
   }
 
@@ -534,7 +536,7 @@ ${contentStr}
       if (!process.env["VITEST"]) {
         process.exit(1);
       }
-      return;
+      return 0;
     }
   }
 
@@ -560,6 +562,7 @@ ${contentStr}
 
   // After getting digest, call handleOutput
   await handleOutput(digest, source, resultFilePath, argv);
+  return 0; // Return success by default
 }
 
 // Helper function to check if we're the main module
