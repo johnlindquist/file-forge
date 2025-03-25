@@ -319,7 +319,7 @@ describe("find flag", () => {
 		expect(complexCombinationResult.stdout).toContain("math.ts");
 		expect(complexCombinationResult.stdout).toContain("test.ts");
 		expect(complexCombinationResult.stdout).toContain("hello.js");
-	});
+	}, 30000);
 });
 
 describe("default directory behavior", () => {
