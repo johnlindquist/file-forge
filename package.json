@@ -27,7 +27,7 @@
     "lint:fix": "eslint . --fix",
     "verify:bin": "pnpm build && [ -f dist/index.js ] || (echo 'dist/index.js not found' && exit 1)",
     "prepublishOnly": "pnpm build",
-    "prepare": "husky && husky install",
+    "prepare": "husky",
     "pre-commit": "pnpm lint && pnpm build:check && pnpm verify:bin",
     "semantic-release": "semantic-release",
     "check:include": "pnpm build && pnpm exec node dist/index.js src",
