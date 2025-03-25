@@ -4,8 +4,13 @@
 - Begin with a high-level summary clearly describing the goal of the task.
 - Step 0 must always instruct the junior developer to create a new branch using standard GitHub workflows specifically addressing the <task/>.
 - The numbered steps should be concise, explicit, and unambiguous.
-- Each step must contain a code snippet, command, or clear action that directly modifies the codebase.
+- Each step must contain COMPLETE code snippets, commands, or clear actions that directly modify the codebase.
 - Ensure each step is small, focused, and individually verifiable.
+- **Code Snippets:** 
+  - Always provide COMPLETE code for each file being modified, not just fragments.
+  - Show the ENTIRE function or component being changed, with context.
+  - Clearly indicate what code is being removed and what is being added.
+  - For larger files, use comments like `// ... existing code ...` to indicate unchanged sections, but be sure to include sufficient context.
 - **Verification:**
   - Include instructions to programmatically verify each step's changes *before* committing.
   - **Run linters and type checks (`npm run lint`, `npm run typecheck`, or similar) frequently.**
@@ -37,9 +42,24 @@
 - **Step 1: Implement Code Changes**
   - **Action:** Modify the relevant files to address the <task/>. Understand how these changes affect program flow and potential side effects.
     ~~~typescript
-    // Example: Edit necessary file, e.g., src/auth.ts
-    // Consider interactions with other modules and test setup.
-    // Add console.log for temporary debugging if needed.
+    // COMPLETE example showing the ENTIRE function or component:
+    
+    // Before changes:
+    function authenticate(username: string, password: string): boolean {
+      // ... existing implementation ...
+      return isValid;
+    }
+    
+    // After changes:
+    function authenticate(username: string, password: string): boolean {
+      if (!username || !password) {
+        return false;
+      }
+      
+      // ... existing validation logic ...
+      
+      return isValid && !isLocked;
+    }
     ~~~
     *Self-Correction Prompt: Did you consider how this change interacts with the test environment's mocking (e.g., for `process.exit`, network requests)?*
   - **Verification:**
@@ -56,10 +76,34 @@
 - **Step 2: Add or Update Tests**
   - **Action:** Add new tests or update existing ones in the relevant test files (e.g., `test/auth.test.ts`) to cover the changes made in Step 1, including edge cases and potential regressions.
     ~~~typescript
-    // Example: Add a test case for the new functionality or bug fix.
-    it('should handle invalid credentials gracefully', async () => {
-      // ... test logic ...
-      // Ensure assertions cover expected behavior, output, and potentially exit codes.
+    // COMPLETE test example:
+    
+    // Before changes:
+    describe('Authentication', () => {
+      it('should return true for valid credentials', () => {
+        expect(authenticate('admin', 'password123')).toBe(true);
+      });
+    });
+    
+    // After changes:
+    describe('Authentication', () => {
+      it('should return true for valid credentials', () => {
+        expect(authenticate('admin', 'password123')).toBe(true);
+      });
+      
+      it('should handle invalid credentials gracefully', () => {
+        expect(authenticate('', 'password123')).toBe(false);
+        expect(authenticate('admin', '')).toBe(false);
+        expect(authenticate('', '')).toBe(false);
+      });
+      
+      it('should reject locked accounts even with valid credentials', () => {
+        // Setup locked account state
+        mockAccountLocked(true);
+        expect(authenticate('admin', 'password123')).toBe(false);
+        // Teardown
+        mockAccountLocked(false);
+      });
     });
     ~~~
   - **Verification:**
