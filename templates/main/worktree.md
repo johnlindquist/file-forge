@@ -1,7 +1,7 @@
 
 <instructions>
 - Begin with a high-level summary clearly describing the goal of the task.
-- Step 0 must always instruct the junior developer to create a new branch using standard GitHub workflows specifically addressing the <task/>.
+- The plan assumes you're already in a dedicated branch or worktree for this task.
 - The numbered steps should be concise, explicit, and unambiguous.
 - Each step must contain a code snippet, command, or clear action that directly modifies the codebase.
 - Ensure each step is small, focused, and individually verifiable.
@@ -9,7 +9,7 @@
   - Include instructions to programmatically verify each commit.
   - If tests exist, please add a test.
   - If tests don't exist, add manual instructions to verify.
-- End each step by clearly instructing the junior developer to commit their changes using standard GitHub workflows.
+- End each step by clearly instructing the developer to commit their changes using standard GitHub workflows.
 - IMPORTANT: NEVER use newline characters in Git commit messages as they can break workflows. Always use multiple '-m' parameters instead.
 - IMPORTANT: NEVER use newline characters in any shell commands. For multiline text in commands, use '\n' escape sequences.
 - git and gh commands should always be run with "| cat" to avoid pager behavior
@@ -17,18 +17,14 @@
 - **High-Level Summary:**
   - Clearly describe the overall goal of completing the <task/>.
 
-- **Step 0: Create a New Branch**
-  - **Action:** Create and switch to a new branch specifically for the <task/>:
+- **Step 1: Verify Current Branch**
+  - **Action:** Confirm you're in the correct branch for this task:
     ~~~bash
-    git checkout -b feature/<short-description-of-task>
+    git branch --show-current
     ~~~
-  - **Verification:** Confirm the branch was created successfully:
-    ~~~bash
-    git branch | cat
-    ~~~
-  - **Commit:** No commit required at this stage.
+  - **Verification:** The output should show your current branch name. If incorrect, switch to the appropriate branch before proceeding.
 
-- **Step 1: Implement Code Changes**
+- **Step 2: Implement Code Changes**
   - **Action:** Modify the relevant files to address the <task/>:
     ~~~bash
     # Example: edit necessary file
@@ -43,7 +39,7 @@
     git commit -m "fix/feat/etc: Implement changes for <task/>" -m "brief description" -m "additional context if needed"
     ~~~
 
-- **Step 2: Add or Update Tests**
+- **Step 3: Add or Update Tests**
   - **Action:** Add new tests or update existing ones covering the changes made:
     ~~~bash
     vim path/to/tests/test_file.js
@@ -60,16 +56,13 @@
     git commit -m "fix/feat/etc: Add/update tests for <task/>" -m "verify feature behavior"
     ~~~
 
-- **Step 3: Push Branch**
-  - **Action:** Push your branch to GitHub:
+- **Step 4: Push Changes**
+  - **Action:** Push your changes to the remote repository:
     ~~~bash
-    git push -u origin feature/<short-description-of-task>
+    git push
     ~~~
-  - **Verification:** Confirm your branch was pushed successfully:
-    ~~~bash
-    git branch -vv | cat
-    ~~~
-  - **Commit:** No commit required for this step.
+  - **Verification:** Open GitHub and confirm your changes are visible.
+  - **Commit:** No commit required; pushing completes your task.
 
 - **Step 4: Create Pull Request with GitHub CLI**
   - **Action:** First, create a PR description file (ALWAYS use a bodyfile for PRs):
@@ -110,19 +103,8 @@
     rm /tmp/pr-description.md
     ~~~
   - **Verification:** Confirm the PR was created successfully by checking the URL provided in the output.
-
-- **Step 5: Return to Main Branch**
-  - **Action:** Switch back to the main branch:
-    ~~~bash
-    git checkout main
-    ~~~
-  - **Verification:** Confirm you've returned to the main branch:
-    ~~~bash
-    git branch --show-current | cat
-    ~~~
-  - **Commit:** No commit required; your task is now complete.
+    
 </instructions>
-
 
 <task>
 The user needs to replace this text with their task. If they forget to replace this text, prompt them with: "Please describe your task "

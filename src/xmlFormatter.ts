@@ -65,6 +65,23 @@ function getGitInfo(source: string): Record<string, string> {
 }
 
 /**
+ * Extracts content from tags in a template string
+ * @param templateContent The raw template content
+ * @param tagName The tag name to extract content from
+ * @returns The content within the specified tag or empty string if not found
+ */
+function extractTagContent(templateContent: string, tagName: string): string {
+    // Skip extraction if templateContent is undefined
+    if (!templateContent) {
+        return '';
+    }
+
+    const regex = new RegExp(`<${tagName}>([\\s\\S]*?)<\\/${tagName}>`, 'i');
+    const match = templateContent.match(regex);
+    return match && match[1] ? match[1].trim() : '';
+}
+
+/**
  * Builds XML output for File Forge analysis
  */
 export function buildXMLOutput(
@@ -146,38 +163,34 @@ export function buildXMLOutput(
         xml += `${indent}</aiInstructions>\n`;
     }
 
-    // Template section if specified (moved after analysis tag)
+    // Template section if specified
     if (options.template) {
         const template = getTemplateByName(options.template);
         if (template) {
             xml += `\n`;
 
-            // Get the processed template - we'll extract data from this
-            const processedTemplate = template.compiledPrompt({ code: digest[PROP_CONTENT] || '' });
+            // Extract tag content directly from the raw template
+            const instructionsContent = extractTagContent(template.templateContent, 'instructions');
+            const exampleContent = extractTagContent(template.templateContent, 'example');
 
-            // Extract instructions from the processed template
-            const instructionsMatch = processedTemplate.match(/<instructions>([\s\S]*?)<\/instructions>/);
-
-            // Extract example section from the processed template
-            const exampleMatch = processedTemplate.match(/<example>([\s\S]*?)<\/example>/);
-
-            // For task tag, we'll use the correct content for the plan template
+            // For the task tag, use a default for the plan template or extract from the template
             let taskContent = "Create a detailed implementation plan with specific steps marked as `<task/>` items.";
 
-            // But for other templates, extract from the template itself
+            // But for other templates, extract the task content from the template
             if (template.name !== 'plan') {
-                const taskMatch = processedTemplate.match(/<task>([\s\S]*?)<\/task>/);
-                if (taskMatch?.[1]) {
-                    taskContent = taskMatch[1].trim();
+                const extractedTaskContent = extractTagContent(template.templateContent, 'task');
+                if (extractedTaskContent) {
+                    taskContent = extractedTaskContent;
                 }
             }
 
-            if (instructionsMatch?.[1]) {
-                xml += `${indent}<instructions>\n${childIndent}${wrapInCDATA(instructionsMatch[1].trim())}\n${indent}</instructions>\n`;
+            // Add the extracted content to the XML output
+            if (instructionsContent) {
+                xml += `${indent}<instructions>\n${childIndent}${wrapInCDATA(instructionsContent)}\n${indent}</instructions>\n`;
             }
 
-            if (exampleMatch?.[1]) {
-                xml += `${indent}<example>\n${childIndent}${wrapInCDATA(exampleMatch[1].trim())}\n${indent}</example>\n`;
+            if (exampleContent) {
+                xml += `${indent}<example>\n${childIndent}${wrapInCDATA(exampleContent)}\n${indent}</example>\n`;
             }
 
             xml += `${indent}<task>\n${childIndent}${wrapInCDATA(taskContent)}\n${indent}</task>\n`;

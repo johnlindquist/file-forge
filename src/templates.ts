@@ -8,16 +8,19 @@
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
-import Handlebars from 'handlebars';
+import { Liquid } from 'liquidjs';
+
+// Initialize the Liquid engine
+const engine = new Liquid();
 
 export interface PromptTemplate {
   name: string;
   category: string;
   description: string;
-  compiledPrompt: Handlebars.TemplateDelegate;
+  templateContent: string;
 }
 
-// Interface for user-defined templates before compilation
+// Interface for user-defined templates
 interface UserTemplate {
   name: string;
   category: string;
@@ -41,40 +44,14 @@ function getDirname() {
 }
 
 /**
- * Register all Handlebars partials from the templates/partials directory
- */
-async function registerHandlebarsPartials(): Promise<void> {
-  const baseDir = getDirname();
-  const projectRoot = path.resolve(baseDir, '..');
-  const partialsDir = path.join(projectRoot, 'templates', 'partials');
-
-  try {
-    const partialFiles = await fs.readdir(partialsDir);
-    for (const fileName of partialFiles) {
-      if (fileName.endsWith('.md')) {
-        const partialPath = path.join(partialsDir, fileName);
-        const partialContent = await fs.readFile(partialPath, 'utf8');
-        const partialName = path.basename(fileName, '.md'); // Use filename without extension
-        Handlebars.registerPartial(partialName, partialContent);
-        console.log(`Registered partial: ${partialName}`); // For debugging
-      }
-    }
-  } catch (error) {
-    console.error(`Failed to register Handlebars partials from ${partialsDir}:`, error);
-    throw error; // Re-throw to handle in loadAllTemplates
-  }
-}
-
-/**
  * Load a template file from the templates directory
  * @param fileName The name of the template file
- * @param isPartial Whether the file is a partial
  * @returns The content of the template file
  */
-async function loadTemplateFile(fileName: string, isPartial = false): Promise<string> {
+async function loadTemplateFile(fileName: string): Promise<string> {
   const baseDir = getDirname();
   const projectRoot = path.resolve(baseDir, '..');
-  const templateDir = isPartial ? 'templates/partials' : 'templates/main';
+  const templateDir = 'templates/main';
 
   // Try multiple possible locations for the template files
   const possiblePaths = [
@@ -164,19 +141,17 @@ export let TEMPLATES: PromptTemplate[] = [];
  * Load all built-in templates from the templates directory
  */
 export async function loadAllTemplates(): Promise<void> {
-  await registerHandlebarsPartials(); // Register partials first
   const templates: PromptTemplate[] = [];
 
   for (const def of templateDefinitions) {
     try {
       const templateContent = await loadTemplateFile(def.templateFile);
-      const compiledTemplate = Handlebars.compile(templateContent);
 
       templates.push({
         name: def.name,
         category: def.category,
         description: def.description,
-        compiledPrompt: compiledTemplate
+        templateContent: templateContent
       });
     } catch (error) {
       console.error(`Failed to load template ${def.name}:`, error);
@@ -186,7 +161,7 @@ export async function loadAllTemplates(): Promise<void> {
   TEMPLATES = templates;
 
   // Log templates loaded - for debugging
-  console.log(`Loaded and compiled ${TEMPLATES.length} built-in templates using Handlebars`);
+  console.log(`Loaded ${TEMPLATES.length} built-in templates using Liquidjs`);
 }
 
 /**
@@ -203,7 +178,7 @@ export function ensureTemplatesLoaded(): void {
         explain: `**Goal:** Provide a clear explanation of the following code's functionality and purpose.
 
 **Context:**  
-{code}
+{{ code }}
 
 <instructions>
 - Describe what the code does and how it works.  
@@ -217,7 +192,7 @@ Provide a clear and concise explanation of what this code does and how it works 
         document: `**Goal:** Document the code by adding helpful comments explaining each major section or logic.
 
 **Context:**  
-{code}
+{{ code }}
 
 <instructions>
 - Insert concise comments or docstrings in the code to clarify its functionality.  
@@ -232,7 +207,7 @@ Add clear, helpful comments to the code that explain each major section, functio
         project: `**Goal:** Create a project.mdc file that provides a high-level overview of the codebase structure.
 
 **Context:**  
-{code}
+{{ code }}
 
 <instructions>
 Add a "./cursor/rules/project.mdc" file that follows the same style as the example block below. Make sure to mimic the structure and formatting for consistency.
@@ -315,7 +290,7 @@ Generate the project.mdc content in a markdown codefence for easy copy/paste:
         plan: `**Goal:** Create a detailed implementation plan for the provided code.
 
 **Context:**  
-{code}
+{{ code }}
 
 <instructions>
 - Begin with a high-level summary clearly describing the goal of the task.
@@ -335,25 +310,25 @@ Create a detailed implementation plan with specific steps marked as \`<task/>\` 
           name: "explain",
           category: TemplateCategory.DOCUMENTATION,
           description: "Explain/Summarize Code - Summarize what a code file does in plain language",
-          compiledPrompt: Handlebars.compile(mockTemplateContent.explain)
+          templateContent: mockTemplateContent.explain
         },
         {
           name: "document",
           category: TemplateCategory.DOCUMENTATION,
           description: "Add Comments (Document Code) - Insert explanatory comments into the code",
-          compiledPrompt: Handlebars.compile(mockTemplateContent.document)
+          templateContent: mockTemplateContent.document
         },
         {
           name: "project",
           category: TemplateCategory.DOCUMENTATION,
           description: "Add project.mdc file - Create a Cursor Rules file for project documentation",
-          compiledPrompt: Handlebars.compile(mockTemplateContent.project)
+          templateContent: mockTemplateContent.project
         },
         {
           name: "plan",
           category: TemplateCategory.GENERATION,
           description: "Create an implementation plan - Generate step-by-step instructions with task tags",
-          compiledPrompt: Handlebars.compile(mockTemplateContent.plan)
+          templateContent: mockTemplateContent.plan
         }
       ];
 
@@ -361,12 +336,12 @@ Create a detailed implementation plan with specific steps marked as \`<task/>\` 
       const existingNames = TEMPLATES.map(t => t.name);
       for (const def of templateDefinitions) {
         if (!existingNames.includes(def.name)) {
-          const genericTemplate = `**Goal:** Test goal for ${def.name}\n\n**Context:**\n{code}\n\n<instructions>\nTest instructions for ${def.name}\n</instructions>\n\n<task>\nTest task for ${def.name}\n</task>`;
+          const genericTemplate = `**Goal:** Test goal for ${def.name}\n\n**Context:**\n{{ code }}\n\n<instructions>\nTest instructions for ${def.name}\n</instructions>\n\n<task>\nTest task for ${def.name}\n</task>`;
           TEMPLATES.push({
             name: def.name,
             category: def.category,
             description: def.description,
-            compiledPrompt: Handlebars.compile(genericTemplate)
+            templateContent: genericTemplate
           });
         }
       }
@@ -415,23 +390,17 @@ export function listTemplates(): { name: string; category: string; description: 
 
 /**
  * Apply a template to code
- * @param template The template to apply
+ * @param templateContent The raw template content
  * @param code The code to apply the template to
  * @returns The prompt with the code inserted
  */
-export function applyTemplate(template: PromptTemplate, code: string): string {
+export async function applyTemplate(templateContent: string, code: string): Promise<string> {
   try {
-    // Execute the compiled template with the code context
-    let result = template.compiledPrompt({ code });
-
-    // Handle directives for XML extraction
-    if (template.name === 'plan') {
-      result = result.replace(/<task>.*?<\/task>/s, '<task>Create a detailed implementation plan with specific steps marked as `<task/>` items.</task>');
-    }
-
+    // Render the template with the code context using Liquidjs
+    const result = await engine.parseAndRender(templateContent, { code });
     return result;
   } catch (error) {
-    console.error(`Error applying Handlebars template ${template.name}:`, error);
+    console.error(`Error applying Liquid template:`, error);
     return `Error applying template: ${error instanceof Error ? error.message : String(error)}`;
   }
 }
@@ -466,7 +435,7 @@ export async function loadUserTemplates(filePath: string): Promise<PromptTemplat
       throw new Error('Unsupported file format. Use .json, .yaml, or .yml');
     }
 
-    // Validate user templates and compile prompts
+    // Validate user templates
     const validUserTemplates = userTemplates.filter(template => {
       const isValid =
         typeof template.name === 'string' &&
@@ -483,7 +452,7 @@ export async function loadUserTemplates(filePath: string): Promise<PromptTemplat
       name: template.name,
       category: template.category,
       description: template.description,
-      compiledPrompt: Handlebars.compile(template.prompt)
+      templateContent: template.prompt
     }));
 
     // Merge with built-in templates, overriding any with the same name
@@ -540,12 +509,17 @@ export async function createTemplateFile(templateName: string, templatesDir: str
       // File doesn't exist, create it
     }
 
-    // Create boilerplate template content
+    // Create boilerplate template content with Liquid syntax
     const templateContent = yaml.dump([{
       name: templateName,
       category: 'documentation',
       description: 'Custom template',
-      prompt: `<instructions>
+      prompt: `**Goal:** Your template goal here
+
+**Context:**
+{{ code }}
+
+<instructions>
 Your instructions here
 </instructions>
 

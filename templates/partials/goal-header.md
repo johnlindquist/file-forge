@@ -1,4 +1,0 @@
-**Goal:** {{goal}}
-
-**Context:**  
-{{code}} 
