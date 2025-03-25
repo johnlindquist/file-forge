@@ -438,60 +438,43 @@ export async function applyTemplate(templateContent: string, code: string): Prom
 }
 
 /**
- * Load user-defined templates from a file (YAML or JSON)
- * @param filePath Path to the user templates file (YAML or JSON)
+ * Load user-defined templates from a directory
+ * @param templatesDir Path to the directory containing user template .md files
  * @returns Combined array of built-in and user templates
  */
-export async function loadUserTemplates(filePath: string): Promise<PromptTemplate[]> {
+export async function loadUserTemplates(templatesDir: string): Promise<PromptTemplate[]> {
   try {
     const fs = await import('node:fs/promises');
     const path = await import('node:path');
-
-    // Get the templates directory from the filePath
-    const templatesDir = path.dirname(filePath);
 
     try {
       // Check if template directory exists before attempting to search it
       await fs.access(templatesDir);
     } catch (error) {
-      console.log(`Template directory ${templatesDir} does not exist or is not accessible: ${error}`);
+      // If directory doesn't exist, just return the current templates (likely just built-ins)
+      if (process.env['DEBUG'] || process.env['VITEST']) { // Log only in debug or test mode
+        console.log(`[DEBUG] User template directory ${templatesDir} not found or inaccessible: ${error instanceof Error ? error.message : String(error)}`);
+      }
       return TEMPLATES;
     }
 
-    // Find all .md files in the templates directory - with defensive approach
+    // Find all .md files in the templates directory
     let templateFiles: string[] = [];
-
-    // In test environment, we'll use a direct file check instead of globby
-    // which may be causing timeouts in tests
-    if (process.env['NODE_ENV'] === 'test') {
-      try {
-        // Just check if the specific file exists instead of scanning directory
-        const sanitizedName = path.basename(filePath, path.extname(filePath));
-        const mdFile = path.join(templatesDir, `${sanitizedName}.md`);
-        const fileExists = await fs.access(mdFile)
-          .then(() => true)
-          .catch(() => false);
-
-        if (fileExists) {
-          templateFiles = [mdFile];
-        }
-      } catch (error) {
-        console.error(`Error checking template files in test mode: ${error}`);
-      }
-    } else {
-      // Production mode - use globby
-      try {
-        templateFiles = await globby(['*.md'], {
-          cwd: templatesDir,
-          absolute: true
-        });
-      } catch (error) {
-        console.error(`Error finding template files: ${error}`);
-      }
+    try {
+      templateFiles = await globby(['*.md'], {
+        cwd: templatesDir, // Use the passed directory
+        absolute: true,
+        onlyFiles: true, // Ensure we only get files
+      });
+    } catch (error) {
+      console.error(`Error finding template files in ${templatesDir}: ${error}`);
+      // Continue without user templates if globby fails
     }
 
     if (templateFiles.length === 0) {
-      console.log(`No user templates found in ${templatesDir}`);
+      if (process.env['DEBUG'] || process.env['VITEST']) { // Log only in debug or test mode
+        console.log(`[DEBUG] No user templates found in ${templatesDir}`);
+      }
       return TEMPLATES;
     }
 
@@ -506,12 +489,16 @@ export async function loadUserTemplates(filePath: string): Promise<PromptTemplat
 
         // Validate template front matter
         const isValid =
-          typeof data['name'] === 'string' &&
+          data && // Ensure data exists
+          typeof data['name'] === 'string' && data['name'].trim() !== '' &&
           typeof data['category'] === 'string' &&
           typeof data['description'] === 'string';
 
         if (!isValid) {
-          console.warn(`Skipping invalid template: ${path.basename(file)}`);
+          // Log invalid templates only in debug or test mode
+          if (process.env['DEBUG'] || process.env['VITEST']) {
+            console.warn(`[DEBUG] Skipping invalid template (missing/invalid front-matter): ${path.basename(file)}`);
+          }
           continue;
         }
 
@@ -522,33 +509,44 @@ export async function loadUserTemplates(filePath: string): Promise<PromptTemplat
           templateContent: templateContent.trim()
         });
       } catch (error) {
-        console.warn(`Error processing template file ${file}:`, error);
+        // Log errors processing individual files only in debug or test mode
+        if (process.env['DEBUG'] || process.env['VITEST']) {
+          console.warn(`[DEBUG] Error processing template file ${file}:`, error);
+        }
       }
     }
 
     // Merge with built-in templates, overriding any with the same name
-    const mergedTemplates = [...TEMPLATES];
+    const mergedTemplates = [...TEMPLATES]; // Start with built-ins
 
     for (const userTemplate of userTemplates) {
       const existingIndex = mergedTemplates.findIndex(t => t.name === userTemplate.name);
       if (existingIndex >= 0) {
         // Override existing template
         mergedTemplates[existingIndex] = userTemplate;
-        console.log(`Overriding built-in template: ${userTemplate.name}`);
+        if (process.env['DEBUG'] || process.env['VITEST']) { // Log only in debug or test mode
+          console.log(`[DEBUG] Overriding built-in template: ${userTemplate.name}`);
+        }
       } else {
         // Add new template
         mergedTemplates.push(userTemplate);
-        console.log(`Adding user template: ${userTemplate.name}`);
+        if (process.env['DEBUG'] || process.env['VITEST']) { // Log only in debug or test mode
+          console.log(`[DEBUG] Adding user template: ${userTemplate.name}`);
+        }
       }
     }
 
-    // Update the TEMPLATES array with the merged templates
+    // Update the global TEMPLATES array
     TEMPLATES = mergedTemplates;
 
     return TEMPLATES;
+
   } catch (error) {
-    console.error(`Error loading user templates: ${error}`);
-    return TEMPLATES;
+    // Log general errors loading templates only in debug or test mode
+    if (process.env['DEBUG'] || process.env['VITEST']) {
+      console.error(`[DEBUG] Error loading user templates: ${error}`);
+    }
+    return TEMPLATES; // Return existing templates on error
   }
 }
 

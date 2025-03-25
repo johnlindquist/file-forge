@@ -32,19 +32,25 @@ const getTempTemplateDir = () => {
     }
 };
 
-const TEMPLATES_DIR = getTempTemplateDir();
-debugLog(`Template directory set to: ${TEMPLATES_DIR}`);
+// Set up the root config directory and templates subdirectory
+const CONFIG_ROOT_DIR = getTempTemplateDir();
+const TEMPLATES_SUBDIR = path.join(CONFIG_ROOT_DIR, "templates");
 
-// Ensure the templates directory exists
+debugLog(`Config root directory set to: ${CONFIG_ROOT_DIR}`);
+debugLog(`Templates subdirectory set to: ${TEMPLATES_SUBDIR}`);
+
+// Ensure both directories exist
 beforeEach(async () => {
-    debugLog(`Creating template directory: ${TEMPLATES_DIR}`);
-    await fs.mkdir(TEMPLATES_DIR, { recursive: true });
+    debugLog(`Creating config root directory: ${CONFIG_ROOT_DIR}`);
+    await fs.mkdir(CONFIG_ROOT_DIR, { recursive: true });
+    debugLog(`Creating templates subdirectory: ${TEMPLATES_SUBDIR}`);
+    await fs.mkdir(TEMPLATES_SUBDIR, { recursive: true });
 
     try {
-        const stats = await fs.stat(TEMPLATES_DIR);
-        debugLog(`Directory created successfully. Is directory: ${stats.isDirectory()}`);
+        const stats = await fs.stat(TEMPLATES_SUBDIR);
+        debugLog(`Templates subdirectory created successfully. Is directory: ${stats.isDirectory()}`);
     } catch (error) {
-        debugLog(`Error checking directory: ${error}`);
+        debugLog(`Error checking templates subdirectory: ${error}`);
     }
 });
 
@@ -75,8 +81,9 @@ const cleanupFiles = async (files: string[]) => {
 describe("Template Creation and Editing Flags", () => {
     const testTemplateName = "test-template";
     const sanitizedName = testTemplateName.replace(/[^a-zA-Z0-9_-]/g, "_").toLowerCase();
-    const templateFilePath = path.resolve(TEMPLATES_DIR, `${sanitizedName}.md`);
-    debugLog(`Template file path: ${templateFilePath}`);
+    // Update the expected file path to be inside the 'templates' subdirectory
+    const templateFilePath = path.resolve(TEMPLATES_SUBDIR, `${sanitizedName}.md`);
+    debugLog(`Expected template file path: ${templateFilePath}`);
 
     // Clean up after each test
     afterEach(async () => {
@@ -84,13 +91,13 @@ describe("Template Creation and Editing Flags", () => {
         await cleanupFiles([templateFilePath]);
 
         // Clean up the temporary directory in CI
-        if (process.env.CI === 'true' || process.env.CI === '1') {
+        if (process.env.CI === 'true' || process.env.CI === '1' || CONFIG_ROOT_DIR.includes('file-forge-test-templates')) {
             try {
-                debugLog(`Removing temporary directory: ${TEMPLATES_DIR}`);
-                await fs.rm(TEMPLATES_DIR, { recursive: true, force: true });
-                debugLog(`Successfully removed temp directory`);
+                debugLog(`Removing temporary config root directory: ${CONFIG_ROOT_DIR}`);
+                await fs.rm(CONFIG_ROOT_DIR, { recursive: true, force: true });
+                debugLog(`Successfully removed temp config root directory`);
             } catch (error) {
-                debugLog(`Error removing temp directory: ${error}`);
+                debugLog(`Error removing temp config root directory: ${error}`);
                 // Ignore errors if directory doesn't exist or can't be removed
             }
         }
@@ -103,7 +110,7 @@ describe("Template Creation and Editing Flags", () => {
             const originalEnv = process.env;
             process.env = {
                 ...originalEnv,
-                FFG_TEMPLATES_DIR: TEMPLATES_DIR
+                FFG_TEMPLATES_DIR: CONFIG_ROOT_DIR // Point to the root config dir
             };
             debugLog(`Set FFG_TEMPLATES_DIR to: ${process.env.FFG_TEMPLATES_DIR}`);
 
@@ -121,9 +128,9 @@ describe("Template Creation and Editing Flags", () => {
 
                 // Verify that a template file path was output
                 expect(stdout).toContain("template file at:");
+                expect(stdout).toContain("templates"); // Ensure path includes 'templates' directory
 
-                // Check that the file was actually created - we don't check for the exact path
-                // since it might be different in CI
+                // Check that the file was actually created in the templates subdirectory
                 debugLog(`Checking if template file exists at: ${templateFilePath}`);
                 const fileExists = await fs.access(templateFilePath)
                     .then(() => true)
@@ -166,7 +173,7 @@ describe("Template Creation and Editing Flags", () => {
             const originalEnv = process.env;
             process.env = {
                 ...originalEnv,
-                FFG_TEMPLATES_DIR: TEMPLATES_DIR
+                FFG_TEMPLATES_DIR: CONFIG_ROOT_DIR // Point to the root config dir
             };
             debugLog(`Set FFG_TEMPLATES_DIR to: ${process.env.FFG_TEMPLATES_DIR}`);
 
@@ -198,8 +205,10 @@ describe("Template Creation and Editing Flags", () => {
                 debugLog(`Second CLI command completed with exit code: ${exitCode}`);
                 debugLog(`Second command output: ${stdout}`);
 
+                // Check that the command executed successfully
                 expect(exitCode).toBe(0);
                 expect(stdout).toContain("already exists");
+                expect(stdout).toContain(templateFilePath);
             } finally {
                 // Restore the original environment
                 debugLog(`Restoring original environment`);
@@ -210,94 +219,47 @@ describe("Template Creation and Editing Flags", () => {
 
     describe("--edit-template flag", () => {
         beforeEach(async () => {
-            debugLog(`Running beforeEach for edit-template tests`);
-            // Mock process.env to use our temporary directory
+            // Create the template file within the templates subdir for edit tests
             const originalEnv = process.env;
-            process.env = {
-                ...originalEnv,
-                FFG_TEMPLATES_DIR: TEMPLATES_DIR
-            };
-            debugLog(`Set FFG_TEMPLATES_DIR to: ${process.env.FFG_TEMPLATES_DIR}`);
-
+            process.env = { ...originalEnv, FFG_TEMPLATES_DIR: CONFIG_ROOT_DIR };
             try {
-                // Create a template first
-                debugLog(`Creating template file for edit tests`);
-                const createResult = await runCLI([
-                    "--create-template",
-                    testTemplateName
-                ]);
-                debugLog(`Template creation completed with exit code: ${createResult.exitCode}`);
-                debugLog(`Template creation output: ${createResult.stdout}`);
-
-                // Verify file exists
-                const fileExists = await fs.access(templateFilePath)
-                    .then(() => true)
-                    .catch((error) => {
-                        debugLog(`Error verifying template file: ${error}`);
-                        return false;
-                    });
-                debugLog(`Template file exists for edit tests: ${fileExists}`);
+                await runCLI(["--create-template", testTemplateName]);
             } finally {
-                // Restore the original environment
-                debugLog(`Restoring original environment`);
                 process.env = originalEnv;
             }
-        }, 30000); // Increase timeout for beforeEach
+        }, 30000);
 
         it("should find and print the path of an existing template file", async () => {
             debugLog(`Starting test: find template file`);
-            // Mock process.env to use our temporary directory
             const originalEnv = process.env;
-            process.env = {
-                ...originalEnv,
-                FFG_TEMPLATES_DIR: TEMPLATES_DIR
-            };
-            debugLog(`Set FFG_TEMPLATES_DIR to: ${process.env.FFG_TEMPLATES_DIR}`);
-
+            process.env = { ...originalEnv, FFG_TEMPLATES_DIR: CONFIG_ROOT_DIR };
             try {
-                debugLog(`Running CLI command to edit template`);
                 const { stdout, exitCode } = await runCLI([
                     "--edit-template",
                     testTemplateName
                 ]);
-                debugLog(`CLI command completed with exit code: ${exitCode}`);
-                debugLog(`Command output: ${stdout}`);
-
                 expect(exitCode).toBe(0);
-                expect(stdout).toContain("template file for editing");
+                expect(stdout).toContain(templateFilePath);
+                expect(stdout).toContain("templates"); // Ensure path includes 'templates' directory
             } finally {
-                // Restore the original environment
-                debugLog(`Restoring original environment`);
                 process.env = originalEnv;
             }
-        }, 30000); // Increase timeout to 30 seconds
+        }, 30000);
 
-        it("should report when a template is not found", async () => {
+        it("should report if template file does not exist", async () => {
             debugLog(`Starting test: template not found`);
-            // Mock process.env to use our temporary directory
             const originalEnv = process.env;
-            process.env = {
-                ...originalEnv,
-                FFG_TEMPLATES_DIR: TEMPLATES_DIR
-            };
-            debugLog(`Set FFG_TEMPLATES_DIR to: ${process.env.FFG_TEMPLATES_DIR}`);
-
+            process.env = { ...originalEnv, FFG_TEMPLATES_DIR: CONFIG_ROOT_DIR };
             try {
-                debugLog(`Running CLI command to edit non-existent template`);
-                const { stdout } = await runCLI([
+                const { stdout, exitCode } = await runCLI([
                     "--edit-template",
-                    "non-existent-template"
+                    "nonexistent-template"
                 ]);
-                debugLog(`CLI command completed`);
-                debugLog(`Command output: ${stdout}`);
-
-                // Check that the output contains a message about the template not being found
-                expect(stdout).toContain("No template file found for 'non-existent-template'");
+                expect(exitCode).toBe(1);
+                expect(stdout).toContain("not found");
             } finally {
-                // Restore the original environment
-                debugLog(`Restoring original environment`);
                 process.env = originalEnv;
             }
-        }, 30000); // Increase timeout to 30 seconds
+        }, 30000);
     });
 }); 

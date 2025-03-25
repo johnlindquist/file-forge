@@ -7,9 +7,10 @@ import * as path from "node:path";
 
 // Mock process.exit to prevent it from actually exiting during tests
 beforeEach(() => {
-  const exitSpy = vi.spyOn(process, "exit").mockImplementation(() => {
-    // Don't throw on any exit code, just return
-    return undefined as never;
+  const exitSpy = vi.spyOn(process, "exit").mockImplementation((code?: string | number | null | undefined) => {
+    // Convert any code type to a number and throw an error with it
+    const numericCode = code === null || code === undefined ? 0 : Number(code);
+    throw new Error(`EXIT_CODE:${numericCode}`);
   });
 
   return () => {
@@ -107,10 +108,14 @@ export async function runCLI(args: string[]): Promise<{
         return;
       }
 
+      // Check stderr for our special exit code marker
+      const exitCodeMatch = stderr.match(/EXIT_CODE:(\d+)/);
+      const exitCode = exitCodeMatch ? parseInt(exitCodeMatch[1], 10) : (code ?? 0);
+
       resolve({
         stdout,
         stderr,
-        exitCode: code ?? 0,
+        exitCode,
         hashedSource,
       });
     });
