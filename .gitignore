@@ -142,3 +142,10 @@ plans
 *.diff
 diffs
 .idea
+
+# Test fixtures specific ignores
+test/fixtures/binary-file-project/large-binary-file.bin
+test/fixtures/binary-file-project/large-text-file.txt
+test/fixtures/binary-file-project/test-file.txt
+test/fixtures/next-test/
+test/fixtures/svg-file-project/

@@ -1,8 +1,3 @@
-**Goal:** Generate comprehensive unit tests for the provided code.
-
-**Context:**  
-{{ code }}
-
 <instructions>
 - Analyze the code to identify key functionality to test.  
 - Create test cases that cover normal usage and edge cases.  

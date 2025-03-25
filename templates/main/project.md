@@ -1,8 +1,3 @@
-**Goal:** Create a project.mdc file that provides a high-level overview of the codebase structure.
-
-**Context:**  
-{{ code }}
-
 <instructions>
 Add a "./cursor/rules/project.mdc" file that follows the same style as the example block below. Make sure to mimic the structure and formatting for consistency.
 

@@ -33,14 +33,12 @@ describe('Template File Loading', () => {
 
             // Check that the template renders correctly
             const rendered = await applyTemplate(explainTemplate.templateContent, 'test code');
-            expect(rendered).toContain('**Goal:**');
-            expect(rendered).toContain('**Context:**');
             expect(rendered).toContain('<instructions>');
+            expect(rendered).toContain('- Describe what the code does and how it works.');
             expect(rendered).toContain('<task>');
             expect(rendered).toContain('Provide a clear and concise explanation');
 
             // Ensure code placeholder is replaced
-            expect(rendered).toContain('test code');
             expect(rendered).not.toContain('{{ code }}');
 
             // Check that there are no leftover partial placeholders
@@ -67,21 +65,13 @@ describe('Template File Loading', () => {
     });
 
     test('parameter replacement works correctly', async () => {
-        const explainTemplate = getTemplateByName('explain');
-        expect(explainTemplate).toBeDefined();
-        if (explainTemplate) {
-            // Check that code placeholder is replaced
-            const rendered = await applyTemplate(explainTemplate.templateContent, 'test code');
-            expect(rendered).toContain("**Goal:** Provide a clear explanation of the following code's functionality and purpose.");
-            expect(rendered).toContain('test code');
-        }
-
         const refactorTemplate = getTemplateByName('refactor');
         expect(refactorTemplate).toBeDefined();
         if (refactorTemplate) {
             const rendered = await applyTemplate(refactorTemplate.templateContent, 'test code');
-            expect(rendered).toContain('Refactor the code to improve readability and maintainability.');
-            expect(rendered).toContain('test code');
+            expect(rendered).toContain('<instructions>');
+            expect(rendered).toContain('- Analyze the code for readability and maintainability issues.');
+            expect(rendered).not.toContain('{{ code }}');
         }
     });
 }); 

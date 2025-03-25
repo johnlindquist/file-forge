@@ -1,8 +1,3 @@
-**Goal:** Refactor the code to improve readability and maintainability.
-
-**Context:**  
-{{ code }}
-
 <instructions>
 - Analyze the code for readability and maintainability issues.  
 - Identify areas that could be simplified or made more clear.  

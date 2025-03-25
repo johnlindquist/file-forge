@@ -1,8 +1,3 @@
-**Goal:** Provide a clear explanation of the following code's functionality and purpose.
-
-**Context:**  
-{{ code }}
-
 <instructions>
 - Describe what the code does and how it works.  
 - Keep the explanation concise and in plain language (no code output).  

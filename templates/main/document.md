@@ -1,8 +1,3 @@
-**Goal:** Document the code by adding helpful comments explaining each major section or logic.
-
-**Context:**  
-{{ code }}
-
 <instructions>
 - Insert concise comments or docstrings in the code to clarify its functionality.  
 - Preserve the original code logic and formatting.  

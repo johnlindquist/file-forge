@@ -1,8 +1,3 @@
-**Goal:** Identify and fix potential issues or bugs in the code.
-
-**Context:**  
-{{ code }}
-
 <instructions>
 - Analyze the code for potential bugs, issues, or edge cases.  
 - Identify specific problems and explain why they are problematic.  

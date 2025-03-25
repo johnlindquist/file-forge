@@ -1,8 +1,3 @@
-**Goal:** Optimize the code for better performance while maintaining functionality.
-
-**Context:**  
-{{ code }}
-
 <instructions>
 - Analyze the code for performance bottlenecks and inefficiencies.  
 - Identify specific areas that could be optimized.  
