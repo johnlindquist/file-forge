@@ -50,7 +50,8 @@ beforeEach(async () => {
 
 // Helpers for test cleanup
 const cleanupFiles = async (files: string[]) => {
-    for (const file of files) {
+    // Clean up files in parallel
+    await Promise.all(files.map(async (file) => {
         try {
             debugLog(`Attempting to delete file: ${file}`);
             await fs.unlink(file);
@@ -68,7 +69,7 @@ const cleanupFiles = async (files: string[]) => {
             debugLog(`Error during cleanup: ${error}`);
             // Ignore errors if file doesn't exist
         }
-    }
+    }));
 };
 
 describe("Template Creation and Editing Flags", () => {

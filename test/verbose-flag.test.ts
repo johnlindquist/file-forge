@@ -2,70 +2,72 @@ import { describe, it, expect } from "vitest";
 import { runCLI } from "./helpers/runCLI.js";
 
 describe("CLI --verbose flag", () => {
-  it("omits file contents by default in XML format", async () => {
-    const { stdout, exitCode } = await runCLI([
-      "--path",
-      "test/fixtures/sample-project",
-      "--pipe",
-      "--no-token-count"
+  it("should handle verbose flag correctly across formats", async () => {
+    // Run all CLI tests in parallel
+    const [
+      defaultXmlResult,
+      defaultMarkdownResult,
+      verboseXmlResult,
+      verboseMarkdownResult
+    ] = await Promise.all([
+      // Test 1: Default XML format without verbose
+      runCLI([
+        "--path",
+        "test/fixtures/sample-project",
+        "--pipe",
+        "--no-token-count"
+      ]),
+
+      // Test 2: Default Markdown format without verbose
+      runCLI([
+        "--path",
+        "test/fixtures/sample-project",
+        "--pipe",
+        "--markdown",
+        "--no-token-count"
+      ]),
+
+      // Test 3: XML format with verbose
+      runCLI([
+        "--path",
+        "test/fixtures/sample-project",
+        "--verbose",
+        "--pipe",
+        "--no-token-count"
+      ]),
+
+      // Test 4: Markdown format with verbose
+      runCLI([
+        "--path",
+        "test/fixtures/sample-project",
+        "--verbose",
+        "--pipe",
+        "--markdown",
+        "--no-token-count"
+      ])
     ]);
 
-    expect(exitCode).toBe(0);
-    // Check that the output includes summary and directory structure
-    expect(stdout).toContain("<summary>");
-    expect(stdout).toContain("<directoryTree>");
-    // It should NOT include the file tags when verbose is off
-    expect(stdout).not.toContain("<files>");
-  });
+    // Test 1: XML format without verbose
+    expect(defaultXmlResult.exitCode).toBe(0);
+    expect(defaultXmlResult.stdout).toContain("<summary>");
+    expect(defaultXmlResult.stdout).toContain("<directoryTree>");
+    expect(defaultXmlResult.stdout).not.toContain("<files>");
 
-  it("omits file contents by default in Markdown format", async () => {
-    const { stdout, exitCode } = await runCLI([
-      "--path",
-      "test/fixtures/sample-project",
-      "--pipe",
-      "--markdown",
-      "--no-token-count"
-    ]);
+    // Test 2: Markdown format without verbose
+    expect(defaultMarkdownResult.exitCode).toBe(0);
+    expect(defaultMarkdownResult.stdout).toContain("## Summary");
+    expect(defaultMarkdownResult.stdout).toContain("## Directory Structure");
+    expect(defaultMarkdownResult.stdout).not.toContain("## Files Content");
 
-    expect(exitCode).toBe(0);
-    // Check that the output includes summary and directory structure
-    expect(stdout).toContain("## Summary");
-    expect(stdout).toContain("## Directory Structure");
-    // It should NOT include the "## Files Content" section when verbose is off
-    expect(stdout).not.toContain("## Files Content");
-  });
+    // Test 3: XML format with verbose
+    expect(verboseXmlResult.exitCode).toBe(0);
+    expect(verboseXmlResult.stdout).toContain("<files>");
+    expect(verboseXmlResult.stdout).toContain("<file path=");
+    expect(verboseXmlResult.stdout).toContain("console.log('hello')");
 
-  it("includes file contents when --verbose is used with XML format", async () => {
-    const { stdout, exitCode } = await runCLI([
-      "--path",
-      "test/fixtures/sample-project",
-      "--verbose",
-      "--pipe",
-      "--no-token-count"
-    ]);
-
-    expect(exitCode).toBe(0);
-    // With verbose on, the output should include the files section
-    expect(stdout).toContain("<files>");
-    expect(stdout).toContain("<file path=");
-    // And it should include some content from the fixture files
-    expect(stdout).toContain("console.log('hello')");
-  });
-
-  it("includes file contents when --verbose is used with Markdown format", async () => {
-    const { stdout, exitCode } = await runCLI([
-      "--path",
-      "test/fixtures/sample-project",
-      "--verbose",
-      "--pipe",
-      "--markdown",
-      "--no-token-count"
-    ]);
-
-    expect(exitCode).toBe(0);
-    // With verbose on, the output should include the "Files Content" section
-    expect(stdout).toContain("## Files Content");
-    // And it should include some content from the fixture files
-    expect(stdout).toContain("console.log('hello')");
+    // Test 4: Markdown format with verbose
+    expect(verboseMarkdownResult.exitCode).toBe(0);
+    expect(verboseMarkdownResult.stdout).toContain("## Files Content");
+    expect(verboseMarkdownResult.stdout).toContain("console.log('hello')");
   });
 });

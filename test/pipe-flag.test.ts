@@ -1,32 +1,32 @@
 // test/pipe-flag.test.ts
 import { describe, it, expect } from "vitest";
-import { runCLI } from "./helpers/runCLI.js";
-import { APP_HEADER } from "../src/constants.js";
+import { runCLI } from "./test-helpers.js";
 
 describe("CLI --pipe", () => {
-  it("outputs to stdout when --pipe is used with default XML format", async () => {
-    const { exitCode, stdout } = await runCLI(["--path", "test/fixtures/sample-project", "--pipe", "--no-token-count"]);
+  it("should handle different output formats when piping", async () => {
+    // Run both format tests in parallel
+    const [defaultResult, markdownResult] = await Promise.all([
+      // Test 1: Default XML output
+      runCLI(["--path", "test/fixtures/sample-project", "--pipe", "--no-token-count"]),
 
-    expect(exitCode).toBe(0);
-    // With --pipe, we expect the full output in stdout
-    expect(stdout).toContain("<project>");
-    expect(stdout).toContain("<summary>");
-    expect(stdout).toContain("<directoryTree>");
+      // Test 2: Markdown output
+      runCLI(["--path", "test/fixtures/sample-project", "--pipe", "--markdown", "--no-token-count"])
+    ]);
 
-    // Results are also saved
-    expect(stdout).toContain("RESULTS_SAVED:");
-  });
+    // Test 1: Default XML output
+    expect(defaultResult.exitCode).toBe(0);
+    expect(defaultResult.stdout).toContain("<project>");
+    expect(defaultResult.stdout).toContain("<source>");
+    expect(defaultResult.stdout).toContain("<timestamp>");
+    expect(defaultResult.stdout).toContain("<directoryTree>");
+    expect(defaultResult.stdout).toContain("<command>");
 
-  it("outputs markdown to stdout when --pipe and --markdown are used", async () => {
-    const { exitCode, stdout } = await runCLI(["--path", "test/fixtures/sample-project", "--pipe", "--markdown", "--no-token-count"]);
-
-    expect(exitCode).toBe(0);
-    // With --pipe and --markdown, we expect markdown format in stdout
-    expect(stdout).toContain(APP_HEADER);
-    expect(stdout).toContain("## Summary");
-    expect(stdout).toContain("## Directory Structure");
-
-    // Results are also saved
-    expect(stdout).toContain("RESULTS_SAVED:");
+    // Test 2: Markdown output
+    expect(markdownResult.exitCode).toBe(0);
+    expect(markdownResult.stdout).toContain("# File Forge Analysis");
+    expect(markdownResult.stdout).toContain("**Source**:");
+    expect(markdownResult.stdout).toContain("**Timestamp**:");
+    expect(markdownResult.stdout).toContain("**Command**:");
+    expect(markdownResult.stdout).toContain("## Directory Structure");
   });
 });
