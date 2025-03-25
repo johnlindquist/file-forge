@@ -8,8 +8,17 @@
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
+import Handlebars from 'handlebars';
 
 export interface PromptTemplate {
+  name: string;
+  category: string;
+  description: string;
+  compiledPrompt: Handlebars.TemplateDelegate;
+}
+
+// Interface for user-defined templates before compilation
+interface UserTemplate {
   name: string;
   category: string;
   description: string;
@@ -29,6 +38,31 @@ export enum TemplateCategory {
 function getDirname() {
   const __filename = fileURLToPath(import.meta.url);
   return path.dirname(__filename);
+}
+
+/**
+ * Register all Handlebars partials from the templates/partials directory
+ */
+async function registerHandlebarsPartials(): Promise<void> {
+  const baseDir = getDirname();
+  const projectRoot = path.resolve(baseDir, '..');
+  const partialsDir = path.join(projectRoot, 'templates', 'partials');
+
+  try {
+    const partialFiles = await fs.readdir(partialsDir);
+    for (const fileName of partialFiles) {
+      if (fileName.endsWith('.md')) {
+        const partialPath = path.join(partialsDir, fileName);
+        const partialContent = await fs.readFile(partialPath, 'utf8');
+        const partialName = path.basename(fileName, '.md'); // Use filename without extension
+        Handlebars.registerPartial(partialName, partialContent);
+        console.log(`Registered partial: ${partialName}`); // For debugging
+      }
+    }
+  } catch (error) {
+    console.error(`Failed to register Handlebars partials from ${partialsDir}:`, error);
+    throw error; // Re-throw to handle in loadAllTemplates
+  }
 }
 
 /**
@@ -67,63 +101,6 @@ async function loadTemplateFile(fileName: string, isPartial = false): Promise<st
 
   // If we get here, none of the paths worked
   throw lastError;
-}
-
-/**
- * Process a template by replacing partial placeholders with their content
- * @param templateContent The template content
- * @returns The processed template with partials included
- */
-async function processTemplate(templateContent: string): Promise<string> {
-  // Match all partial placeholders like {{> partial-name.md param="value" }}
-  const partialRegex = /\{\{>\s*([^}\s]+)(?:\s+([^}]+))?\s*\}\}/g;
-
-  let result = templateContent;
-  let match;
-  let iterations = 0;
-  const maxIterations = 10; // Prevent infinite loops
-
-  // Process until no more partials are found or max iterations reached
-  while ((result.match(partialRegex)) && iterations < maxIterations) {
-    iterations++;
-    partialRegex.lastIndex = 0; // Reset regex
-
-    while ((match = partialRegex.exec(result)) !== null) {
-      const [fullMatch, partialName, paramsString = ''] = match;
-      if (!partialName) continue;
-
-      // Load the partial template
-      let partialContent = await loadTemplateFile(partialName, true);
-
-      // Parse parameters if provided
-      const params: Record<string, string> = {};
-      const paramsRegex = /(\w+)="([^"]*)"/g;
-      let paramMatch;
-
-      while ((paramMatch = paramsRegex.exec(paramsString)) !== null) {
-        const [, paramName, paramValue] = paramMatch;
-        if (paramName) {
-          params[paramName] = paramValue || '';
-        }
-      }
-
-      // Replace parameters in the partial content
-      for (const [param, value] of Object.entries(params)) {
-        const paramRegex = new RegExp(`\\{${param}\\}`, 'g');
-        partialContent = partialContent.replace(paramRegex, value);
-      }
-
-      // Replace the placeholder with the partial content
-      result = result.substring(0, match.index) +
-        partialContent +
-        result.substring(match.index + fullMatch.length);
-
-      // Reset regex to continue from the position after the replacement
-      partialRegex.lastIndex = match.index + partialContent.length;
-    }
-  }
-
-  return result;
 }
 
 // Template definitions with metadata - content is loaded from files
@@ -187,18 +164,19 @@ export let TEMPLATES: PromptTemplate[] = [];
  * Load all built-in templates from the templates directory
  */
 export async function loadAllTemplates(): Promise<void> {
+  await registerHandlebarsPartials(); // Register partials first
   const templates: PromptTemplate[] = [];
 
   for (const def of templateDefinitions) {
     try {
       const templateContent = await loadTemplateFile(def.templateFile);
-      const processedContent = await processTemplate(templateContent);
+      const compiledTemplate = Handlebars.compile(templateContent);
 
       templates.push({
         name: def.name,
         category: def.category,
         description: def.description,
-        prompt: processedContent
+        compiledPrompt: compiledTemplate
       });
     } catch (error) {
       console.error(`Failed to load template ${def.name}:`, error);
@@ -208,7 +186,7 @@ export async function loadAllTemplates(): Promise<void> {
   TEMPLATES = templates;
 
   // Log templates loaded - for debugging
-  console.log(`Loaded ${TEMPLATES.length} built-in templates`);
+  console.log(`Loaded and compiled ${TEMPLATES.length} built-in templates using Handlebars`);
 }
 
 /**
@@ -221,12 +199,8 @@ export function ensureTemplatesLoaded(): void {
     // If templates haven't been loaded yet, load them now
     if (process.env['NODE_ENV'] === 'test') {
       // For testing environments, set up specific mock templates
-      TEMPLATES = [
-        {
-          name: "explain",
-          category: TemplateCategory.DOCUMENTATION,
-          description: "Explain/Summarize Code - Summarize what a code file does in plain language",
-          prompt: `**Goal:** Provide a clear explanation of the following code's functionality and purpose.
+      const mockTemplateContent = {
+        explain: `**Goal:** Provide a clear explanation of the following code's functionality and purpose.
 
 **Context:**  
 {code}
@@ -239,13 +213,8 @@ export function ensureTemplatesLoaded(): void {
 
 <task>
 Provide a clear and concise explanation of what this code does and how it works in plain language.
-</task>`
-        },
-        {
-          name: "document",
-          category: TemplateCategory.DOCUMENTATION,
-          description: "Add Comments (Document Code) - Insert explanatory comments into the code",
-          prompt: `**Goal:** Document the code by adding helpful comments explaining each major section or logic.
+</task>`,
+        document: `**Goal:** Document the code by adding helpful comments explaining each major section or logic.
 
 **Context:**  
 {code}
@@ -259,13 +228,8 @@ Provide a clear and concise explanation of what this code does and how it works 
 
 <task>
 Add clear, helpful comments to the code that explain each major section, function, or logic flow.
-</task>`
-        },
-        {
-          name: "project",
-          category: TemplateCategory.DOCUMENTATION,
-          description: "Add project.mdc file - Create a Cursor Rules file for project documentation",
-          prompt: `**Goal:** Create a project.mdc file that provides a high-level overview of the codebase structure.
+</task>`,
+        project: `**Goal:** Create a project.mdc file that provides a high-level overview of the codebase structure.
 
 **Context:**  
 {code}
@@ -347,13 +311,8 @@ Generate the project.mdc content in a markdown codefence for easy copy/paste:
 \`\`\`markdown
 [Your generated project.mdc content here]
 \`\`\`
-</task>`
-        },
-        {
-          name: "plan",
-          category: TemplateCategory.GENERATION,
-          description: "Create an implementation plan - Generate step-by-step instructions with task tags",
-          prompt: `**Goal:** Create a detailed implementation plan for the provided code.
+</task>`,
+        plan: `**Goal:** Create a detailed implementation plan for the provided code.
 
 **Context:**  
 {code}
@@ -369,19 +328,45 @@ Generate the project.mdc content in a markdown codefence for easy copy/paste:
 <task>
 Create a detailed implementation plan with specific steps marked as \`<task/>\` items.
 </task>`
+      };
+
+      TEMPLATES = [
+        {
+          name: "explain",
+          category: TemplateCategory.DOCUMENTATION,
+          description: "Explain/Summarize Code - Summarize what a code file does in plain language",
+          compiledPrompt: Handlebars.compile(mockTemplateContent.explain)
         },
-        // Add other templates as needed for specific tests
+        {
+          name: "document",
+          category: TemplateCategory.DOCUMENTATION,
+          description: "Add Comments (Document Code) - Insert explanatory comments into the code",
+          compiledPrompt: Handlebars.compile(mockTemplateContent.document)
+        },
+        {
+          name: "project",
+          category: TemplateCategory.DOCUMENTATION,
+          description: "Add project.mdc file - Create a Cursor Rules file for project documentation",
+          compiledPrompt: Handlebars.compile(mockTemplateContent.project)
+        },
+        {
+          name: "plan",
+          category: TemplateCategory.GENERATION,
+          description: "Create an implementation plan - Generate step-by-step instructions with task tags",
+          compiledPrompt: Handlebars.compile(mockTemplateContent.plan)
+        }
       ];
 
       // If there are other templates in templateDefinitions not covered above, add generic versions
       const existingNames = TEMPLATES.map(t => t.name);
       for (const def of templateDefinitions) {
         if (!existingNames.includes(def.name)) {
+          const genericTemplate = `**Goal:** Test goal for ${def.name}\n\n**Context:**\n{code}\n\n<instructions>\nTest instructions for ${def.name}\n</instructions>\n\n<task>\nTest task for ${def.name}\n</task>`;
           TEMPLATES.push({
             name: def.name,
             category: def.category,
             description: def.description,
-            prompt: `**Goal:** Test goal for ${def.name}\n\n**Context:**\n{code}\n\n<instructions>\nTest instructions for ${def.name}\n</instructions>\n\n<task>\nTest task for ${def.name}\n</task>`
+            compiledPrompt: Handlebars.compile(genericTemplate)
           });
         }
       }
@@ -435,41 +420,20 @@ export function listTemplates(): { name: string; category: string; description: 
  * @returns The prompt with the code inserted
  */
 export function applyTemplate(template: PromptTemplate, code: string): string {
-  let result = template.prompt;
+  try {
+    // Execute the compiled template with the code context
+    let result = template.compiledPrompt({ code });
 
-  // Create a map of variables to replace
-  const variables: Record<string, string> = { code };
-
-  // Extract partial placeholders and their parameters
-  const partialRegex = /\{\{>\s*([^}\s]+)(?:\s+([^}]+))?\s*\}\}/g;
-  let match;
-
-  while ((match = partialRegex.exec(template.prompt)) !== null) {
-    const [, , paramsString = ''] = match;
-
-    // Parse parameters if provided
-    const paramsRegex = /(\w+)="([^"]*)"/g;
-    let paramMatch;
-
-    while ((paramMatch = paramsRegex.exec(paramsString)) !== null) {
-      const [, paramName, paramValue] = paramMatch;
-      if (paramName) {
-        variables[paramName] = paramValue || '';
-      }
+    // Handle directives for XML extraction
+    if (template.name === 'plan') {
+      result = result.replace(/<task>.*?<\/task>/s, '<task>Create a detailed implementation plan with specific steps marked as `<task/>` items.</task>');
     }
-  }
 
-  // Apply all variables to the template
-  for (const [key, value] of Object.entries(variables)) {
-    result = result.replace(new RegExp(`{${key}}`, 'g'), value);
+    return result;
+  } catch (error) {
+    console.error(`Error applying Handlebars template ${template.name}:`, error);
+    return `Error applying template: ${error instanceof Error ? error.message : String(error)}`;
   }
-
-  // Handle directives for XML extraction
-  if (template.name === 'plan') {
-    result = result.replace(/<task>.*?<\/task>/s, '<task>Create a detailed implementation plan with specific steps marked as `<task/>` items.</task>');
-  }
-
-  return result;
 }
 
 /**
@@ -492,17 +456,17 @@ export async function loadUserTemplates(filePath: string): Promise<PromptTemplat
 
     // Read and parse the file
     const content = await fs.readFile(filePath, 'utf8');
-    let userTemplates: PromptTemplate[];
+    let userTemplates: UserTemplate[];
 
     if (filePath.endsWith('.json')) {
       userTemplates = JSON.parse(content);
     } else if (filePath.endsWith('.yaml') || filePath.endsWith('.yml')) {
-      userTemplates = yaml.load(content) as PromptTemplate[];
+      userTemplates = yaml.load(content) as UserTemplate[];
     } else {
       throw new Error('Unsupported file format. Use .json, .yaml, or .yml');
     }
 
-    // Validate user templates
+    // Validate user templates and compile prompts
     const validUserTemplates = userTemplates.filter(template => {
       const isValid =
         typeof template.name === 'string' &&
@@ -515,7 +479,12 @@ export async function loadUserTemplates(filePath: string): Promise<PromptTemplat
       }
 
       return isValid;
-    });
+    }).map(template => ({
+      name: template.name,
+      category: template.category,
+      description: template.description,
+      compiledPrompt: Handlebars.compile(template.prompt)
+    }));
 
     // Merge with built-in templates, overriding any with the same name
     const mergedTemplates = [...TEMPLATES];
@@ -583,7 +552,7 @@ Your instructions here
 <task>
 Describe your task
 </task>`
-    }]);
+    } as UserTemplate]);
 
     // Write the template file
     await fs.writeFile(templateFilePath, templateContent, 'utf8');

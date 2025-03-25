@@ -65,7 +65,7 @@ describe("CLI --template", () => {
 
     expect(exitCode).toBe(0);
     expect(stdout).toContain("<instructions>");
-    expect(stdout).toContain("Begin with a high-level summary");
+    expect(stdout).toContain("Analyze the code or feature requirements");
     expect(stdout).toContain("</instructions>");
     expect(stdout).toContain("<task>");
     expect(stdout).toContain("</task>");
@@ -123,10 +123,10 @@ describe("CLI --template", () => {
     const templateTaskContent = {
       document: "Add clear, helpful comments to the code that explain each major section, function, or logic flow.",
       explain: "Provide a clear and concise explanation of what this code does and how it works in plain language.",
-      refactor: "Refactor this code to improve readability and maintainability while preserving the exact same behavior.",
-      optimize: "Optimize this code for better performance while maintaining the exact same behavior and output.",
-      fix: "Identify and fix any bugs, logical errors, or issues in this code.",
-      test: "Generate comprehensive unit tests for this code that cover both normal scenarios and edge cases.",
+      refactor: "Identify areas for improvement and propose specific refactoring changes.",
+      optimize: "Identify performance bottlenecks and propose specific optimizations.",
+      fix: "Identify potential issues in the code and propose specific fixes.",
+      test: "Create a comprehensive set of unit tests for this code.",
       project: "Generate the project.mdc content in a markdown codefence for easy copy/paste:"
     };
 

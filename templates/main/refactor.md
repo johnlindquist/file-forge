@@ -1,8 +1,8 @@
-{{> goal-header.md goal="Refactor the following code to improve readability and maintainability while preserving its behavior." }}
+{{> goal-header goal="Refactor the code to improve readability and maintainability." }}
 
-{{> instructions-tag.md instructions_content="- Simplify and restructure the code for clarity (e.g. break up complex functions, improve naming).  
-- Do **not** change any functionality or introduce new bugs.  
-- Ensure the output format is a unified diff or the full updated code with changes, so that modifications can be applied easily.  
-- Do not include explanatory text—only provide the refactored code or diff." }}
+{{> instructions-tag instructions_content="- Analyze the code for readability and maintainability issues.  
+- Identify areas that could be simplified or made more clear.  
+- Propose refactoring changes that maintain functionality.  
+- Consider code organization, naming, and best practices." }}
 
-{{> task-tag.md task_content="Refactor this code to improve readability and maintainability while preserving the exact same behavior." }} 
+{{> task-tag task_content="Identify areas for improvement and propose specific refactoring changes." }} 

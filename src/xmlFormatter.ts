@@ -153,10 +153,13 @@ export function buildXMLOutput(
             xml += `\n`;
 
             // Get the processed template - we'll extract data from this
-            const processedTemplate = template.prompt.replace('{code}', digest[PROP_CONTENT] || '');
+            const processedTemplate = template.compiledPrompt({ code: digest[PROP_CONTENT] || '' });
 
             // Extract instructions from the processed template
             const instructionsMatch = processedTemplate.match(/<instructions>([\s\S]*?)<\/instructions>/);
+
+            // Extract example section from the processed template
+            const exampleMatch = processedTemplate.match(/<example>([\s\S]*?)<\/example>/);
 
             // For task tag, we'll use the correct content for the plan template
             let taskContent = "Create a detailed implementation plan with specific steps marked as `<task/>` items.";
@@ -171,6 +174,10 @@ export function buildXMLOutput(
 
             if (instructionsMatch?.[1]) {
                 xml += `${indent}<instructions>\n${childIndent}${wrapInCDATA(instructionsMatch[1].trim())}\n${indent}</instructions>\n`;
+            }
+
+            if (exampleMatch?.[1]) {
+                xml += `${indent}<example>\n${childIndent}${wrapInCDATA(exampleMatch[1].trim())}\n${indent}</example>\n`;
             }
 
             xml += `${indent}<task>\n${childIndent}${wrapInCDATA(taskContent)}\n${indent}</task>\n`;

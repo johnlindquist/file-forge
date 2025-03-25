@@ -1,8 +1,8 @@
-{{> goal-header.md goal="Write unit tests to cover the functionality of the code below." }}
+{{> goal-header goal="Generate comprehensive unit tests for the provided code." }}
 
-{{> instructions-tag.md instructions_content="- Generate a set of unit tests that thoroughly exercise the code's functions and critical paths.  
-- Use an appropriate testing framework and assume the code above is imported or accessible.  
-- Ensure tests are comprehensive and readable (cover normal cases, edge cases, and error conditions if applicable).  
-- Output only the test code (e.g., in a file with test functions), without additional explanation." }}
+{{> instructions-tag instructions_content="- Analyze the code to identify key functionality to test.  
+- Create test cases that cover normal usage and edge cases.  
+- Include assertions to verify expected behavior.  
+- Consider test organization and maintainability." }}
 
-{{> task-tag.md task_content="Generate comprehensive unit tests for this code that cover both normal scenarios and edge cases." }} 
+{{> task-tag task_content="Create a comprehensive set of unit tests for this code." }} 
