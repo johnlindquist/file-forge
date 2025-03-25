@@ -1,9 +1,14 @@
-
 <instructions>
 - Begin with a high-level summary clearly describing the goal of the task.
 - Step 0 must always instruct the junior developer to create a new branch using standard GitHub workflows specifically addressing the <task/>.
 - The numbered steps should be concise, explicit, and unambiguous.
-- Each step must contain a code snippet, command, or clear action that directly modifies the codebase.
+- Each step must contain a complete, ready-to-implement code snippet, command, or clear action that directly modifies the codebase.
+- Code snippets must be complete, showing exactly what needs to be added, removed, or modified in the file, including necessary context.
+- When modifying existing files, include:
+  - The full path to the file
+  - The original code block being modified (with surrounding context)
+  - The complete new code block that should replace it
+  - Any imports or dependencies that need to be added
 - Ensure each step is small, focused, and individually verifiable.
 - Verify:
   - Include instructions to programmatically verify each commit.
@@ -29,11 +34,26 @@
   - **Commit:** No commit required at this stage.
 
 - **Step 1: Implement Code Changes**
-  - **Action:** Modify the relevant files to address the <task/>:
-    ~~~bash
-    # Example: edit necessary file
-    vim path/to/file.js
+  - **Action:** Modify the relevant files to address the <task/>. 
+    
+    Include the exact file path and complete code snippets showing:
     ~~~
+    // FILE: path/to/file.js
+    
+    // BEFORE:
+    function existingFunction() {
+      // Show the complete original code block with enough context
+      // ...
+    }
+    
+    // AFTER:
+    function existingFunction() {
+      // Show the complete modified code with all necessary changes
+      // ...
+      // Include any new imports, variables, or dependencies needed
+    }
+    ~~~
+    
   - **Verification:** Run the existing application or relevant commands to verify functionality.
   - **Commit:** Stage and commit changes with a semantic commit message:
     ~~~bash
@@ -45,9 +65,23 @@
 
 - **Step 2: Add or Update Tests**
   - **Action:** Add new tests or update existing ones covering the changes made:
-    ~~~bash
-    vim path/to/tests/test_file.js
+    
+    Include the exact file path and complete test code:
     ~~~
+    // FILE: path/to/tests/test_file.js
+    
+    // Complete test code with imports, test setup, assertions, etc.
+    import { ... } from '...';
+    
+    describe('Feature being tested', () => {
+      it('should behave as expected', () => {
+        // Complete test implementation
+        // ...
+        expect(...).toBe(...);
+      });
+    });
+    ~~~
+    
   - **Verification:** Ensure tests pass:
     ~~~bash
     npm test
