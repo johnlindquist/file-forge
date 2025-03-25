@@ -2,75 +2,74 @@ import { expect, it, describe } from "vitest";
 import { runCLI } from "./test-helpers.js";
 
 describe("Digest File Content", () => {
-  it("includes all file names and file contents by default in XML format", async () => {
-    // Run with verbose flag
-    const { stdout, exitCode } = await runCLI([
-      "--path",
-      "test/fixtures/sample-project",
-      "--pipe",
-      "--verbose"
+  it("validates file content in different formats", async () => {
+    // Run both format tests in parallel
+    const [xmlResult, markdownResult] = await Promise.all([
+      // Test 1: XML format with verbose
+      runCLI([
+        "--path",
+        "test/fixtures/sample-project",
+        "--pipe",
+        "--verbose"
+      ]),
+
+      // Test 2: Markdown format with verbose
+      runCLI([
+        "--path",
+        "test/fixtures/sample-project",
+        "--markdown",
+        "--pipe",
+        "--verbose"
+      ])
     ]);
-    expect(exitCode).toBe(0);
 
-    // Assert that stdout contains XML tags
-    expect(stdout).toContain("<project>");
-    expect(stdout).toContain("<source>");
-    expect(stdout).toContain("<timestamp>");
-    expect(stdout).toContain("<directoryTree>");
-    expect(stdout).toContain("<files>");
+    // Validate XML format
+    expect(xmlResult.exitCode).toBe(0);
+    expect(xmlResult.stdout).toContain("<project>");
+    expect(xmlResult.stdout).toContain("<source>");
+    expect(xmlResult.stdout).toContain("<timestamp>");
+    expect(xmlResult.stdout).toContain("<directoryTree>");
+    expect(xmlResult.stdout).toContain("<files>");
+    expect(xmlResult.stdout).toContain("sample-project");
+    expect(xmlResult.stdout).toContain(".ts");
+    const xmlMarkerMatch = xmlResult.stdout.match(/RESULTS_SAVED:\s*(.+\.md)/);
+    expect(xmlMarkerMatch).toBeTruthy();
 
-    // Check for content from sample-project files
-    expect(stdout).toContain("sample-project");
-    expect(stdout).toContain(".ts"); // Should show TypeScript files
-
-    // Extract the saved file path using the marker
-    const markerMatch = stdout.match(/RESULTS_SAVED:\s*(.+\.md)/);
-    expect(markerMatch).toBeTruthy();
-  }, 60000);
-
-  it("includes all file names and file contents in Markdown format when --markdown flag is used", async () => {
-    // Run with markdown flag and verbose flag
-    const { stdout, exitCode } = await runCLI([
-      "--path",
-      "test/fixtures/sample-project",
-      "--markdown",
-      "--pipe",
-      "--verbose" // Add verbose flag to ensure file content is included in stdout
-    ]);
-    expect(exitCode).toBe(0);
-
-    // Assert that the stdout contains Markdown format
-    expect(stdout).toContain("# File Forge Analysis");
-    expect(stdout).toContain("**Source**:");
-    expect(stdout).toContain("**Timestamp**:");
-    expect(stdout).toContain("**Command**: `ffg --path test/fixtures/sample-project --markdown --pipe --verbose`");
-    expect(stdout).toContain("## Directory Structure");
-    expect(stdout).toContain("## Files Content");
-
-    // Check for content from sample-project files in the stdout
-    expect(stdout).toContain("sample-project");
-    expect(stdout).toContain(".ts"); // Should show TypeScript files
-
-    // Extract the saved file path using the marker
-    const markerMatch = stdout.match(/RESULTS_SAVED:\s*(.+\.md)/);
-    expect(markerMatch).toBeTruthy();
+    // Validate Markdown format
+    expect(markdownResult.exitCode).toBe(0);
+    expect(markdownResult.stdout).toContain("# File Forge Analysis");
+    expect(markdownResult.stdout).toContain("**Source**:");
+    expect(markdownResult.stdout).toContain("**Timestamp**:");
+    expect(markdownResult.stdout).toContain("**Command**: `ffg --path test/fixtures/sample-project --markdown --pipe --verbose`");
+    expect(markdownResult.stdout).toContain("## Directory Structure");
+    expect(markdownResult.stdout).toContain("## Files Content");
+    expect(markdownResult.stdout).toContain("sample-project");
+    expect(markdownResult.stdout).toContain(".ts");
+    const markdownMarkerMatch = markdownResult.stdout.match(/RESULTS_SAVED:\s*(.+\.md)/);
+    expect(markdownMarkerMatch).toBeTruthy();
   }, 60000);
 
   it("console output respects verbose flag while file contains everything", async () => {
-    // Run without verbose flag first
-    const { stdout: nonVerboseStdout } = await runCLI([
-      "--path",
-      "test/fixtures/sample-project",
-      "--pipe",
+    // Run both verbose and non-verbose tests in parallel
+    const [nonVerboseResult, verboseResult] = await Promise.all([
+      // Test without verbose flag
+      runCLI([
+        "--path",
+        "test/fixtures/sample-project",
+        "--pipe",
+      ]),
+
+      // Test with verbose flag
+      runCLI([
+        "--path",
+        "test/fixtures/sample-project",
+        "--pipe",
+        "--verbose",
+      ])
     ]);
 
-    // Run with verbose flag
-    const { stdout: verboseStdout } = await runCLI([
-      "--path",
-      "test/fixtures/sample-project",
-      "--pipe",
-      "--verbose",
-    ]);
+    const nonVerboseStdout = nonVerboseResult.stdout;
+    const verboseStdout = verboseResult.stdout;
 
     // Verbose output should be longer as it includes file contents
     expect(verboseStdout.length).toBeGreaterThan(nonVerboseStdout.length);

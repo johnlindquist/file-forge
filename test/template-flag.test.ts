@@ -80,21 +80,25 @@ describe("CLI --template", () => {
       "test"
     ];
 
-    for (const name of templates) {
-      const { stdout, exitCode } = await runCLI([
+    // Run template tests in parallel instead of sequentially
+    const results = await Promise.all(templates.map(name =>
+      runCLI([
         "--path",
         "test/fixtures/sample-project",
         "--template",
         name,
         "--pipe",
         "--no-token-count"
-      ]);
+      ])
+    ));
 
+    // Verify results
+    for (const { stdout, exitCode } of results) {
       expect(exitCode).toBe(0);
       expect(stdout).toContain("<instructions>");
       expect(stdout).toContain("</instructions>");
     }
-  }, 30000);
+  }, 15000); // Reduced timeout since we're running in parallel
 
   test("should render correct task content for plan template", async () => {
     const { stdout, exitCode } = await runCLI([
@@ -126,16 +130,23 @@ describe("CLI --template", () => {
       project: "Generate the project.mdc content in a markdown codefence for easy copy/paste:"
     };
 
-    // Test each template
-    for (const [name, expectedContent] of Object.entries(templateTaskContent)) {
-      const { stdout, exitCode } = await runCLI([
+    // Run all template tests in parallel instead of sequentially
+    const templateEntries = Object.entries(templateTaskContent);
+    const results = await Promise.all(templateEntries.map(([name]) =>
+      runCLI([
         "--path",
         "test/fixtures/sample-project",
         "--template",
         name,
         "--pipe",
         "--no-token-count"
-      ]);
+      ])
+    ));
+
+    // Verify results
+    for (let i = 0; i < results.length; i++) {
+      const { stdout, exitCode } = results[i];
+      const [name, expectedContent] = templateEntries[i];
 
       expect(exitCode).toBe(0);
       expect(stdout).toContain("<task>");
@@ -144,12 +155,14 @@ describe("CLI --template", () => {
       if (process.env.NODE_ENV === 'test') {
         // Just check that there's something in the task tag
         expect(stdout).toMatch(/<task>[\s\S]*?<\/task>/);
+        console.log(`Verified task tag content for template: ${name}`);
       } else {
         // For non-test environments, check for the specific content
         expect(stdout).toContain(expectedContent);
+        console.log(`Verified expected content for template: ${name}`);
       }
 
       expect(stdout).toContain("</task>");
     }
-  }, 60000); // Increased timeout since we're testing multiple templates
+  }, 30000); // Reduced timeout since we're running in parallel
 });

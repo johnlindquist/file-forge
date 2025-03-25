@@ -32,60 +32,53 @@ describe("SVG file handling", () => {
         await fs.rm(testDir, { recursive: true, force: true });
     });
 
-    it("should exclude SVG files by default", async () => {
-        const { stdout, exitCode } = await runCLI([
-            "--path",
-            testDir,
-            "--pipe",
-            // No --svg flag, so SVGs should be excluded
+    it("should handle SVG files correctly with different flags", async () => {
+        // Run all three tests in parallel
+        const [defaultResult, svgFlagResult, verboseResult] = await Promise.all([
+            // Test 1: Default behavior (exclude SVG files)
+            runCLI([
+                "--path",
+                testDir,
+                "--pipe",
+                // No --svg flag, so SVGs should be excluded
+            ]),
+
+            // Test 2: Include SVG files with --svg flag
+            runCLI([
+                "--path",
+                testDir,
+                "--pipe",
+                "--svg", // Include SVG files
+            ]),
+
+            // Test 3: Include SVG content with --svg and --verbose flags
+            runCLI([
+                "--path",
+                testDir,
+                "--pipe",
+                "--svg", // Include SVG files
+                "--verbose", // Include file contents
+            ])
         ]);
 
-        expect(exitCode).toBe(0);
+        // Test 1: Default behavior (exclude SVG files)
+        expect(defaultResult.exitCode).toBe(0);
+        expect(defaultResult.stdout).toContain("test-file.txt");
+        expect(defaultResult.stdout).not.toContain("test-icon.svg");
+        expect(defaultResult.stdout).not.toContain("file.svg");
 
-        // The text file should be listed in the directory structure
-        expect(stdout).toContain("test-file.txt");
+        // Test 2: Include SVG files with --svg flag
+        expect(svgFlagResult.exitCode).toBe(0);
+        expect(svgFlagResult.stdout).toContain("test-icon.svg");
+        expect(svgFlagResult.stdout).toContain("file.svg");
+        expect(svgFlagResult.stdout).toContain("test-file.txt");
+        expect(svgFlagResult.stdout).not.toContain("test-icon.svg (excluded - svg)");
+        expect(svgFlagResult.stdout).not.toContain("file.svg (excluded - svg)");
 
-        // The SVG files should not be included in the output (without the --svg flag)
-        expect(stdout).not.toContain("test-icon.svg");
-        expect(stdout).not.toContain("file.svg");
-    });
-
-    it("should include SVG files when using --svg flag without exclusion marker", async () => {
-        const { stdout, exitCode } = await runCLI([
-            "--path",
-            testDir,
-            "--pipe",
-            "--svg", // Include SVG files
-        ]);
-
-        expect(exitCode).toBe(0);
-
-        // All files should be listed in the directory structure
-        expect(stdout).toContain("test-icon.svg");
-        expect(stdout).toContain("file.svg");
-        expect(stdout).toContain("test-file.txt");
-
-        // The SVG files should NOT be marked as excluded
-        expect(stdout).not.toContain("test-icon.svg (excluded - svg)");
-        expect(stdout).not.toContain("file.svg (excluded - svg)");
-    });
-
-    it("should include SVG file contents when using --svg and --verbose flags", async () => {
-        const { stdout, exitCode } = await runCLI([
-            "--path",
-            testDir,
-            "--pipe",
-            "--svg", // Include SVG files
-            "--verbose", // Include file contents
-        ]);
-
-        expect(exitCode).toBe(0);
-
-        // The text file should be included in the output
-        expect(stdout).toContain("This is a text file");
-
-        // The SVG file content should be included in the output
-        expect(stdout).toContain("<svg xmlns");
-        expect(stdout).toContain("<circle cx=");
+        // Test 3: Include SVG content with --svg and --verbose flags
+        expect(verboseResult.exitCode).toBe(0);
+        expect(verboseResult.stdout).toContain("This is a text file");
+        expect(verboseResult.stdout).toContain("<svg xmlns");
+        expect(verboseResult.stdout).toContain("<circle cx=");
     });
 }); 

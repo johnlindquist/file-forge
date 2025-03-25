@@ -33,108 +33,80 @@ describe("Binary file handling", () => {
 
     afterAll(async () => {
         // Clean up the files we created
-        await fs.unlink(textFilePath).catch(() => {
-            // Ignore errors if file doesn't exist
-        });
-        await fs.unlink(largeTextFilePath).catch(() => {
-            // Ignore errors if file doesn't exist
-        });
-        await fs.unlink(largeBinaryFilePath).catch(() => {
-            // Ignore errors if file doesn't exist
-        });
-        await fs.unlink(join(testDir, "debug_output.txt")).catch(() => {
-            // Ignore errors if file doesn't exist
-        });
+        await Promise.all([
+            fs.unlink(textFilePath).catch(() => {/* Ignore errors if file doesn't exist */ }),
+            fs.unlink(largeTextFilePath).catch(() => {/* Ignore errors if file doesn't exist */ }),
+            fs.unlink(largeBinaryFilePath).catch(() => {/* Ignore errors if file doesn't exist */ }),
+            fs.unlink(join(testDir, "debug_output.txt")).catch(() => {/* Ignore errors if file doesn't exist */ })
+        ]);
     });
 
-    it("should exclude binary files by default", async () => {
-        const { stdout, exitCode } = await runCLI([
-            "--path",
-            testDir,
-            "--pipe",
-            // No --ignore=false flag, so default exclusions apply
+    it("should handle binary file operations correctly", async () => {
+        // Run all CLI tests in parallel
+        const [defaultResult, ignoreResult, verboseResult, sizeResult] = await Promise.all([
+            // Test 1: Should exclude binary files by default
+            runCLI([
+                "--path",
+                testDir,
+                "--pipe",
+                // No --ignore=false flag, so default exclusions apply
+            ]),
+
+            // Test 2: Should include binary files when ignore=false
+            runCLI([
+                "--path",
+                testDir,
+                "--pipe",
+                "--ignore=false", // Don't ignore any files, including PNGs
+            ]),
+
+            // Test 3: Should exclude binary contents with verbose flag
+            runCLI([
+                "--path",
+                testDir,
+                "--pipe",
+                "--verbose",
+                "--ignore=false", // Don't ignore any files, including PNGs
+            ]),
+
+            // Test 4: Should correctly label files based on size and binary status
+            runCLI([
+                "--path",
+                testDir,
+                "--pipe",
+                "--ignore=false", // Don't ignore any files
+                "--max-size",
+                "10240", // 10MB max size
+            ])
         ]);
 
-        expect(exitCode).toBe(0);
+        // Test 1: Should exclude binary files by default
+        expect(defaultResult.exitCode).toBe(0);
+        expect(defaultResult.stdout).toContain("test-file.txt");
+        expect(defaultResult.stdout).not.toContain("docs.png");
 
-        // The text file should be listed in the directory structure
-        expect(stdout).toContain("test-file.txt");
+        // Test 2: Should include binary files when ignore=false
+        expect(ignoreResult.exitCode).toBe(0);
+        expect(ignoreResult.stdout).toContain("docs.png");
+        expect(ignoreResult.stdout).toContain("test-file.txt");
+        expect(ignoreResult.stdout).toContain("docs.png (excluded - binary)");
 
-        // The PNG file should NOT be listed in the directory structure
-        expect(stdout).not.toContain("docs.png");
-    });
+        // Test 3: Should exclude binary contents with verbose flag
+        expect(verboseResult.exitCode).toBe(0);
+        expect(verboseResult.stdout).toContain("This is a text file");
+        expect(verboseResult.stdout).toContain("docs.png (excluded - binary)");
+        expect(verboseResult.stdout).not.toContain("Error reading file");
 
-    it("should include binary files in the directory structure when ignore=false", async () => {
-        const { stdout, exitCode } = await runCLI([
-            "--path",
-            testDir,
-            "--pipe",
-            "--ignore=false", // Don't ignore any files, including PNGs
-        ]);
-
-        expect(exitCode).toBe(0);
-
-        // Both files should be listed in the directory structure
-        expect(stdout).toContain("docs.png");
-        expect(stdout).toContain("test-file.txt");
-
-        // The binary file should be marked as excluded in the tree
-        expect(stdout).toContain("docs.png (excluded - binary)");
-
-        // Without the verbose flag, file contents aren't included in the output
-    });
-
-    it("should exclude binary file contents when using verbose flag", async () => {
-        const { stdout, exitCode } = await runCLI([
-            "--path",
-            testDir,
-            "--pipe",
-            "--verbose",
-            "--ignore=false", // Don't ignore any files, including PNGs
-        ]);
-
-        expect(exitCode).toBe(0);
-
-        // The text file should be included in the output
-        expect(stdout).toContain("This is a text file");
-
-        // The binary file should be marked as excluded in the tree
-        expect(stdout).toContain("docs.png (excluded - binary)");
-
-        // Binary files are excluded from the content section
-        // We don't expect to see "Binary file - content not displayed" in the output
-
-        // Make sure we don't have any error messages for the PNG file
-        expect(stdout).not.toContain("Error reading file");
-    });
-
-    it("should correctly label files based on size and binary status", async () => {
-        const { stdout, exitCode } = await runCLI([
-            "--path",
-            testDir,
-            "--pipe",
-            "--ignore=false", // Don't ignore any files
-            "--max-size",
-            "10240", // 10MB max size
-        ]);
-
-        expect(exitCode).toBe(0);
-
-        // Regular text file should have no special label
-        expect(stdout).toContain("test-file.txt");
-        expect(stdout).not.toContain("test-file.txt [");
-        expect(stdout).not.toContain("test-file.txt (excluded");
-
-        // Large text file should be labeled as too large but not binary
-        expect(stdout).toContain("large-text-file.txt [11.00 MB - too large]");
-        expect(stdout).not.toContain("large-text-file.txt [11.00 MB - too large] (excluded - binary)");
-
-        // Binary file should be labeled as binary (may also include size info)
-        expect(stdout).toContain("docs.png");
-        expect(stdout).toContain("(excluded - binary)");
-
-        // Large binary file should be labeled as both too large and binary
-        expect(stdout).toContain("large-binary-file.bin [11.00 MB - too large] (excluded - binary)");
+        // Test 4: Should correctly label files based on size and binary status
+        expect(sizeResult.exitCode).toBe(0);
+        expect(sizeResult.stdout).toContain("test-file.txt");
+        expect(sizeResult.stdout).not.toContain("test-file.txt [");
+        expect(sizeResult.stdout).not.toContain("test-file.txt (excluded");
+        expect(sizeResult.stdout).toContain("large-text-file.txt [11.00 MB - too large]");
+        expect(sizeResult.stdout).not.toContain("large-text-file.txt [11.00 MB - too large] (excluded - binary)");
+        expect(sizeResult.stdout).toContain("docs.png");
+        expect(sizeResult.stdout).toContain("(excluded - binary)");
+        expect(sizeResult.stdout).toContain("large-binary-file.bin [11.00 MB - too large] (excluded - binary)");
     });
 
     it("should not label large text files as binary", async () => {

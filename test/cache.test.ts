@@ -94,8 +94,10 @@ if (isOnMainBranch()) {
           { cwd: remotePath }
         );
 
-        // First run to clone remote
+        // Run a series of CLI commands to test caching
         const remoteUrl = `file://${remotePath}`;
+
+        // First run to clone remote
         const result1 = await runCLI([
           "--repo",
           remoteUrl,
@@ -121,13 +123,39 @@ if (isOnMainBranch()) {
           { cwd: remotePath }
         );
 
-        // Second run should update cache
-        const result2 = await runCLI([
-          "--repo",
-          remoteUrl,
-          "--use-regular-git",
-          "--pipe",
-        ]);
+        // Get hash for later corruption
+        const gitDir = join(cacheDir, `ingest-${result1.hashedSource}`, ".git");
+
+        // Run the second and third CLI calls in parallel
+        // For the third call, we need to corrupt the git repo first
+        const runSecondCLI = async () => {
+          // Second run should update cache
+          return runCLI([
+            "--repo",
+            remoteUrl,
+            "--use-regular-git",
+            "--pipe",
+          ]);
+        };
+
+        const runThirdCLI = async () => {
+          // Wait for some time to ensure the second run has started
+          await new Promise(resolve => setTimeout(resolve, 2000));
+
+          // Corrupt the git repo
+          rmSync(gitDir, { recursive: true, force: true });
+
+          // Third run should detect corruption and reclone
+          return runCLI([
+            "--repo",
+            remoteUrl,
+            "--use-regular-git",
+            "--pipe",
+          ]);
+        };
+
+        // Run the second CLI call
+        const result2 = await runSecondCLI();
         expect(result2.exitCode).toBe(0);
 
         // Check the saved content for the second run
@@ -140,22 +168,16 @@ if (isOnMainBranch()) {
         expect(savedContent2).toContain("initial.js");
         expect(savedContent2).toContain("new.js");
 
-        // Corrupt the git repo
-        const gitDir = join(cacheDir, `ingest-${result1.hashedSource}`, ".git");
-        rmSync(gitDir, { recursive: true, force: true });
-
-        // Third run should detect corruption and reclone
-        const result3 = await runCLI([
-          "--repo",
-          remoteUrl,
-          "--use-regular-git",
-          "--pipe",
-        ]);
+        // Run the third CLI call separately as it's dependent on the corruption
+        const result3 = await runThirdCLI();
         expect(result3.exitCode).toBe(0);
 
         // Extract the saved file path from the output
         const savedMatch3 = result3.stdout.match(/RESULTS_SAVED: (.+\.md)/);
         expect(savedMatch3).toBeTruthy();
+        if (!savedMatch3) {
+          throw new Error("Could not find RESULTS_SAVED marker in output");
+        }
         const [, savedPath3] = savedMatch3;
         const savedContent3 = readFileSync(savedPath3, "utf8");
         expect(savedContent3).toContain("initial.js");

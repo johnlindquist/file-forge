@@ -17,34 +17,33 @@ describe("CLI flags", () => {
 	const FIXTURES_DIR = resolve(__dirname, "fixtures/sample-project");
 
 	describe("include flag", () => {
-		it("should only include TypeScript files when using *.ts pattern", async () => {
-			const result = await scanDirectory(FIXTURES_DIR, {
-				include: ["*.ts"],
-				exclude: [],
-				debug: true,
-			});
+		it("should properly handle TypeScript files with different include patterns", async () => {
+			// Run both scan operations in parallel
+			const [singleLevelResult, recursiveResult] = await Promise.all([
+				scanDirectory(FIXTURES_DIR, {
+					include: ["*.ts"],
+					exclude: [],
+					debug: true,
+				}),
+				scanDirectory(FIXTURES_DIR, {
+					include: ["**/*.ts"],
+					exclude: [],
+					debug: true,
+				})
+			]);
 
-			expect(result).not.toBeNull();
-
-			// Should find test.ts but not hello.js
-			const files =
-				result?.children?.filter((node) => node.type === "file") ?? [];
+			// Test single-level include pattern
+			expect(singleLevelResult).not.toBeNull();
+			const files = singleLevelResult?.children?.filter((node) => node.type === "file") ?? [];
 			console.log(
 				"Root level files:",
 				files.map((f) => f.name),
 			);
 			expect(files).toHaveLength(1);
 			expect(files[0].name).toBe("test.ts");
-		});
 
-		it("should include files in subdirectories when using **/*.ts pattern", async () => {
-			const result = await scanDirectory(FIXTURES_DIR, {
-				include: ["**/*.ts"],
-				exclude: [],
-				debug: true,
-			});
-
-			expect(result).not.toBeNull();
+			// Test recursive include pattern
+			expect(recursiveResult).not.toBeNull();
 
 			// Helper to collect all .ts files recursively
 			function collectTsFiles(node: TreeNode): string[] {
@@ -61,7 +60,7 @@ describe("CLI flags", () => {
 				return files;
 			}
 
-			const tsFiles = collectTsFiles(result as TreeNode);
+			const tsFiles = collectTsFiles(recursiveResult as TreeNode);
 			console.log("All found .ts files:", tsFiles);
 
 			// Should find both test.ts and src/math.ts
@@ -77,366 +76,274 @@ describe("CLI flags", () => {
 describe("exclude logic and .gitignore behavior", () => {
 	const FIXTURES_DIR = join(__dirname, "fixtures", "ignore-test");
 
-	it("should exclude *.js by default when .gitignore is present", async () => {
-		/**
-		 * By default, we want .gitignore patterns to be applied,
-		 * so our 'ignored.js' should *not* appear in the scan results.
-		 */
-		const result = await scanDirectory(FIXTURES_DIR, {
-			// No "exclude" specified => we rely on reading .gitignore by default
-			ignore: true, // or whatever your default is
-			debug: false,
-		});
+	it("should handle .gitignore behavior with different ignore settings", async () => {
+		// Run the tests in parallel
+		const [defaultResult, ignoreDisabledResult, userExcludeResult] = await Promise.all([
+			// Default behavior - .gitignore respected
+			scanDirectory(FIXTURES_DIR, {
+				ignore: true,
+				debug: false,
+			}),
+			// .gitignore disabled behavior
+			scanDirectory(FIXTURES_DIR, {
+				ignore: false,
+				debug: false,
+			}),
+			// User-supplied exclude patterns
+			scanDirectory(FIXTURES_DIR, {
+				ignore: true,
+				exclude: ["*.md"],
+				debug: false,
+			})
+		]);
 
-		expect(result).not.toBeNull();
-		// Flatten out file names:
-		const allFiles = getAllFileNames(result as TreeNode);
+		// Test default behavior
+		expect(defaultResult).not.toBeNull();
+		const defaultFiles = getAllFileNames(defaultResult as TreeNode);
+		expect(defaultFiles).not.toContain("ignored.js");
+		expect(defaultFiles).toContain("kept.ts");
+		expect(defaultFiles).toContain("readme.md");
 
-		// We expect 'ignored.js' to be missing
-		expect(allFiles).not.toContain("ignored.js");
+		// Test ignore:false behavior
+		expect(ignoreDisabledResult).not.toBeNull();
+		const ignoreDisabledFiles = getAllFileNames(ignoreDisabledResult as TreeNode);
+		expect(ignoreDisabledFiles).toContain("ignored.js");
+		expect(ignoreDisabledFiles).toContain("kept.ts");
+		expect(ignoreDisabledFiles).toContain("readme.md");
 
-		// We *do* expect 'kept.ts' and 'readme.md'
-		expect(allFiles).toContain("kept.ts");
-		expect(allFiles).toContain("readme.md");
-	});
-
-	it("should not exclude *.js if we pass `ignore: false`", async () => {
-		/**
-		 * If the user sets ignore: false (or similar),
-		 * we skip reading .gitignore altogether.
-		 */
-		const result = await scanDirectory(FIXTURES_DIR, {
-			ignore: false, // <-- now .gitignore is ignored
-			debug: false,
-		});
-
-		expect(result).not.toBeNull();
-		const allFiles = getAllFileNames(result as TreeNode);
-
-		// Now 'ignored.js' is included, because .gitignore is skipped
-		expect(allFiles).toContain("ignored.js");
-		expect(allFiles).toContain("kept.ts");
-		expect(allFiles).toContain("readme.md");
-	});
-
-	it("should also respect user-supplied exclude patterns (e.g., ignoring *.md)", async () => {
-		/**
-		 * Suppose the user wants to exclude "*.md" in addition to .gitignore.
-		 */
-		const result = await scanDirectory(FIXTURES_DIR, {
-			ignore: true, // still read .gitignore
-			exclude: ["*.md"], // user-supplied exclude
-			debug: false,
-		});
-
-		expect(result).not.toBeNull();
-		const allFiles = getAllFileNames(result as TreeNode);
-
-		// .gitignore says to ignore .js, so 'ignored.js' is excluded
-		expect(allFiles).not.toContain("ignored.js");
-
-		// The user-supplied exclude says to ignore .md, so 'readme.md' is excluded
-		expect(allFiles).not.toContain("readme.md");
-
-		// 'kept.ts' is still present
-		expect(allFiles).toContain("kept.ts");
+		// Test user-supplied exclude patterns
+		expect(userExcludeResult).not.toBeNull();
+		const userExcludeFiles = getAllFileNames(userExcludeResult as TreeNode);
+		expect(userExcludeFiles).not.toContain("ignored.js");
+		expect(userExcludeFiles).not.toContain("readme.md");
+		expect(userExcludeFiles).toContain("kept.ts");
 	});
 });
 
 describe("find flag", () => {
 	const FIXTURES_DIR = resolve(__dirname, "fixtures/sample-project");
 
-	it("should find files containing the search term in their name (case-insensitive)", async () => {
-		const result = await scanDirectory(FIXTURES_DIR, {
-			find: ["test"],
-			debug: true,
-		});
+	it("should find files by name and apply exclude patterns correctly", async () => {
+		// Run both tests in parallel
+		const [findResult, findWithExcludeResult] = await Promise.all([
+			scanDirectory(FIXTURES_DIR, {
+				find: ["test"],
+				debug: true,
+			}),
+			scanDirectory(FIXTURES_DIR, {
+				find: ["test"],
+				exclude: ["*.ts"],
+				debug: true,
+			})
+		]);
 
-		expect(result).not.toBeNull();
-		const allFiles = getAllFileNames(result as TreeNode);
+		// Test basic find
+		expect(findResult).not.toBeNull();
+		const allFiles = getAllFileNames(findResult as TreeNode);
 		console.log("Files found with 'test':", allFiles);
 
-		// Should find test.ts but not hello.js or math.ts
 		expect(allFiles).toContain("test.ts");
 		expect(allFiles).not.toContain("hello.js");
 		expect(allFiles).not.toContain("math.ts");
+
+		// Test find with exclude
+		expect(findWithExcludeResult).toBeNull();
 	});
 
-	it("should work with exclude patterns", async () => {
-		const result = await scanDirectory(FIXTURES_DIR, {
-			find: ["test"],
-			exclude: ["*.ts"],
-			debug: true,
-		});
+	it("should handle case sensitivity and directory scopes", async () => {
+		// Run tests in parallel
+		const [resultLower, resultUpper, resultScoped] = await Promise.all([
+			scanDirectory(FIXTURES_DIR, {
+				find: ["test"],
+				debug: true,
+			}),
+			scanDirectory(FIXTURES_DIR, {
+				find: ["TEST"],
+				debug: true,
+			}),
+			scanDirectory(FIXTURES_DIR, {
+				find: ["math"],
+				include: ["src/**"],
+				debug: true,
+			})
+		]);
 
-		// When all matching files are excluded, we expect null
-		expect(result).toBeNull();
-	});
-
-	it("should be case-insensitive", async () => {
-		// First let's scan with lowercase
-		const resultLower = await scanDirectory(FIXTURES_DIR, {
-			find: ["test"],
-			debug: true,
-		});
-
-		// Then with uppercase
-		const resultUpper = await scanDirectory(FIXTURES_DIR, {
-			find: ["TEST"],
-			debug: true,
-		});
-
+		// Test case insensitivity
 		const filesLower = getAllFileNames(resultLower as TreeNode);
 		const filesUpper = getAllFileNames(resultUpper as TreeNode);
 
 		console.log("Files found with lowercase 'test':", filesLower);
 		console.log("Files found with uppercase 'TEST':", filesUpper);
 
-		// Both searches should find the same files
 		expect(filesLower).toEqual(filesUpper);
 		expect(filesLower).toContain("test.ts");
-	});
 
-	it("should work with directory-scoped includes", async () => {
-		// First scan without include to show we have multiple matches
-		const resultAll = await scanDirectory(FIXTURES_DIR, {
-			find: ["math"],
-			debug: true,
-		});
-
-		expect(resultAll).not.toBeNull();
-		const allFiles = getAllFileNames(resultAll as TreeNode);
-		console.log("All files found with 'math':", allFiles);
-
-		// Now scan with include to scope to src directory
-		const resultScoped = await scanDirectory(FIXTURES_DIR, {
-			find: ["math"],
-			include: ["src/**"],
-			debug: true,
-		});
-
+		// Test directory scoping
 		expect(resultScoped).not.toBeNull();
 		const scopedFiles = getAllFileNames(resultScoped as TreeNode);
 		console.log("Files found with 'math' in src/:", scopedFiles);
 
-		// Should only find math.ts in src/, not any other math files
 		expect(scopedFiles).toContain("math.ts");
 		expect(scopedFiles.length).toBe(1);
 		expect(scopedFiles.every((file) => file.startsWith("math"))).toBe(true);
 	});
 
-	it("should find files containing the search term in their content", async () => {
-		const result = await scanDirectory(FIXTURES_DIR, {
-			find: ["console"],
-			debug: true,
-		});
+	it("should search file content and handle include patterns", async () => {
+		// Run tests in parallel
+		const [contentResult, contentWithIncludeResult] = await Promise.all([
+			scanDirectory(FIXTURES_DIR, {
+				find: ["console"],
+				debug: true,
+			}),
+			scanDirectory(FIXTURES_DIR, {
+				find: ["console"],
+				include: ["*.ts"],
+				debug: true,
+			})
+		]);
 
-		expect(result).not.toBeNull();
-		const allFiles = getAllFileNames(result as TreeNode);
+		// Test content search
+		expect(contentResult).not.toBeNull();
+		const allFiles = getAllFileNames(contentResult as TreeNode);
 		console.log("Files found with content 'console':", allFiles);
 
-		// Should find test.ts and hello.js since they both have console.log
 		expect(allFiles).toContain("test.ts");
 		expect(allFiles).toContain("hello.js");
-		expect(allFiles).not.toContain("math.ts"); // math.ts doesn't have console in it
-	});
-
-	it("should work with include patterns when searching content", async () => {
-		const result = await scanDirectory(FIXTURES_DIR, {
-			find: ["console"],
-			include: ["*.ts"],
-			debug: true,
-		});
-
-		expect(result).not.toBeNull();
-		const allFiles = getAllFileNames(result as TreeNode);
-		console.log("Files found with content 'console' in .ts files:", allFiles);
-
-		// Should only find test.ts since we're only including .ts files
-		expect(allFiles).toContain("test.ts");
-		expect(allFiles).not.toContain("hello.js"); // Excluded by *.ts pattern
-		expect(allFiles).not.toContain("math.ts"); // Doesn't contain console
-	});
-
-	it("should support multiple find flags to match ANY term", async () => {
-		const result = await scanDirectory(FIXTURES_DIR, {
-			find: ["console", "math"], // One term matches hello.js/test.ts, other matches math.ts
-			debug: true,
-		});
-
-		expect(result).not.toBeNull();
-		const allFiles = getAllFileNames(result as TreeNode);
-		console.log("Files found with either 'console' or 'math':", allFiles);
-
-		// Should find:
-		// - test.ts and hello.js (have console)
-		// - math.ts (has math in name)
-		expect(allFiles).toContain("test.ts");
-		expect(allFiles).toContain("hello.js");
-		expect(allFiles).toContain("math.ts");
-	});
-
-	it("should match any term in filenames but require all terms in content", async () => {
-		const result = await scanDirectory(FIXTURES_DIR, {
-			find: ["test", "nonexistent"],
-			debug: true,
-		});
-
-		expect(result).not.toBeNull();
-		const allFiles = getAllFileNames(result as TreeNode);
-		console.log(
-			"Files found with 'test' in name or all terms in content:",
-			allFiles,
-		);
-
-		// Should find test.ts because it matches in filename, even though content doesn't have 'nonexistent'
-		expect(allFiles).toContain("test.ts");
-		// But shouldn't find files that only match one term in content
-		expect(allFiles).not.toContain("hello.js");
-	});
-
-	it("should handle empty or undefined find flags", async () => {
-		const resultEmpty = await scanDirectory(FIXTURES_DIR, {
-			find: [],
-			debug: true,
-		});
-
-		const resultUndefined = await scanDirectory(FIXTURES_DIR, {
-			debug: true,
-		});
-
-		// Both should return all files since no filtering
-		expect(getAllFileNames(resultEmpty as TreeNode)).toEqual(
-			getAllFileNames(resultUndefined as TreeNode),
-		);
-	});
-
-	it("should support multiple -f flags from command line", async () => {
-		const { stdout, exitCode } = await runCLI([
-			"test/fixtures/sample-project",
-			"-f",
-			"console",
-			"-f",
-			"log",
-			"--pipe",
-		]);
-
-		expect(exitCode).toBe(0);
-		// Should find both test.ts and hello.js since they have console.log
-		expect(stdout).toContain("test.ts");
-		expect(stdout).toContain("hello.js");
-		// But not math.ts which doesn't have console.log
-		expect(stdout).not.toContain("math.ts");
-	});
-
-	it("should support comma-separated find values with OR behavior", async () => {
-		const { stdout, exitCode } = await runCLI([
-			"test/fixtures/sample-project",
-			"--find=console,math",
-			"--pipe",
-		]);
-
-		expect(exitCode).toBe(0);
-		// Should find both console.log files and math.ts
-		expect(stdout).toContain("test.ts");
-		expect(stdout).toContain("hello.js");
-		expect(stdout).toContain("math.ts");
-	});
-
-	it("should support require flag for AND behavior", async () => {
-		const result = await scanDirectory(FIXTURES_DIR, {
-			require: ["console", "log"], // Must have both terms
-			debug: true,
-		});
-
-		expect(result).not.toBeNull();
-		const allFiles = getAllFileNames(result as TreeNode);
-		console.log("Files found with BOTH 'console' AND 'log':", allFiles);
-
-		// Should find test.ts and hello.js since they both have console.log
-		expect(allFiles).toContain("test.ts");
-		expect(allFiles).toContain("hello.js");
-		// But not math.ts which has neither
 		expect(allFiles).not.toContain("math.ts");
+
+		// Test content search with include pattern
+		expect(contentWithIncludeResult).not.toBeNull();
+		const includedFiles = getAllFileNames(contentWithIncludeResult as TreeNode);
+		console.log("Files found with content 'console' in .ts files:", includedFiles);
+
+		expect(includedFiles).toContain("test.ts");
+		expect(includedFiles).not.toContain("hello.js");
+		expect(includedFiles).not.toContain("math.ts");
 	});
 
-	it("should support both find and require flags together", async () => {
-		const result = await scanDirectory(FIXTURES_DIR, {
-			find: ["math"], // Files with math OR
-			require: ["console", "log"], // Files with both console AND log
-			debug: true,
-		});
-
-		expect(result).not.toBeNull();
-		const allFiles = getAllFileNames(result as TreeNode);
-		console.log("Files with 'math' OR (both 'console' AND 'log'):", allFiles);
-
-		// Should find:
-		// - math.ts (matches 'math')
-		// - test.ts and hello.js (have both console AND log)
-		expect(allFiles).toContain("math.ts"); // Has 'math'
-		expect(allFiles).toContain("test.ts"); // Has console.log
-		expect(allFiles).toContain("hello.js"); // Has console.log
-	});
-
-	it("should support comma-separated require values", async () => {
-		const { stdout, exitCode } = await runCLI([
-			"test/fixtures/sample-project",
-			"--require=console,log",
-			"--pipe",
+	it("should handle multiple search terms with OR/AND logic", async () => {
+		// Run tests in parallel
+		const [multipleTermsResult, requireFlagResult, combinedFlagsResult] = await Promise.all([
+			scanDirectory(FIXTURES_DIR, {
+				find: ["console", "math"],
+				debug: true,
+			}),
+			scanDirectory(FIXTURES_DIR, {
+				require: ["console", "log"],
+				debug: true,
+			}),
+			scanDirectory(FIXTURES_DIR, {
+				find: ["math"],
+				require: ["console", "log"],
+				debug: true,
+			})
 		]);
 
-		expect(exitCode).toBe(0);
-		// Should only find files with both console AND log
-		expect(stdout).toContain("test.ts");
-		expect(stdout).toContain("hello.js");
-		expect(stdout).not.toContain("math.ts");
+		// Test multiple find terms (OR behavior)
+		expect(multipleTermsResult).not.toBeNull();
+		const multiTermFiles = getAllFileNames(multipleTermsResult as TreeNode);
+		console.log("Files found with either 'console' or 'math':", multiTermFiles);
+
+		expect(multiTermFiles).toContain("test.ts");
+		expect(multiTermFiles).toContain("hello.js");
+		expect(multiTermFiles).toContain("math.ts");
+
+		// Test require flag (AND behavior)
+		expect(requireFlagResult).not.toBeNull();
+		const requireFiles = getAllFileNames(requireFlagResult as TreeNode);
+		console.log("Files found with BOTH 'console' AND 'log':", requireFiles);
+
+		expect(requireFiles).toContain("test.ts");
+		expect(requireFiles).toContain("hello.js");
+		expect(requireFiles).not.toContain("math.ts");
+
+		// Test combined find and require flags
+		expect(combinedFlagsResult).not.toBeNull();
+		const combinedFiles = getAllFileNames(combinedFlagsResult as TreeNode);
+		console.log("Files with 'math' OR (both 'console' AND 'log'):", combinedFiles);
+
+		expect(combinedFiles).toContain("math.ts");
+		expect(combinedFiles).toContain("test.ts");
+		expect(combinedFiles).toContain("hello.js");
 	});
 
-	it("should handle complex combinations of find and require", async () => {
-		const { stdout, exitCode } = await runCLI([
-			"test/fixtures/sample-project",
-			"--find=math",
-			"--require=console,log",
-			"--pipe",
+	it("should handle CLI argument variations for find and require", async () => {
+		// Run CLI commands in parallel
+		const [multipleFlagsResult, commaSeparatedFindResult, commaSeparatedRequireResult, complexCombinationResult] = await Promise.all([
+			runCLI([
+				"test/fixtures/sample-project",
+				"-f",
+				"console",
+				"-f",
+				"log",
+				"--pipe",
+			]),
+			runCLI([
+				"test/fixtures/sample-project",
+				"--find=console,math",
+				"--pipe",
+			]),
+			runCLI([
+				"test/fixtures/sample-project",
+				"--require=console,log",
+				"--pipe",
+			]),
+			runCLI([
+				"test/fixtures/sample-project",
+				"--find=math",
+				"--require=console,log",
+				"--pipe",
+			])
 		]);
 
-		expect(exitCode).toBe(0);
-		// Should find files with 'math' OR (both 'console' AND 'log')
-		expect(stdout).toContain("math.ts"); // Has 'math'
-		expect(stdout).toContain("test.ts"); // Has console.log
-		expect(stdout).toContain("hello.js"); // Has console.log
-	});
+		// Test multiple -f flags
+		expect(multipleFlagsResult.exitCode).toBe(0);
+		expect(multipleFlagsResult.stdout).toContain("test.ts");
+		expect(multipleFlagsResult.stdout).toContain("hello.js");
+		expect(multipleFlagsResult.stdout).not.toContain("math.ts");
+
+		// Test comma-separated find values
+		expect(commaSeparatedFindResult.exitCode).toBe(0);
+		expect(commaSeparatedFindResult.stdout).toContain("test.ts");
+		expect(commaSeparatedFindResult.stdout).toContain("hello.js");
+		expect(commaSeparatedFindResult.stdout).toContain("math.ts");
+
+		// Test comma-separated require values
+		expect(commaSeparatedRequireResult.exitCode).toBe(0);
+		expect(commaSeparatedRequireResult.stdout).toContain("test.ts");
+		expect(commaSeparatedRequireResult.stdout).toContain("hello.js");
+		expect(commaSeparatedRequireResult.stdout).not.toContain("math.ts");
+
+		// Test complex combinations
+		expect(complexCombinationResult.exitCode).toBe(0);
+		expect(complexCombinationResult.stdout).toContain("math.ts");
+		expect(complexCombinationResult.stdout).toContain("test.ts");
+		expect(complexCombinationResult.stdout).toContain("hello.js");
+	}, 30000);
 });
 
 describe("default directory behavior", () => {
-	it("should use current directory when no source is provided", async () => {
+	it("should handle default and filtered directory behaviors", async () => {
 		const cwd = process.cwd();
-		const result = await scanDirectory(cwd, {
-			debug: true,
-		});
+		const [defaultResult, filteredResult] = await Promise.all([
+			scanDirectory(cwd, {
+				debug: true,
+			}),
+			scanDirectory(cwd, {
+				include: ["*.ts"],
+				debug: true,
+			})
+		]);
 
-		expect(result).not.toBeNull();
-		const allFiles = getAllFileNames(result as TreeNode);
+		expect(defaultResult).not.toBeNull();
+		const allFiles = getAllFileNames(defaultResult as TreeNode);
 		console.log("Files found in current directory:", allFiles);
-
-		// Should find at least the test file itself
 		expect(allFiles).toContain("cli.test.ts");
-	});
 
-	it("should work with other flags when using default directory", async () => {
-		const cwd = process.cwd();
-		const result = await scanDirectory(cwd, {
-			include: ["*.ts"],
-			debug: true,
-		});
-
-		expect(result).not.toBeNull();
-		const allFiles = getAllFileNames(result as TreeNode);
-		console.log("TypeScript files found in current directory:", allFiles);
-
-		// Should only find TypeScript files
-		expect(allFiles.every((file) => file.endsWith(".ts"))).toBe(true);
+		expect(filteredResult).not.toBeNull();
+		const tsFiles = getAllFileNames(filteredResult as TreeNode);
+		console.log("TypeScript files found in current directory:", tsFiles);
+		expect(tsFiles.every((file) => file.endsWith(".ts"))).toBe(true);
 	});
 });
 

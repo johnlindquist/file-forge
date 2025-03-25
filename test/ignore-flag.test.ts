@@ -3,32 +3,36 @@ import { describe, it, expect } from "vitest";
 import { runCLI } from "./test-helpers";
 
 describe("CLI --ignore", () => {
-  it("defaults to using .gitignore if --ignore is true", async () => {
-    // See also examples in your existing tests for ignoring .js
-    const { stdout, exitCode } = await runCLI([
-      "--path",
-      "test/fixtures/ignore-test",
-      "--ignore",
-      "--pipe",
+  it("should test .gitignore behavior with different settings", async () => {
+    // Run both tests in parallel
+    const [defaultResult, bypassResult] = await Promise.all([
+      // Test 1: Default behavior with --ignore
+      runCLI([
+        "--path",
+        "test/fixtures/ignore-test",
+        "--ignore",
+        "--pipe",
+      ]),
+
+      // Test 2: Bypass .gitignore with --ignore=false
+      runCLI([
+        "--path",
+        "test/fixtures/ignore-test",
+        "--ignore=false",
+        "--pipe",
+      ])
     ]);
 
-    expect(exitCode).toBe(0);
-    // We expect 'ignored.js' to not appear
-    expect(stdout).not.toMatch(/ignored\.js/);
+    // Test 1: Default behavior with --ignore
+    expect(defaultResult.exitCode).toBe(0);
+    // We expect 'ignored.js' to not appear when respecting .gitignore
+    expect(defaultResult.stdout).not.toMatch(/ignored\.js/);
     // We do expect 'kept.ts'
-    expect(stdout).toMatch(/kept\.ts/);
-  });
+    expect(defaultResult.stdout).toMatch(/kept\.ts/);
 
-  it("bypasses .gitignore if --ignore=false", async () => {
-    const { stdout, exitCode } = await runCLI([
-      "--path",
-      "test/fixtures/ignore-test",
-      "--ignore=false",
-      "--pipe",
-    ]);
-
-    expect(exitCode).toBe(0);
-    // 'ignored.js' is now included
-    expect(stdout).toMatch(/ignored\.js/);
+    // Test 2: Bypass .gitignore with --ignore=false
+    expect(bypassResult.exitCode).toBe(0);
+    // 'ignored.js' is now included when bypassing .gitignore
+    expect(bypassResult.stdout).toMatch(/ignored\.js/);
   });
 });
