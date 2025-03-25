@@ -157,6 +157,11 @@ export async function runCli() {
       type: "boolean",
       default: false,
     })
+    .option("whitespace", {
+      type: "boolean",
+      default: false,
+      describe: "Enable extra indentation and spacing in output",
+    })
     .example("$0 --path /path/to/project", "Analyze a local project directory")
     .example(
       "$0 https://github.com/owner/repo --branch develop",

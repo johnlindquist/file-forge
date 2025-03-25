@@ -13,6 +13,7 @@ interface OutputOptions {
   xml?: boolean | undefined;
   markdown?: boolean | undefined;
   command?: string | undefined;
+  whitespace?: boolean | undefined;
   [key: string]: unknown;
 }
 
@@ -119,5 +120,6 @@ export function buildOutput(
     bulk: options.bulk,
     verbose: options.verbose || options.debug || !options.pipe || options.clipboard,
     command: options.command,
+    whitespace: options.whitespace,
   });
 }

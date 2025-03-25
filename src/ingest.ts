@@ -762,7 +762,8 @@ export async function gatherFiles(
 export function createTree(
   node: TreeNode,
   prefix: string,
-  isLast = true
+  isLast = true,
+  flags: IngestFlags = {}
 ): string {
   const branchStr = isLast ? "└── " : "├── ";
 
@@ -789,12 +790,16 @@ export function createTree(
   const tree = `${prefix}${branchStr}${node.name}${node.type === "directory" ? "/" : additionalInfo}\n`;
 
   if (node.type === "directory" && node.children && node.children.length > 0) {
-    const newPrefix = `${prefix}${isLast ? "    " : "│   "}`;
+    // Use conditional whitespace based on the flag
+    const indentation = flags.whitespace ? "    " : "  ";
+    const divider = flags.whitespace ? "│   " : "│ ";
+    const newPrefix = `${prefix}${isLast ? indentation : divider}`;
+
     return (
       tree +
       node.children
         .map((child: TreeNode, idx: number) =>
-          createTree(child, newPrefix, idx === node.children!.length - 1)
+          createTree(child, newPrefix, idx === node.children!.length - 1, flags)
         )
         .join("")
     );
@@ -809,7 +814,7 @@ async function processFiles(basePath: string, flags: IngestFlags) {
     throw new Error("No files found or directory is empty after scanning.");
 
   const files = await gatherFiles(rootNode, flags);
-  const tree = createTree(rootNode, "");
+  const tree = createTree(rootNode, "", true, flags);
 
   return { files, tree };
 }

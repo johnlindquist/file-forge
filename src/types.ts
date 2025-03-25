@@ -37,6 +37,7 @@ export type IngestFlags = {
   editTemplate?: string | undefined;
   markdown?: boolean | undefined;
   noTokenCount?: boolean;
+  whitespace?: boolean | undefined;
 };
 
 export type ScanStats = {
