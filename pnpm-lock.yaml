@@ -38,6 +38,9 @@ importers:
       gray-matter:
         specifier: ^4.0.3
         version: 4.0.3
+      handlebars:
+        specifier: ^4.7.8
+        version: 4.7.8
       ignore:
         specifier: ^7.0.3
         version: 7.0.3
