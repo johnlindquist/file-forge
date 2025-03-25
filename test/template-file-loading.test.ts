@@ -1,5 +1,5 @@
 import { expect, test, describe, beforeAll } from 'vitest';
-import { loadAllTemplates, getTemplateByName, TEMPLATES } from '../src/templates';
+import { loadAllTemplates, getTemplateByName, TEMPLATES, applyTemplate } from '../src/templates';
 
 describe('Template File Loading', () => {
     beforeAll(async () => {
@@ -22,7 +22,7 @@ describe('Template File Loading', () => {
         expect(getTemplateByName('plan')).toBeDefined();
     });
 
-    test('templates should contain the expected structure', () => {
+    test('templates should contain the expected structure', async () => {
         const explainTemplate = getTemplateByName('explain');
         expect(explainTemplate).toBeDefined();
         if (explainTemplate) {
@@ -31,8 +31,8 @@ describe('Template File Loading', () => {
             expect(explainTemplate.category).toBe('documentation');
             expect(explainTemplate.description).toBe('Explain/Summarize Code - Summarize what a code file does in plain language');
 
-            // Check that the template compiles and renders correctly
-            const rendered = explainTemplate.compiledPrompt({ code: 'test code' });
+            // Check that the template renders correctly
+            const rendered = await applyTemplate(explainTemplate.templateContent, 'test code');
             expect(rendered).toContain('**Goal:**');
             expect(rendered).toContain('**Context:**');
             expect(rendered).toContain('<instructions>');
@@ -41,7 +41,7 @@ describe('Template File Loading', () => {
 
             // Ensure code placeholder is replaced
             expect(rendered).toContain('test code');
-            expect(rendered).not.toContain('{{code}}');
+            expect(rendered).not.toContain('{{ code }}');
 
             // Check that there are no leftover partial placeholders
             expect(rendered).not.toContain('{{>');
@@ -52,8 +52,11 @@ describe('Template File Loading', () => {
         const projectTemplate = getTemplateByName('project');
         expect(projectTemplate).toBeDefined();
         if (projectTemplate) {
-            // Check for the example section which should be injected from a partial
-            const rendered = projectTemplate.compiledPrompt({ code: 'test code' });
+            // Check that the template contains the example section
+            expect(projectTemplate.templateContent).toContain('<example>');
+
+            // Check rendering
+            const rendered = await applyTemplate(projectTemplate.templateContent, 'test code');
             expect(rendered).toContain('<example>');
             expect(rendered).toContain('# GHX - GitHub Code Search CLI');
             expect(rendered).toContain('## Key Files');
@@ -63,20 +66,22 @@ describe('Template File Loading', () => {
         }
     });
 
-    test('parameter replacement in partials works correctly', async () => {
+    test('parameter replacement works correctly', async () => {
         const explainTemplate = getTemplateByName('explain');
         expect(explainTemplate).toBeDefined();
         if (explainTemplate) {
-            // Check that parameters in the header partial are replaced
-            const rendered = explainTemplate.compiledPrompt({ code: 'test code' });
-            expect(rendered).toContain("**Goal:** Provide a clear explanation of the following code&#x27;s functionality and purpose.");
+            // Check that code placeholder is replaced
+            const rendered = await applyTemplate(explainTemplate.templateContent, 'test code');
+            expect(rendered).toContain("**Goal:** Provide a clear explanation of the following code's functionality and purpose.");
+            expect(rendered).toContain('test code');
         }
 
         const refactorTemplate = getTemplateByName('refactor');
         expect(refactorTemplate).toBeDefined();
         if (refactorTemplate) {
-            const rendered = refactorTemplate.compiledPrompt({ code: 'test code' });
+            const rendered = await applyTemplate(refactorTemplate.templateContent, 'test code');
             expect(rendered).toContain('Refactor the code to improve readability and maintainability.');
+            expect(rendered).toContain('test code');
         }
     });
 }); 

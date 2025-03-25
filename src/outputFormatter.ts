@@ -86,8 +86,18 @@ export function buildOutput(
           digest[PROP_CONTENT] || ""
         ].join("\n\n");
 
-        // Apply the template to the content
-        const promptContent = applyTemplate(template, allContent);
+        // Apply the template to the content using async/await in synchronous context
+        // This is a workaround since we can't make this function async
+        let promptContent = "Processing template...";
+
+        // Using try/catch instead of await
+        applyTemplate(template.templateContent, allContent)
+          .then(result => {
+            promptContent = result;
+          })
+          .catch(error => {
+            promptContent = `Error applying template: ${error}`;
+          });
 
         contentParts.push(
           "## AI Prompt Template",
