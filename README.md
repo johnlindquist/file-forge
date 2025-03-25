@@ -163,27 +163,34 @@ File Forge includes a set of prompt templates that can be applied to your analys
 
 ### Customizing Templates
 
-You can create your own templates or override the built-in ones by creating a templates file in your File Forge configuration directory:
+You can create your own templates or override the built-in ones by creating individual template files in your File Forge configuration directory:
 
-- **macOS:** `~/Library/Preferences/@johnlindquist/file-forge/config/templates.yaml`
-- **Linux:** `~/.config/@johnlindquist/file-forge/config/templates.yaml`
-- **Windows:** `%APPDATA%/@johnlindquist/file-forge/config/templates.yaml`
+- **macOS:** `~/Library/Preferences/@johnlindquist/file-forge/templates/`
+- **Linux:** `~/.config/@johnlindquist/file-forge/templates/`
+- **Windows:** `%APPDATA%/@johnlindquist/file-forge/templates/`
 
-The file can be in YAML or JSON format. Here's an example YAML template:
+Each template is a Markdown (`.md`) file with front-matter containing metadata and a body containing the template content. Here's an example template `custom-explain.md`:
 
-```yaml
-- name: custom-explain
-  category: documentation
-  description: My custom explanation template
-  prompt: |
-    **Goal:** Explain this code in simple terms.
+```markdown
+---
+name: custom-explain
+category: documentation
+description: My custom explanation template
+---
 
-    **Context:**  
-    {code}
+**Goal:** Explain this code in simple terms.
 
-    **Instructions:**  
-    - Explain what this code does in simple language
-    - Focus on the main functionality
+**Context:**  
+{{ code }}
+
+<instructions>
+- Explain what this code does in simple language
+- Focus on the main functionality
+</instructions>
+
+<task>
+Provide a clear explanation of the code for a non-technical audience.
+</task>
 ```
 
 When you run File Forge, it will automatically load and merge your custom templates with the built-in ones.

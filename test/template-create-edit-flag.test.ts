@@ -75,7 +75,7 @@ const cleanupFiles = async (files: string[]) => {
 describe("Template Creation and Editing Flags", () => {
     const testTemplateName = "test-template";
     const sanitizedName = testTemplateName.replace(/[^a-zA-Z0-9_-]/g, "_").toLowerCase();
-    const templateFilePath = path.resolve(TEMPLATES_DIR, `${sanitizedName}.yaml`);
+    const templateFilePath = path.resolve(TEMPLATES_DIR, `${sanitizedName}.md`);
     debugLog(`Template file path: ${templateFilePath}`);
 
     // Clean up after each test
@@ -142,6 +142,7 @@ describe("Template Creation and Editing Flags", () => {
                     expect(content).toContain(`name: ${testTemplateName}`);
                     expect(content).toContain('category: documentation');
                     expect(content).toContain('description: Custom template');
+                    expect(content).toContain('---'); // Check for front-matter delimiters
                     expect(content).toContain('<instructions>');
                     expect(content).toContain('<task>');
                 }
