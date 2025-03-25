@@ -8,7 +8,8 @@ function buildDependencyTree(
   deps: { [key: string]: string[] },
   current: string,
   visited = new Set<string>(),
-  prefix = ""
+  prefix = "",
+  flags: IngestFlags = {}
 ): string {
   let treeStr = prefix + current + "\n";
   visited.add(current);
@@ -17,9 +18,14 @@ function buildDependencyTree(
     const isLast = index === children.length - 1;
     const connector = isLast ? "└── " : "├── ";
     if (visited.has(child)) {
-      treeStr += prefix + "  " + connector + child + " (circular)\n";
+      // Use conditional whitespace for child spacing
+      const spacing = flags.whitespace ? "  " : " ";
+      treeStr += prefix + spacing + connector + child + " (circular)\n";
     } else {
-      const newPrefix = prefix + (isLast ? "    " : "│   ");
+      // Use conditional whitespace for indentation
+      const indentation = flags.whitespace ? "    " : "  ";
+      const divider = flags.whitespace ? "│   " : "│ ";
+      const newPrefix = prefix + (isLast ? indentation : divider);
       treeStr +=
         prefix +
         connector +
@@ -27,7 +33,8 @@ function buildDependencyTree(
           deps,
           child,
           new Set(visited),
-          newPrefix
+          newPrefix,
+          flags
         ).trimStart();
     }
   });
@@ -122,7 +129,7 @@ export async function ingestGraph(
   console.log("[DEBUG] All files found:", Array.from(allFiles));
 
   // Build tree structure
-  const treeStr = buildDependencyTree(dependencies, basename(entryFile));
+  const treeStr = buildDependencyTree(dependencies, basename(entryFile), new Set(), "", flags);
   console.log("[DEBUG] Generated tree structure:\n", treeStr);
 
   // Gather file contents

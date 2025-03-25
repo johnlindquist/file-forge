@@ -10,6 +10,7 @@ interface XMLOutputOptions {
     bulk?: boolean | undefined;
     verbose?: boolean | undefined;
     command?: string | undefined;
+    whitespace?: boolean | undefined;
 }
 
 /**
@@ -78,40 +79,45 @@ export function buildXMLOutput(
     // let xml = `<analysis name="${escapeXML(projectName)}" generated="${generatedDate}">\n`;
     let xml = ``;
 
+    // Use conditional indentation
+    const indent = options.whitespace ? "  " : "";
+    const childIndent = options.whitespace ? "    " : "  ";
+    const contentIndent = options.whitespace ? "      " : "    ";
+
     // Project metadata
-    xml += `  <project>\n`;
-    xml += `    <source>${escapeXML(source)}</source>\n`;
-    xml += `    <timestamp>${escapeXML(timestamp)}</timestamp>\n`;
+    xml += `${indent}<project>\n`;
+    xml += `${childIndent}<source>${escapeXML(source)}</source>\n`;
+    xml += `${childIndent}<timestamp>${escapeXML(timestamp)}</timestamp>\n`;
     if (options.command) {
-        xml += `    <command>${escapeXML(options.command)}</command>\n`;
+        xml += `${childIndent}<command>${escapeXML(options.command)}</command>\n`;
     }
 
     // Add Git information if available
     const gitInfo = getGitInfo(source);
     if (Object.keys(gitInfo).length > 0) {
-        xml += `    <git>\n`;
-        if (gitInfo['branch']) xml += `      <branch>${escapeXML(gitInfo['branch'])}</branch>\n`;
-        if (gitInfo['remote']) xml += `      <remote>${escapeXML(gitInfo['remote'])}</remote>\n`;
-        if (gitInfo['commit']) xml += `      <commit>${escapeXML(gitInfo['commit'])}</commit>\n`;
-        if (gitInfo['commitDate']) xml += `      <commitDate>${escapeXML(gitInfo['commitDate'])}</commitDate>\n`;
-        xml += `    </git>\n`;
+        xml += `${childIndent}<git>\n`;
+        if (gitInfo['branch']) xml += `${contentIndent}<branch>${escapeXML(gitInfo['branch'])}</branch>\n`;
+        if (gitInfo['remote']) xml += `${contentIndent}<remote>${escapeXML(gitInfo['remote'])}</remote>\n`;
+        if (gitInfo['commit']) xml += `${contentIndent}<commit>${escapeXML(gitInfo['commit'])}</commit>\n`;
+        if (gitInfo['commitDate']) xml += `${contentIndent}<commitDate>${escapeXML(gitInfo['commitDate'])}</commitDate>\n`;
+        xml += `${childIndent}</git>\n`;
     }
 
-    xml += `  </project>\n`;
+    xml += `${indent}</project>\n`;
 
     // Summary section
-    xml += `  <summary>\n`;
-    xml += `    ${wrapInCDATA(digest[PROP_SUMMARY] || "")}\n`;
-    xml += `  </summary>\n`;
+    xml += `${indent}<summary>\n`;
+    xml += `${childIndent}${wrapInCDATA(digest[PROP_SUMMARY] || "")}\n`;
+    xml += `${indent}</summary>\n`;
 
     // Directory structure
-    xml += `  <directoryTree>\n`;
-    xml += `    ${wrapInCDATA(digest[PROP_TREE] || "")}\n`;
-    xml += `  </directoryTree>\n`;
+    xml += `${indent}<directoryTree>\n`;
+    xml += `${childIndent}${wrapInCDATA(digest[PROP_TREE] || "")}\n`;
+    xml += `${indent}</directoryTree>\n`;
 
     // File contents (if verbose or saving to file)
     if (options.verbose) {
-        xml += `  <files>\n`;
+        xml += `${indent}<files>\n`;
         // Split content by file sections and wrap each in a file tag
         const fileContents = (digest[PROP_CONTENT] || "").split(/(?=^=+\nFile: .*\n=+\n)/m);
         for (const fileContent of fileContents) {
@@ -125,19 +131,19 @@ export function buildXMLOutput(
             // Remove the header to get the file content
             const content = fileContent.replace(/^=+\nFile: .*\n=+\n/, "").trim();
 
-            xml += `    <file path="${escapeXML(filename)}">\n`;
-            xml += `      ${wrapInCDATA(content)}\n`;
-            xml += `    </file>\n`;
+            xml += `${childIndent}<file path="${escapeXML(filename)}">\n`;
+            xml += `${contentIndent}${wrapInCDATA(content)}\n`;
+            xml += `${childIndent}</file>\n`;
         }
-        xml += `  </files>\n`;
+        xml += `${indent}</files>\n`;
     }
 
     // AI instructions if bulk mode is enabled
     if (options.bulk) {
-        xml += `  <aiInstructions>\n`;
-        xml += `    <instruction>When I provide a set of files with paths and content, please return **one single shell script**</instruction>\n`;
-        xml += `    <instruction>Use \`#!/usr/bin/env bash\` at the start</instruction>\n`;
-        xml += `  </aiInstructions>\n`;
+        xml += `${indent}<aiInstructions>\n`;
+        xml += `${childIndent}<instruction>When I provide a set of files with paths and content, please return **one single shell script**</instruction>\n`;
+        xml += `${childIndent}<instruction>Use \`#!/usr/bin/env bash\` at the start</instruction>\n`;
+        xml += `${indent}</aiInstructions>\n`;
     }
 
     // Template section if specified (moved after analysis tag)
@@ -164,12 +170,12 @@ export function buildXMLOutput(
             }
 
             if (instructionsMatch?.[1]) {
-                xml += `<instructions>\n${wrapInCDATA(instructionsMatch[1].trim())}\n</instructions>\n`;
+                xml += `${indent}<instructions>\n${childIndent}${wrapInCDATA(instructionsMatch[1].trim())}\n${indent}</instructions>\n`;
             }
 
-            xml += `<task>\n${wrapInCDATA(taskContent)}\n</task>\n`;
+            xml += `${indent}<task>\n${childIndent}${wrapInCDATA(taskContent)}\n${indent}</task>\n`;
         } else {
-            xml += `\n<e>Template "${escapeXML(options.template)}" not found. Use --list-templates to see available templates.</e>\n`;
+            xml += `\n${indent}<e>Template "${escapeXML(options.template)}" not found. Use --list-templates to see available templates.</e>\n`;
         }
     }
 

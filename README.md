@@ -16,6 +16,7 @@
   - Open results in your default editor with `--open`
   - Copy output to clipboard using `--clipboard`
   - Generate Markdown output with `--markdown` (default output is XML)
+  - Control whitespace/indentation with `--whitespace`
 - **Advanced Modes**:
   - **Bulk Mode**: Append AI processing instructions with `--bulk`
   - **Debug/Verbose**: Enable additional logging with `--debug` or `--verbose`
@@ -91,6 +92,10 @@ ffg --graph src/index.js
 - **Generate Markdown output (default is XML):**
   ```bash
   ffg src --markdown
+  ```
+- **Enable whitespace/indentation in output:**
+  ```bash
+  ffg src --whitespace
   ```
 - **Bulk Analysis Mode:**
   ```bash
