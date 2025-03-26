@@ -14,7 +14,25 @@ permissions:
   pull-requests: write
 
 jobs:
+  check_changes:
+    runs-on: ubuntu-latest
+    outputs:
+      should_skip: ${{ steps.filter.outputs.only_templates_md }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: dorny/paths-filter@v2
+        id: filter
+        with:
+          filters: |
+            only_templates_md:
+              - templates/**/*.md
+              - '!**/*.{js,ts,jsx,tsx,json,yml,yaml}'
+
   test:
+    needs: check_changes
+    if: ${{ needs.check_changes.outputs.should_skip != 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
