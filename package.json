@@ -20,6 +20,7 @@
     "test:clipboard": "pnpm build && vitest run --silent --test-name-pattern clipboard",
     "test:commit": "pnpm build && vitest run --silent --test-name-pattern commit",
     "test:watch": "pnpm build && vitest --watch",
+    "test:templates": "node scripts/test-templates.js",
     "dev": "node --experimental-strip-types src/index.ts",
     "build": "tsc",
     "build:check": "tsc --noEmit",

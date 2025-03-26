@@ -1,5 +1,5 @@
 import { PROP_SUMMARY, PROP_TREE, PROP_CONTENT } from "./constants.js";
-import { getTemplateByName, applyTemplate } from "./templates.js";
+import { getTemplateByName } from "./templates.js";
 import { buildXMLOutput } from "./xmlFormatter.js";
 
 interface OutputOptions {
@@ -77,32 +77,13 @@ export function buildOutput(
     if (options.template) {
       const template = getTemplateByName(options.template);
       if (template) {
-        // Combine all content for the template
-        const allContent = [
-          digest[PROP_SUMMARY] || "",
-          "```",
-          digest[PROP_TREE] || "",
-          "```",
-          digest[PROP_CONTENT] || ""
-        ].join("\n\n");
-
-        // Apply the template to the content using async/await in synchronous context
-        // This is a workaround since we can't make this function async
-        let promptContent = "Processing template...";
-
-        // Using try/catch instead of await
-        applyTemplate(template.templateContent, allContent)
-          .then(result => {
-            promptContent = result;
-          })
-          .catch(error => {
-            promptContent = `Error applying template: ${error}`;
-          });
-
+        // Note: This is a synchronous function but we need to get async template results
+        // The template content will be included in the markdown output directly
+        // Avoid displaying "Processing template..." in the final output
         contentParts.push(
           "## AI Prompt Template",
           `Using template: ${template.name} (${template.description})`,
-          promptContent
+          '<plan>\n<![CDATA[' + template.templateContent + ']]>\n</plan>'
         );
       } else {
         contentParts.push(
