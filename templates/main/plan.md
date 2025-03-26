@@ -1,184 +1,290 @@
+<prompt_instructions>
+You are tasked with generating a step-by-step guide for a junior developer to complete a specific coding task using standard Git and GitHub workflows.
+
+1.  **Receive Input:** The user will provide the specific task description inside the `<task>` XML tags.
+2.  **Generate Output:** Use the provided template below to generate a markdown response.
+3.  **Integrate Task Description:**
+    *   Replace all instances of `{{TASK_DESCRIPTION}}` in the template with the concise description provided by the user in the `<task>` tags.
+    *   Generate a suitable branch name (e.g., `feature/implement-{{task-slug}}` or `fix/resolve-{{task-slug}}`) based on the task description and replace `{{BRANCH_NAME}}` with it. Use kebab-case for the descriptive part.
+    *   Use the task description appropriately in commit messages and the PR title/body.
+4.  **Provide COMPLETE Code Snippets:**
+    *   **Crucially, in Step 1 and Step 2, you MUST provide COMPLETE code snippets.** This means showing the *entire* relevant function, component, class, or test block (`describe`/`it`) both *before* and *after* the changes.
+    *   Use comments like `// ... existing code ...` ONLY to denote unchanged sections within *very large files*, ensuring enough surrounding code is shown for context. Do NOT use `...` for small or moderately sized blocks.
+    *   Clearly indicate additions and deletions or the 'before' and 'after' state.
+5.  **Follow Template Structure:** Adhere strictly to the structure, commands, and instructions within the `<template>` section.
+6.  **Emphasize Best Practices:** Ensure the generated guide strongly emphasizes verification (linting, type checking, **full test suite runs**) *before* each commit, small atomic commits, and clear PR descriptions.
+7.  **Package Manager Note:** Include a note reminding the user to adapt package manager commands (`npm`, `yarn`, `pnpm`) to their specific project.
+8.  **Clarity and Conciseness:** Ensure the generated steps are explicit, unambiguous, and easy to follow.
+</prompt_instructions>
+
 <template>
+# Guide: {{TASK_DESCRIPTION}}
 
-<instructions>
-- Begin with a high-level summary clearly describing the goal of the task.
-- Step 0 must always instruct the junior developer to create a new branch using standard GitHub workflows specifically addressing the <task/>.
-- The numbered steps should be concise, explicit, and unambiguous.
-- Each step must contain COMPLETE code snippets, commands, or clear actions that directly modify the codebase.
-- Ensure each step is small, focused, and individually verifiable.
-- **Code Snippets:** 
-  - Always provide COMPLETE code for each file being modified, not just fragments.
-  - Show the ENTIRE function or component being changed, with context.
-  - Clearly indicate what code is being removed and what is being added.
-  - For larger files, use comments like `// ... existing code ...` to indicate unchanged sections, but be sure to include sufficient context.
-- **Verification:**
-  - Include instructions to programmatically verify each step's changes *before* committing.
-  - **Run linters and type checks (`npm run lint`, `npm run typecheck`, or similar) frequently.**
-  - **Run the *full* relevant test suite (`npm test`, `pnpm test`, or specific suites like `npm test -- --suite integration`) after each significant code change.** Don't rely solely on commit hooks.
-  - If tests exist, add or update tests covering the changes. If tests fail, analyze the output carefully to understand the cause before proceeding. Use debuggers or logging if needed.
-  - If tests don't exist, add clear manual verification steps, including edge cases.
-  - **Be mindful of differences between runtime and test environments (I/O, env vars, `process.exit` mocking). Verify behavior in both contexts if relevant.**
-- End each step by clearly instructing the junior developer to commit their changes using standard GitHub workflows *only after successful verification*.
-- **Commit Strategy:** Aim for small, atomic commits after each verified step. If a step requires multiple small fixes to pass verification, commit them together for that step. Avoid large commits encompassing unrelated fixes or extensive debugging.
-- IMPORTANT: NEVER use newline characters in Git commit messages as they can break workflows. Always use multiple '-m' parameters instead.
-- IMPORTANT: NEVER use newline characters in any shell commands. For multiline text in commands, use '\n' escape sequences.
-- git and gh commands should always be run with "| cat" to avoid pager behavior.
+**High-Level Summary:**
+This guide outlines the steps to successfully implement "{{TASK_DESCRIPTION}}". It emphasizes a structured workflow using Git, including branching, incremental changes with verification (including COMPLETE code examples), testing, and creating a clear Pull Request on GitHub. Adhering to these steps ensures code quality and smooth integration.
 
-- **High-Level Summary:**
-  - Clearly describe the overall goal of completing the <task/>. Ensure you understand how the changes might interact with other parts of the system, including tests.
+*(Note: Adapt package manager commands like `pnpm run ...` or `npm test` to match your project's setup: `npm`, `yarn`, or `pnpm`.)*
 
-- **Step 0: Create a New Branch**
-  - **Action:** Create and switch to a new branch specifically for the <task/>:
-    ~~~bash
-    # Example: feature/update-user-auth or fix/resolve-login-bug
-    git checkout -b <type>/<short-description-of-task> | cat
-    ~~~
-  - **Verification:** Confirm the branch was created successfully:
-    ~~~bash
-    git branch | cat
-    ~~~
-  - **Commit:** No commit required at this stage.
+---
 
-- **Step 1: Implement Code Changes**
-  - **Action:** Modify the relevant files to address the <task/>. Understand how these changes affect program flow and potential side effects.
-    ~~~typescript
-    // COMPLETE example showing the ENTIRE function or component:
-    
-    // Before changes:
-    function authenticate(username: string, password: string): boolean {
-      // ... existing implementation ...
+**Step 0: Create a New Branch**
+
+*   **Goal:** Isolate your work for "{{TASK_DESCRIPTION}}" on a dedicated branch.
+*   **Action:** Create and switch to a new branch. Choose `feature/` for new functionality or `fix/` for bug fixes.
+    ```bash
+    # Example: git checkout -b feature/add-user-profile | cat
+    # Example: git checkout -b fix/login-validation-error | cat
+    git checkout -b {{BRANCH_NAME}} | cat
+    ```
+*   **Verification:** Confirm you are on the new branch.
+    ```bash
+    git branch --show-current | cat
+    # Expected output: {{BRANCH_NAME}}
+    ```
+*   **Commit:** No commit needed here.
+
+---
+
+**Step 1: Implement Code Changes**
+
+*   **Goal:** Modify the necessary code files to implement the core logic for "{{TASK_DESCRIPTION}}".
+*   **Action:** Edit the relevant file(s) (e.g., `src/feature.ts`, `lib/utils.js`). **Ensure you replace the entire relevant code block as shown.**
+
+    *Example for file `src/auth.ts`:*
+    ```typescript
+    // === BEFORE CHANGES in src/auth.ts ===
+    // Ensure you show the complete function or relevant block
+
+    // (Optional: Show surrounding code for context if needed)
+    // import { someDependency } from './dependency';
+
+    export function authenticate(username: string, password: string): boolean {
+      console.log('Attempting authentication...');
+      // Example existing logic:
+      const isValid = username === 'admin' && password === 'password123';
+      // ... potentially more complex logic ...
       return isValid;
     }
-    
-    // After changes:
-    function authenticate(username: string, password: string): boolean {
+
+    // (Optional: Show other functions/code in the file if relevant context)
+    // export function otherAuthFunction() { ... }
+
+    // === AFTER CHANGES in src/auth.ts ===
+    // Replace the previous block with this complete, updated version
+
+    // (Optional: Show surrounding code for context if needed)
+    // import { someDependency } from './dependency';
+    // import { isAccountLocked } from './accountStatus'; // New dependency
+
+    export function authenticate(username: string, password: string): boolean {
+      console.log('Attempting authentication with new validation...'); // Updated log
+
+      // Added input validation
       if (!username || !password) {
+        console.error('Authentication failed: Username or password missing.');
         return false;
       }
-      
-      // ... existing validation logic ...
-      
-      return isValid && !isLocked;
-    }
-    ~~~
-    *Self-Correction Prompt: Did you consider how this change interacts with the test environment's mocking (e.g., for `process.exit`, network requests)?*
-  - **Verification:**
-    1. Run linters and type checkers: `pnpm lint && pnpm build:check` (or equivalent). Fix any errors.
-    2. Run the application or relevant commands if applicable to manually check basic functionality.
-    3. **Run the full test suite relevant to the changes:** `pnpm test` (or `pnpm test -- <path/to/relevant/tests>`). Analyze and fix any failures.
-  - **Commit:** Stage and commit changes *only after all verification steps pass*:
-    ~~~bash
-    git add <path/to/modified/files>
-    # IMPORTANT: Always use multiple -m parameters instead of newlines
-    git commit -m "feat/fix/refactor: Describe primary change for <task/>" -m "Provide a concise explanation of the 'what' and 'why'." -m "Add context if needed (e.g., 'Addresses issue #123')."
-    ~~~
 
-- **Step 2: Add or Update Tests**
-  - **Action:** Add new tests or update existing ones in the relevant test files (e.g., `test/auth.test.ts`) to cover the changes made in Step 1, including edge cases and potential regressions.
-    ~~~typescript
-    // COMPLETE test example:
-    
-    // Before changes:
+      // Example existing logic:
+      const isValidCredentials = username === 'admin' && password === 'password123';
+
+      // Added check for locked account
+      if (isValidCredentials && isAccountLocked(username)) {
+         console.warn(`Authentication failed: Account '${username}' is locked.`);
+         return false;
+      }
+
+      // ... potentially more complex logic ...
+
+      return isValidCredentials; // Return based on combined checks
+    }
+
+    // (Optional: Show other functions/code in the file if relevant context)
+    // export function otherAuthFunction() { ... }
+    ```
+    *Self-Correction Prompt: Did you consider how this change interacts with the test environment's mocking (e.g., for `isAccountLocked`, network requests, `process.exit`)?*
+
+*   **Verification (Mandatory Before Commit):**
+    1.  **Lint & Type Check:** Run linters and type checkers. Fix all reported issues.
+        ```bash
+        # Adapt to your project's scripts
+        pnpm lint && pnpm build:check
+        ```
+    2.  **Run Tests:** Execute the *full* test suite relevant to your changes. Analyze and fix any failures meticulously. Use debuggers or logging if necessary. Do not rely solely on commit hooks.
+        ```bash
+        # Adapt to your project's scripts (e.g., npm test, yarn test, pnpm test -- <path/to/tests>)
+        pnpm test
+        ```
+    3.  **(Optional) Manual Check:** If applicable, run the application or specific commands to manually verify the basic functionality behaves as expected.
+*   **Commit (Only After Successful Verification):** Stage and commit *only* the changes related to this step.
+    ```bash
+    git add <path/to/modified/files> # e.g., git add src/auth.ts
+    # IMPORTANT: Use multiple -m flags for multi-line commit messages. NO newlines directly in the command.
+    git commit -m "feat/fix/refactor: Start implementing {{TASK_DESCRIPTION}}" -m "Description of specific changes made (e.g., Added validation, integrated account lock check)." -m "(Optional) Further context or issue reference (e.g., Part of #123)."
+    ```
+
+---
+
+**Step 2: Add or Update Tests**
+
+*   **Goal:** Ensure the changes made for "{{TASK_DESCRIPTION}}" are covered by automated tests to prevent regressions and verify behavior, including edge cases.
+*   **Action:** Add new tests or update existing ones in the relevant test file(s) (e.g., `test/feature.test.ts`, `src/auth.spec.js`). **Ensure you show complete test blocks (`describe` or `it`).**
+
+    *Example for file `test/auth.test.ts`:*
+    ```typescript
+    // === BEFORE CHANGES in test/auth.test.ts ===
+    // Show the complete relevant 'describe' or 'it' blocks
+
+    import { authenticate } from '../src/auth';
+    // (Mock setup might exist here)
+
     describe('Authentication', () => {
       it('should return true for valid credentials', () => {
         expect(authenticate('admin', 'password123')).toBe(true);
+      });
+
+      // Maybe other tests exist
+      it('should return false for invalid password', () => {
+        expect(authenticate('admin', 'wrongpassword')).toBe(false);
       });
     });
-    
-    // After changes:
+
+    // === AFTER CHANGES in test/auth.test.ts ===
+    // Replace or add complete test blocks
+
+    import { authenticate } from '../src/auth';
+    // Mock the new dependency if needed
+    // import { isAccountLocked } from '../src/accountStatus';
+    // jest.mock('../src/accountStatus');
+    // const mockedIsAccountLocked = isAccountLocked as jest.Mock;
+
     describe('Authentication', () => {
-      it('should return true for valid credentials', () => {
+      // (Optional setup before each test)
+      // beforeEach(() => {
+      //   mockedIsAccountLocked.mockReturnValue(false); // Default mock state
+      // });
+
+      it('should return true for valid credentials when account is not locked', () => {
+        // mockedIsAccountLocked.mockReturnValue(false); // Ensure not locked
         expect(authenticate('admin', 'password123')).toBe(true);
       });
-      
-      it('should handle invalid credentials gracefully', () => {
+
+      it('should return false for invalid password', () => {
+        expect(authenticate('admin', 'wrongpassword')).toBe(false);
+      });
+
+      // New test: Added input validation checks
+      it('should return false if username or password is empty', () => {
         expect(authenticate('', 'password123')).toBe(false);
         expect(authenticate('admin', '')).toBe(false);
         expect(authenticate('', '')).toBe(false);
       });
-      
-      it('should reject locked accounts even with valid credentials', () => {
-        // Setup locked account state
-        mockAccountLocked(true);
+
+      // New test: Added check for locked accounts
+      it('should return false for valid credentials if account is locked', () => {
+        // Setup mock for locked account scenario
+        // mockedIsAccountLocked.mockReturnValue(true);
         expect(authenticate('admin', 'password123')).toBe(false);
-        // Teardown
-        mockAccountLocked(false);
       });
     });
-    ~~~
-  - **Verification:**
-    1. Run linters and type checkers: `pnpm lint && pnpm build:check` (or equivalent). Fix any errors.
-    2. **Run the full test suite, ensuring the new/updated tests pass and no existing tests regressed:** `pnpm test`. Analyze and fix any failures.
-  - **Commit:** Stage and commit test changes *only after all verification steps pass*:
-    ~~~bash
-    git add <path/to/test/files>
-    # IMPORTANT: Always use multiple -m parameters instead of newlines
-    git commit -m "test: Add/update tests for <task/>" -m "Verify core behavior and edge cases."
-    ~~~
+    ```
+*   **Verification (Mandatory Before Commit):**
+    1.  **Lint & Type Check:** Run linters and type checkers. Fix all reported issues.
+        ```bash
+        # Adapt to your project's scripts
+        pnpm lint && pnpm build:check
+        ```
+    2.  **Run Tests:** Execute the *full* test suite again. Ensure your new/updated tests pass and **no existing tests have regressed**. Analyze and fix any failures.
+        ```bash
+        # Adapt to your project's scripts
+        pnpm test
+        ```
+*   **Commit (Only After Successful Verification):** Stage and commit *only* the test file changes.
+    ```bash
+    git add <path/to/test/files> # e.g., git add test/auth.test.ts
+    # IMPORTANT: Use multiple -m flags for multi-line commit messages.
+    git commit -m "test: Add/update tests for {{TASK_DESCRIPTION}}" -m "Verify new validation logic and account locking behavior."
+    ```
 
-- **Step 3: Push Branch**
-  - **Action:** Push your verified branch to the remote repository:
-    ~~~bash
-    git push -u origin <type>/<short-description-of-task> | cat
-    ~~~
-  - **Verification:** Confirm your branch was pushed successfully and is tracking the remote:
-    ~~~bash
+---
+
+**Step 3: Push Branch to Remote**
+
+*   **Goal:** Upload your local branch and its commits to the remote repository (e.g., GitHub).
+*   **Action:** Push the branch, setting it up to track the remote branch.
+    ```bash
+    git push -u origin {{BRANCH_NAME}} | cat
+    ```
+*   **Verification:** Check that the branch was pushed and is tracking the remote.
+    ```bash
     git branch -vv | cat
-    ~~~
-  - **Commit:** No commit required for this step.
+    # Look for your branch: {{BRANCH_NAME}} [origin/{{BRANCH_NAME}}] ...
+    ```
+*   **Commit:** No commit needed here.
 
-- **Step 4: Create Pull Request with GitHub CLI**
-  - **Action:**
-    1.  Create a detailed PR description file (`/tmp/pr-description.md`) using the `edit tool`. Ensure it accurately reflects the *final* state of the branch.
-~~~markdown
-## Summary
-[Provide a clear, concise overview of what changes were made and why. Reference the original <task/>.]
+---
 
-## Changes Made
-- [List the key code changes implemented in Step 1]
-- [Mention the tests added/updated in Step 2]
-- [Note any significant refactoring or architectural decisions]
+**Step 4: Create Pull Request (PR)**
 
-## Justification
-- [Explain the rationale behind the implementation]
-- [Reference any relevant issues (e.g., Closes #123)]
+*   **Goal:** Propose your changes for review and merging into the main codebase.
+*   **Action:**
+    1.  **Prepare Description:** Create a temporary file (e.g., `/tmp/pr-description.md`) with a detailed description of your changes using your preferred text editor. Use the markdown template below. Ensure it reflects the *final state* of your branch.
+        ```markdown
+        ## Summary
+        Implements "{{TASK_DESCRIPTION}}". [Add 1-2 sentences explaining the goal and the solution, e.g., Added input validation and account lock checks to the authentication function.]
 
-## Testing
-- [Describe the verification steps performed (linting, type checks, full test suite run)]
-- [Confirm all tests passed]
-- [Mention any manual verification steps if applicable]
+        ## Changes Made
+        - Modified `src/auth.ts`: [Briefly describe changes, e.g., Added checks for empty username/password and called `isAccountLocked`].
+        - Updated `test/auth.test.ts`: [Briefly describe changes, e.g., Added test cases for input validation and locked accounts].
+        - [Mention any significant refactoring or design choices]
 
-## Dependencies
-- [List any dependencies added, removed, or updated]
+        ## Justification
+        - [Explain why these changes were necessary, e.g., Improves security by preventing authentication attempts with invalid input and locking out compromised accounts.]
+        - [Reference related issues, e.g., Closes #123, Addresses #456]
 
-## Additional Notes
-- [Include any other relevant information, potential follow-up work, or considerations for the reviewer]
-~~~
-    2.  Use the file to create the PR:
-    ~~~bash
-    # ALWAYS use --body-file for PR descriptions to avoid newline issues
-    gh pr create --title "feat/fix/refactor: Implement <task/>" --body-file /tmp/pr-description.md | cat
-    ~~~
-    3.  Clean up the temporary file:
-    ~~~bash
-    rm /tmp/pr-description.md
-    ~~~
-  - **Verification:** Confirm the PR was created successfully by checking the URL provided in the output. Check the PR details on GitHub.
+        ## Testing
+        - Verified changes using linting (`pnpm lint`) and type checking (`pnpm build:check`).
+        - Ran the full test suite (`pnpm test`) after code changes and after adding/updating tests. All tests pass. Confirmed coverage for new logic.
+        - [Mention any specific manual verification steps performed, if any]
 
-- **Step 5: Return to Main Branch**
-  - **Action:** Switch back to the main branch locally:
-    ~~~bash
+        ## Dependencies
+        - [List any dependencies added, removed, or updated, e.g., Added mock setup for `isAccountLocked` in tests.]
+
+        ## Additional Notes
+        - [Any other context for the reviewer, potential follow-up work, etc.]
+        ```
+    2.  **Create PR:** Use the GitHub CLI (`gh`) and your description file to create the Pull Request. Using `--body-file` avoids issues with newlines and complex formatting in the shell.
+        ```bash
+        # Update the title appropriately (e.g., feat: Enhance authentication with validation and locking)
+        gh pr create --title "feat/fix: Implement {{TASK_DESCRIPTION}}" --body-file /tmp/pr-description.md | cat
+        ```
+    3.  **Clean Up:** Remove the temporary description file.
+        ```bash
+        rm /tmp/pr-description.md
+        ```
+*   **Verification:** Check the output of the `gh pr create` command for the URL of the newly created PR. Visit the URL in your browser to confirm the title, body, and associated changes are correct.
+*   **Commit:** No commit needed here.
+
+---
+
+**Step 5: Return to Main Branch**
+
+*   **Goal:** Switch your local repository back to the main branch to keep it updated and ready for future tasks.
+*   **Action:** Check out the main branch (commonly `main` or `master`).
+    ```bash
+    # Use 'main', 'master', or your project's default branch name
     git checkout main | cat
-    ~~~
-  - **Verification:** Confirm you've returned to the main branch:
-    ~~~bash
+    ```
+*   **Verification:** Confirm you are back on the main branch.
+    ```bash
     git branch --show-current | cat
-    ~~~
-  - **Commit:** No commit required; your task is now complete pending PR review.
-</instructions>
+    # Expected output: main (or your default branch name)
+    ```
+*   **Commit:** No commit needed. Your work for "{{TASK_DESCRIPTION}}" is submitted for review via the PR.
 
+---
+</template>
 
 <task>
-Please describe your task
+{{USER_TASK_HERE}}
 </task>
-</template>
