@@ -10,6 +10,14 @@ if [ -z "$CI" ]; then
     exit 1
   fi
 
+  # Check if only markdown files in templates directory are changed
+  only_template_md_changed=$(git diff --cached --name-only | grep -v "^templates/.*\.md$" | wc -l)
+  
+  if [ "$only_template_md_changed" -eq "0" ] && [ "$(git diff --cached --name-only | wc -l)" -gt "0" ]; then
+    echo "✅ Only template markdown files changed. Skipping tests."
+    exit 0
+  fi
+
   # Install deps, lint, type check, test
   pnpm install && \
   pnpm eslint . --fix --max-warnings 0 && \

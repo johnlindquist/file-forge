@@ -15,8 +15,25 @@ permissions:
   pull-requests: write
 
 jobs:
+  check_changes:
+    runs-on: ubuntu-latest
+    outputs:
+      only_templates_md: ${{ steps.filter.outputs.only_templates_md }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: dorny/paths-filter@v2
+        id: filter
+        with:
+          filters: |
+            only_templates_md:
+              - templates/**/*.md
+              - '!**/*.{js,ts,jsx,tsx,json,yml,yaml}'
+
   release:
     name: Release
+    needs: check_changes
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -32,7 +49,8 @@ jobs:
           version: 8
       - run: pnpm install
       - run: pnpm build
-      - run: pnpm test
+      - if: ${{ needs.check_changes.outputs.only_templates_md != 'true' }}
+        run: pnpm test
       - name: Verify CLI
         run: |
           pnpm link --global
