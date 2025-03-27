@@ -71,10 +71,11 @@ describe("CLI --template", () => {
     ]);
 
     expect(exitCode).toBe(0);
-    // Only check for task tag which is consistently added by xmlFormatter regardless of template structure
-    expect(stdout).toContain("<task>");
-    expect(stdout).toContain("Create a detailed implementation plan");
-    expect(stdout).toContain("</task>");
+    // Check for plan tag with CDATA content instead of task tag
+    expect(stdout).toContain("<plan name=\"plan\">");
+    expect(stdout).toContain("<![CDATA[");
+    expect(stdout).toContain("]]>");
+    expect(stdout).toContain("</plan>");
   });
 
   test("should use <instructions> tags in all templates", async () => {
@@ -117,9 +118,13 @@ describe("CLI --template", () => {
     ]);
 
     expect(exitCode).toBe(0);
-    expect(stdout).toContain("<task>");
-    expect(stdout).toContain("Create a detailed implementation plan with specific steps marked as `<task/>` items.");
-    expect(stdout).toContain("</task>");
+    // Check for plan tag with CDATA structure
+    expect(stdout).toContain("<plan name=\"plan\">");
+    expect(stdout).toContain("<![CDATA[");
+    // The plan template should contain some common content even after processing
+    expect(stdout).toContain("# Guide:");
+    expect(stdout).toContain("]]>");
+    expect(stdout).toContain("</plan>");
   });
 
   test("should render correct task content for all templates", async () => {
@@ -153,20 +158,24 @@ describe("CLI --template", () => {
       const [name, expectedContent] = templateEntries[i];
 
       expect(exitCode).toBe(0);
-      expect(stdout).toContain("<task>");
 
-      // The test templates might not have the exact content we expect
-      if (process.env['NODE_ENV'] === 'test') {
-        // Just check that there's something in the task tag
-        expect(stdout).toMatch(/<task>[\s\S]*?<\/task>/);
-        console.log(`Verified task tag content for template: ${name}`);
-      } else {
-        // For non-test environments, check for the specific content
-        expect(stdout).toContain(expectedContent);
-        console.log(`Verified expected content for template: ${name}`);
+      // Skip plan template as it now has a different structure
+      if (name !== 'plan') {
+        expect(stdout).toContain("<task>");
+
+        // The test templates might not have the exact content we expect
+        if (process.env['NODE_ENV'] === 'test') {
+          // Just check that there's something in the task tag
+          expect(stdout).toMatch(/<task>[\s\S]*?<\/task>/);
+          console.log(`Verified task tag content for template: ${name}`);
+        } else {
+          // For non-test environments, check for the specific content
+          expect(stdout).toContain(expectedContent);
+          console.log(`Verified expected content for template: ${name}`);
+        }
+
+        expect(stdout).toContain("</task>");
       }
-
-      expect(stdout).toContain("</task>");
     }
   }, 30000); // Increased timeout since we're testing multiple templates
 });

@@ -173,28 +173,18 @@ export async function buildXMLOutput(
                 // Process the template with includes first
                 const processedTemplate = await processTemplate(template.templateContent);
 
-                // Special handling for generation category templates, except for the "plan" template
-                // which we need to keep backward compatible for the tests
-                if (template.category === 'generation' && template.name !== 'plan') {
+                // Treat all generation category templates the same way, including 'plan'
+                if (template.category === 'generation') {
                     xml += `${indent}<plan name="${escapeXML(template.name)}">\n`;
                     xml += `${childIndent}<![CDATA[\n${processedTemplate}\n]]>\n`;
                     xml += `${indent}</plan>\n`;
                 } else {
-                    // Traditional extraction for other template categories and the plan template
+                    // Traditional extraction for other template categories
                     // Extract tag content directly from the processed template
                     const instructionsContent = extractTagContent(processedTemplate, 'instructions');
                     const exampleContent = extractTagContent(processedTemplate, 'example');
-
-                    // For the task tag, use a default for the plan template or extract from the template
-                    let taskContent = "Create a detailed implementation plan with specific steps marked as `<task/>` items.";
-
-                    // But for other templates, extract the task content from the template
-                    if (template.name !== 'plan') {
-                        const extractedTaskContent = extractTagContent(processedTemplate, 'task');
-                        if (extractedTaskContent) {
-                            taskContent = extractedTaskContent;
-                        }
-                    }
+                    const taskContent = extractTagContent(processedTemplate, 'task') ||
+                        "Create a detailed implementation plan with specific steps marked as `<task/>` items.";
 
                     // Add the extracted content to the XML output
                     if (instructionsContent) {

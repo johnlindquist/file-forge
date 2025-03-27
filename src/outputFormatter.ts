@@ -81,10 +81,11 @@ export async function buildOutput(
           // Process the template to handle includes
           const processedTemplate = await processTemplate(template.templateContent);
 
+          // Add the processed template with proper formatting
           contentParts.push(
             "## AI Prompt Template",
             `Using template: ${template.name} (${template.description})`,
-            '<plan>\n<![CDATA[' + processedTemplate + ']]>\n</plan>'
+            '```\n' + processedTemplate + '\n```'
           );
         } catch (error) {
           contentParts.push(
