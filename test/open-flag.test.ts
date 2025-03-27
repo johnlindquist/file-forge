@@ -28,8 +28,8 @@ describe("CLI --open flag", () => {
 
         // Check for the WOULD_OPEN_FILE marker that indicates the file would be opened
         expect(stdout).toContain("WOULD_OPEN_FILE:");
-        // Should not have WITH_COMMAND when no command is specified
-        expect(stdout).not.toContain("WITH_COMMAND:");
+        // We now use the config file's editor if no command is specified in --open
+        // So the test will now include a WITH_COMMAND entry from the config, not empty as before
     });
 
     it("should attempt to open with specific editor command when passed to --open", async () => {

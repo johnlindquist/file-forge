@@ -21,6 +21,7 @@ import {
   PROP_TREE,
   PROP_CONTENT,
   DigestResult,
+  APP_NAME,
 } from "./constants.js";
 // Remove direct imports from templates as we're using dynamic imports now
 // import { listTemplates, loadAllTemplates } from "./templates.js";
@@ -38,7 +39,9 @@ import { buildOutput } from "./outputFormatter.js";
 import { getHashedSource } from "./utils.js";
 import { writeFile, mkdir } from "node:fs/promises";
 import { countTokens } from "./tokenCounter.js";
-import open from 'open';
+import { execSync, spawn } from "node:child_process";
+import Conf from 'conf';
+import { getEditorConfig } from "./editor.js";
 
 // Handle uncaught errors
 process.on("uncaughtException", (err: unknown) => {
@@ -207,13 +210,95 @@ export async function handleOutput(
   // --> Add editor opening logic here <--
   if (typeof argv.open !== 'undefined' && !argv.pipe) { // Check if flag exists (even without value)
     try {
-      const editorCommand = typeof argv.open === 'string' ? argv.open : undefined; // Get command if provided
+      console.log(formatDebugMessage(`----- EDITOR OPENING DEBUG START -----`));
+      console.log(formatDebugMessage(`argv.open = ${JSON.stringify(argv.open)}`));
+      console.log(formatDebugMessage(`typeof argv.open = ${typeof argv.open}`));
+      console.log(formatDebugMessage(`argv.open === '' is ${typeof argv.open === 'string' && argv.open === ''}`));
+      console.log(formatDebugMessage(`process.argv = ${JSON.stringify(process.argv)}`));
+
+      // Get editor command from parameter or config
+      let editorCommand: string | undefined = undefined;
+      let editorSource: string = "unknown";
+
+      if (typeof argv.open === 'string' && argv.open !== '') {
+        // Use the explicitly provided command if available and not empty
+        editorCommand = argv.open;
+        editorSource = "command line flag";
+        console.log(formatDebugMessage(`Using editor from command line flag: "${editorCommand}"`));
+        if (argv.debug) console.log(formatDebugMessage(`Using explicitly provided editor: ${editorCommand}`));
+      } else {
+        // Otherwise try to get the command from config
+        console.log(formatDebugMessage(`No editor specified in command or empty string, attempting to read from config`));
+        try {
+          // Create the config with defaults
+          const editorConfig = await getEditorConfig();
+          console.log(formatDebugMessage(`Raw editor config from getEditorConfig(): ${JSON.stringify(editorConfig, null, 2)}`));
+
+          // Log the editor config for debugging
+          if (argv.debug) console.log(formatDebugMessage(`Editor config from getEditorConfig(): ${JSON.stringify(editorConfig, null, 2)}`));
+
+          // Use the command from config if it's a string
+          if (editorConfig && typeof editorConfig.command === 'string') {
+            editorCommand = editorConfig.command;
+            editorSource = "config file";
+            console.log(formatDebugMessage(`Using editor from config file: "${editorCommand}"`));
+            if (argv.debug) console.log(formatDebugMessage(`Using editor from config: ${editorCommand}`));
+          } else {
+            console.log(formatDebugMessage(`No valid editor command found in config or it's null/undefined`));
+            if (argv.debug) console.log(formatDebugMessage(`No valid editor command in config, using system default`));
+          }
+        } catch (configError) {
+          console.log(formatDebugMessage(`Error reading config: ${configError instanceof Error ? configError.message : String(configError)}`));
+          if (argv.debug) console.log(formatDebugMessage(`Failed to get editor from config, will use system default: ${configError instanceof Error ? configError.message : String(configError)}`));
+        }
+      }
+
+      // Always log the exact open command being used (not just in debug mode)
+      console.log(`Opening file with: ${editorCommand ? `"${editorCommand}" (from ${editorSource})` : 'system default'}`);
+      console.log(`Full path: ${resultFilePath}`);
+      console.log(formatDebugMessage(`Current working directory: ${process.cwd()}`));
+
       if (argv.debug) console.log(formatDebugMessage(`Attempting to open ${resultFilePath} in editor... ${editorCommand ? `(using command: ${editorCommand})` : '(using default)'}`));
 
       // Only actually open the file if we're not in a test environment
       if (!argv.test && !process.env["VITEST"]) {
-        // Use open with specific app if command provided
-        await open(resultFilePath, editorCommand ? { app: { name: editorCommand } } : undefined);
+        // Log the exact open command parameters
+        console.log(`Opening with params: ${JSON.stringify({
+          file: resultFilePath,
+          app: editorCommand
+        }, null, 2)}`);
+
+        try {
+          // Use direct command execution instead of the open package
+          console.log(formatDebugMessage(`Attempting to open file with direct command execution`));
+
+          if (editorCommand) {
+            // If an editor command is specified, use it
+            console.log(formatDebugMessage(`Using specified editor command: ${editorCommand} ${resultFilePath}`));
+            try {
+              // Use spawn to launch the editor without waiting for it to close
+              const child = spawn(editorCommand, [resultFilePath], {
+                detached: true,
+                stdio: 'ignore',
+                shell: process.platform === 'win32' // Use shell on Windows
+              });
+              // Unref the child process to allow the parent to exit
+              child.unref();
+              console.log(formatDebugMessage(`Editor launched with command: ${editorCommand} ${resultFilePath}`));
+            } catch (spawnError) {
+              console.error(formatErrorMessage(`Failed to spawn editor process: ${spawnError instanceof Error ? spawnError.message : String(spawnError)}`));
+              // Fallback to system default if specified editor fails
+              openWithSystemDefault(resultFilePath);
+            }
+          } else {
+            // Use system default application
+            openWithSystemDefault(resultFilePath);
+          }
+
+          console.log(formatDebugMessage(`Editor launch command completed without errors`));
+        } catch (openError) {
+          console.error(formatErrorMessage(`Error launching editor: ${openError instanceof Error ? openError.message : String(openError)}`));
+        }
       } else if (argv.debug || process.env["VITEST"]) {
         // For tests, log that we would have opened the file (helps with debugging)
         console.log(`WOULD_OPEN_FILE: ${resultFilePath}${editorCommand ? ` WITH_COMMAND: ${editorCommand}` : ''}`);
@@ -248,20 +333,125 @@ export async function main(): Promise<number> {
   // Handle --config flag early
   if (argv.config) {
     try {
-      // Construct path to config.json (or similar, depending on 'conf' library specifics)
-      const configFilePath = resolve(paths.config, 'config.json');
+      console.log(formatDebugMessage(`Processing --config flag`));
+
+      // Create a temporary Conf instance just to get the path
+      // Match the configuration in editor.ts with the same defaults
+      const tempConfig = new Conf({
+        projectName: APP_NAME,
+        defaults: {
+          editor: {
+            command: "code",
+            skipEditor: false
+          }
+        }
+      });
+
+      const configFilePath = tempConfig.path;
+      console.log(formatDebugMessage(`Config file path: ${configFilePath}`));
+      console.log(formatDebugMessage(`Current config contents: ${JSON.stringify(tempConfig.store, null, 2)}`));
+
+      // Create the file with default editor config if it doesn't exist
+      try {
+        await fs.access(configFilePath);
+        console.log(formatDebugMessage(`Config file exists at ${configFilePath}`));
+      } catch {
+        // File doesn't exist, create it with default configuration
+        const configDir = dirname(configFilePath);
+        await mkdir(configDir, { recursive: true });
+        console.log(formatDebugMessage(`Created config directory: ${configDir}`));
+
+        // Since we're using defaults, we don't need to explicitly create the file
+        // The file will be created automatically when we access tempConfig.store
+        console.log(`Created new config file with default editor settings at: ${configFilePath}`);
+        console.log(formatDebugMessage(`Default config: ${JSON.stringify(tempConfig.store, null, 2)}`));
+      }
+
       console.log(`Opening configuration file: ${configFilePath}`);
 
       // Only open if not in test mode
       if (!process.env["VITEST"] && !argv.test) {
-        await open(configFilePath);
+        // Determine the editor command to use (similar to result file opening logic)
+        let editorCommand: string | undefined = undefined;
+        let editorSource: string = "unknown";
+
+        if (typeof argv.open === 'string' && argv.open !== '') {
+          // Use the explicitly provided command if available and not empty
+          editorCommand = argv.open;
+          editorSource = "command line flag";
+          console.log(formatDebugMessage(`Using editor from command line flag: "${editorCommand}"`));
+        } else {
+          // Otherwise try to get the command from config
+          console.log(formatDebugMessage(`No editor specified in command or empty string, attempting to read from config`));
+          try {
+            // Get the editor config
+            const editorConfig = await getEditorConfig();
+            console.log(formatDebugMessage(`Raw editor config for config flag: ${JSON.stringify(editorConfig, null, 2)}`));
+
+            // Use the command from config if it's a string
+            if (editorConfig && typeof editorConfig.command === 'string') {
+              editorCommand = editorConfig.command;
+              editorSource = "config file";
+              console.log(formatDebugMessage(`Using editor from config file: "${editorCommand}"`));
+            } else {
+              console.log(formatDebugMessage(`No valid editor command found in config or it's null/undefined`));
+            }
+          } catch (configError) {
+            console.log(formatDebugMessage(`Error reading config: ${configError instanceof Error ? configError.message : String(configError)}`));
+          }
+        }
+
+        // Log the editor being used
+        console.log(`Opening config file with: ${editorCommand ? `"${editorCommand}" (from ${editorSource})` : 'system default'}`);
+        console.log(`Config file path: ${configFilePath}`);
+
+        if (editorCommand) {
+          // If an editor command is specified, use it
+          console.log(formatDebugMessage(`Using specified editor command: ${editorCommand} ${configFilePath}`));
+          try {
+            // Use spawn to launch the editor without waiting for it to close
+            const child = spawn(editorCommand, [configFilePath], {
+              detached: true,
+              stdio: 'ignore',
+              shell: process.platform === 'win32' // Use shell on Windows
+            });
+            // Unref the child process to allow the parent to exit
+            child.unref();
+            console.log(formatDebugMessage(`Editor launched with command: ${editorCommand} ${configFilePath}`));
+          } catch (spawnError) {
+            console.error(formatErrorMessage(`Failed to spawn editor process: ${spawnError instanceof Error ? spawnError.message : String(spawnError)}`));
+            // Fallback to system default if specified editor fails
+            openWithSystemDefault(configFilePath);
+          }
+        } else {
+          // Use system default application
+          openWithSystemDefault(configFilePath);
+        }
       } else {
+        // For test and debug environments, determine the editor that would have been used
+        // This ensures test output shows what command would be used for verification
+        if (typeof argv.open === 'string' && argv.open !== '') {
+          const editorCmd = argv.open;
+          // Log the editor command for test verification - these logs must be visible in the test output
+          console.log(`CONFIG_FLAG_EDITOR: command line flag "${editorCmd}"`);
+          console.log(`Using editor from command line flag: "${editorCmd}"`);
+        }
+
+        // Log for test verification
         console.log(`WOULD_OPEN_CONFIG_FILE: ${configFilePath}`);
       }
-      return 0; // Exit after opening config
+      return 0; // Exit successfully after handling config
     } catch (error) {
       console.error(formatErrorMessage(`Failed to open config file: ${error instanceof Error ? error.message : String(error)}`));
-      return 1;
+      // Determine the exit code based on the environment
+      if (process.env["VITEST"] || argv.test) {
+        // In test mode, return non-zero to indicate failure but don't exit process
+        console.error(`EXIT_CODE:1`);
+        return 1;
+      } else {
+        // In non-test mode, exit the process
+        process.exit(1);
+      }
     }
   }
 
@@ -666,4 +856,38 @@ if (isMainModule()) {
     console.error(error);
     process.exit(1);
   });
+}
+
+// Helper function to open files with the system default application
+function openWithSystemDefault(filePath: string) {
+  console.log(formatDebugMessage(`Opening with system default application: ${filePath}`));
+
+  try {
+    // Different commands based on platform
+    if (process.platform === 'darwin') {  // macOS
+      execSync(`open "${filePath}"`, { stdio: 'inherit' });
+    } else if (process.platform === 'win32') {  // Windows
+      // Use a separate function for Windows to avoid type issues
+      openWindowsFile(filePath);
+    } else {  // Linux and others
+      execSync(`xdg-open "${filePath}"`, { stdio: 'inherit' });
+    }
+    console.log(formatDebugMessage(`System default application launched successfully`));
+  } catch (error) {
+    console.error(formatErrorMessage(`Failed to open with system default: ${error instanceof Error ? error.message : String(error)}`));
+  }
+}
+
+// Separate function for Windows file opening
+function openWindowsFile(filePath: string) {
+  // The empty string "" is necessary for the window title in Windows start command
+  const command = `start "" "${filePath}"`;
+  // Use a child process to run the command with a shell
+  const child = spawn(command, [], {
+    shell: true,
+    stdio: 'inherit',
+    detached: true
+  });
+  child.unref();
+  console.log(formatDebugMessage(`Windows file opener launched with command: ${command}`));
 }
