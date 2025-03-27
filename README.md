@@ -252,6 +252,30 @@ To migrate an existing test to use direct function testing:
 
 3. Verify the test still passes and check the performance improvement.
 
+### Batch Migration
+
+To optimize multiple tests at once, you can use the batch processing options:
+
+1. Analyze and run a dry-run batch (no changes applied):
+   ```
+   pnpm test:optimize:batch:dry
+   ```
+
+2. Fast batch migration (skips performance measurement):
+   ```
+   pnpm test:optimize:batch:fast
+   ```
+
+3. Full batch migration with performance measurements:
+   ```
+   pnpm test:optimize:batch
+   ```
+
+Additional options:
+- Use `--force` to re-optimize already migrated files
+- Use `--dry-run` to see what would be changed without making actual changes
+- Use `--skip-measure` to skip performance measurements (faster)
+
 ### Best Practices
 
 - Use `beforeAll` instead of `beforeEach` when the setup only needs to be done once for all tests in a describe block

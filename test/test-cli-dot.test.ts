@@ -1,9 +1,11 @@
 // test/test-cli-dot.test.ts
+// This test has been optimized to use direct function calls instead of process spawning
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import envPaths from "env-paths";
 import { runCLI } from "./test-helpers";
+import { runDirectCLI } from "../utils/directTestRunner.js";
 import { APP_SYSTEM_ID } from "../src/constants";
 import { waitForFile } from "./helpers/fileWaiter";
 
@@ -15,8 +17,8 @@ describe("CLI: ingest current directory with '.'", () => {
     const fixturesPath = resolve(__dirname, "fixtures/sample-project");
     console.log("Fixtures path:", fixturesPath);
 
-    // Use absolute path to fixtures
-    const { stdout, stderr, exitCode } = await runCLI([
+    // Use direct CLI execution
+    const { stdout, stderr, exitCode } = await runDirectCLI([
       "--path",
       fixturesPath,
       "--pipe",
@@ -49,7 +51,8 @@ describe("CLI: ingest current directory with '.'", () => {
     const fullPath = resolve(searchesDir, "searches", filename);
 
     console.log("Waiting for file to exist:", fullPath);
-    const fileExists = await waitForFile(fullPath, 60000, 1000);
+    // Using optimized waitForFile with adaptive polling
+    const fileExists = await waitForFile(fullPath, 30000, 50);
     if (!fileExists) {
       throw new Error(`Timeout waiting for file to exist: ${fullPath}`);
     }
@@ -65,5 +68,63 @@ describe("CLI: ingest current directory with '.'", () => {
     expect(savedContent).toContain("<files>");
 
     console.log("Test completed successfully");
-  }, 60000); // Increased timeout to be extra safe
+  }, 30000); // Reduced timeout from 60000 to 30000 since direct execution is faster
+
+  it("should produce consistent results between direct and process execution", async () => {
+    const fixturesPath = resolve(__dirname, "fixtures/sample-project");
+
+    // Run both implementations in parallel
+    const [directResult, processResult] = await Promise.all([
+      // Direct execution
+      runDirectCLI([
+        "--path",
+        fixturesPath,
+        "--pipe",
+        "--no-skip-artifacts",
+        "--ignore",
+        "false"
+      ]),
+
+      // Process execution
+      runCLI([
+        "--path",
+        fixturesPath,
+        "--pipe",
+        "--no-skip-artifacts",
+        "--ignore",
+        "false"
+      ])
+    ]);
+
+    // Both should succeed
+    expect(directResult.exitCode).toBe(0);
+    expect(processResult.exitCode).toBe(0);
+
+    // Both should have the same key markers in output
+    const directSavedMatch = directResult.stdout.match(/RESULTS_SAVED: (.+\.md)/);
+    const processSavedMatch = processResult.stdout.match(/RESULTS_SAVED: (.+\.md)/);
+
+    expect(directSavedMatch).toBeTruthy();
+    expect(processSavedMatch).toBeTruthy();
+
+    // The actual saved files might be different, but they should both exist
+    if (directSavedMatch && processSavedMatch) {
+      const searchesDir = envPaths(APP_SYSTEM_ID).config;
+
+      const directFilename = directSavedMatch[1].split("/").pop()!;
+      const directFullPath = resolve(searchesDir, "searches", directFilename);
+
+      const processFilename = processSavedMatch[1].split("/").pop()!;
+      const processFullPath = resolve(searchesDir, "searches", processFilename);
+
+      // Wait for both files to exist using our optimized waitForFile
+      const [directFileExists, processFileExists] = await Promise.all([
+        waitForFile(directFullPath, 15000, 50),
+        waitForFile(processFullPath, 15000, 50)
+      ]);
+
+      expect(directFileExists).toBe(true);
+      expect(processFileExists).toBe(true);
+    }
+  }, 25000);
 });
