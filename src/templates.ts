@@ -158,6 +158,12 @@ const templateDefinitions = [
     category: TemplateCategory.GENERATION,
     description: "Full plan with new branch, commits, tests, and PR",
     templateFile: "pr.md"
+  },
+  {
+    name: "worktree",
+    category: TemplateCategory.GENERATION,
+    description: "Create a new branch, work on it, and commit per step",
+    templateFile: "worktree.md"
   }
 ];
 
