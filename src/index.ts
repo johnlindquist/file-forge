@@ -38,6 +38,7 @@ import { buildOutput } from "./outputFormatter.js";
 import { getHashedSource } from "./utils.js";
 import { writeFile, mkdir } from "node:fs/promises";
 import { countTokens } from "./tokenCounter.js";
+import open from 'open';
 
 // Handle uncaught errors
 process.on("uncaughtException", (err: unknown) => {
@@ -202,6 +203,27 @@ export async function handleOutput(
   if (!argv.test && !process.env["NO_INTRO"] && !argv.pipe) {
     formatSaveMessage(resultFilePath, true);
   }
+
+  // --> Add editor opening logic here <--
+  if (argv.open && !argv.pipe) {
+    try {
+      if (argv.debug) console.log(formatDebugMessage(`Attempting to open ${resultFilePath} in editor...`));
+
+      // Only actually open the file if we're not in a test environment
+      if (!argv.test && !process.env["VITEST"]) {
+        await open(resultFilePath);
+      } else if (argv.debug || process.env["VITEST"]) {
+        // For tests, log that we would have opened the file (helps with debugging)
+        console.log(`WOULD_OPEN_FILE: ${resultFilePath}`);
+      }
+
+      if (argv.debug) console.log(formatDebugMessage(`Editor launch command issued for ${resultFilePath}`));
+    } catch (error) {
+      console.error(formatErrorMessage(`Failed to open file in editor: ${error instanceof Error ? error.message : String(error)}`));
+      // Don't fail the whole process if opening fails
+    }
+  }
+  // --> End of new logic <--
 }
 
 // Main function that handles the CLI flow
