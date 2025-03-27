@@ -32,6 +32,8 @@ async function testTemplate(templateName) {
     
     // Read the template file
     const templatePath = join(templatesDirPath, `${templateName}.md`);
+    console.log(`Loading template from: ${templatePath}`);
+    
     const templateContent = await readFile(templatePath, 'utf8');
     
     // Extract the template content from within <template> tags
@@ -44,17 +46,26 @@ async function testTemplate(templateName) {
     
     let template = templateMatch[1];
     
+    // Debug output
+    console.log(`Template includes found: ${(template.match(/{% include /g) || []).length}`);
+    
     if (process.env.DEBUG) {
       console.log(`[DEBUG] Template engine settings:`);
       console.log(`[DEBUG] Root paths:`, engine.options.root);
-      console.log(`[DEBUG] Template content excerpt (after path fix): ${template.substring(0, 100)}...`);
+      console.log(`[DEBUG] Template content excerpt: ${template.substring(0, 100)}...`);
     }
     
-    // Render the template with our test variables
-    const result = await engine.parseAndRender(template, testVariables);
+    try {
+      // Render the template with our test variables
+      const result = await engine.parseAndRender(template, testVariables);
+      
+      // Print the result
+      console.log(result);
+    } catch (renderError) {
+      console.error(`Error rendering template ${templateName}:`, renderError);
+      console.error('This might be due to issues with includes. Check paths and template syntax.');
+    }
     
-    // Print the result
-    console.log(result);
     console.log('\n=== End of template test ===\n');
   } catch (error) {
     console.error(`Error testing template ${templateName}:`, error);

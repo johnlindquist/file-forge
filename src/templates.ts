@@ -576,3 +576,44 @@ export async function findTemplateFile(templateName: string, templatesDir: strin
     return null;
   }
 }
+
+/**
+ * Process a template with includes
+ * @param templateContent The raw template content
+ * @returns The template with includes processed
+ */
+export async function processTemplate(templateContent: string): Promise<string> {
+  try {
+    // Safety checks to prevent test hangs
+    if (!templateContent) {
+      console.error('Empty template content received');
+      return 'Error: Empty template content';
+    }
+
+    // Extract the template content from within <template> tags if present
+    let contentToRender = templateContent;
+    const templateMatch = templateContent.match(/<template>([\s\S]*?)<\/template>/);
+    if (templateMatch && templateMatch[1]) {
+      contentToRender = templateMatch[1];
+      if (process.env['DEBUG']) {
+        console.log(`[DEBUG] Extracted template content from <template> tags`);
+      }
+    }
+
+    // Define minimal context for processing includes
+    const renderContext = {};
+
+    // Enable debug logs for troubleshooting
+    if (process.env['DEBUG']) {
+      console.log(`[DEBUG] Processing template with includes`);
+      console.log(`[DEBUG] Liquid engine root:`, engine.options.root);
+    }
+
+    // Process the template with Liquid engine
+    const result = await engine.parseAndRender(contentToRender, renderContext);
+    return result;
+  } catch (error) {
+    console.error(`Error processing Liquid template:`, error);
+    return `Error processing template: ${error instanceof Error ? error.message : String(error)}`;
+  }
+}
