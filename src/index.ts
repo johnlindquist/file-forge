@@ -22,7 +22,8 @@ import {
   PROP_CONTENT,
   DigestResult,
 } from "./constants.js";
-import { listTemplates } from "./templates.js";
+// Remove direct imports from templates as we're using dynamic imports now
+// import { listTemplates, loadAllTemplates } from "./templates.js";
 import clipboard from "clipboardy";
 import {
   formatDebugMessage,
@@ -88,7 +89,7 @@ export async function handleOutput(
   };
 
   // For file output, always include everything
-  const fileOutput = buildOutput(safeDigest, source, timestamp, {
+  const fileOutput = await buildOutput(safeDigest, source, timestamp, {
     ...argv,
     verbose: true, // Always include file contents in file output
     pipe: false, // Never pipe for file output to ensure XML wrapping works
@@ -96,7 +97,7 @@ export async function handleOutput(
   });
 
   // For console output, respect the verbose flag and preserve the name property
-  const consoleOutput = buildOutput(safeDigest, source, timestamp, {
+  const consoleOutput = await buildOutput(safeDigest, source, timestamp, {
     ...argv,
     command: originalCommand, // Include the original command
   });
@@ -220,6 +221,21 @@ export async function main(): Promise<number> {
   // Define the specific directory where user templates (.md files) should reside
   const DEFAULT_USER_TEMPLATES_DIR = resolve(USER_TEMPLATES_ROOT_DIR, "templates");
 
+  // Ensure built-in templates are loaded
+  try {
+    // Dynamic import of loadAllTemplates
+    const { loadAllTemplates } = await import("./templates.js");
+    await loadAllTemplates();
+    if (argv.debug) {
+      console.log(formatDebugMessage(`Loaded built-in templates.`));
+    }
+  } catch (error) {
+    console.error(formatErrorMessage(`Error loading built-in templates: ${error}`));
+    if (argv.debug) {
+      console.log(formatDebugMessage(`Built-in template loading failed.`));
+    }
+  }
+
   // Handle template creation
   if (argv.createTemplate) {
     try {
@@ -284,29 +300,55 @@ export async function main(): Promise<number> {
 
   // Handle template listing
   if (argv.listTemplates) {
-    console.log("\nAvailable prompt templates:\n");
-    const templates = listTemplates();
+    try {
+      console.log("\nAvailable prompt templates:\n");
 
-    // Group templates by category
-    const categorized = templates.reduce((acc, template) => {
-      const category = template.category || 'uncategorized';
-      if (!acc[category]) {
-        acc[category] = [];
+      // Dynamically import templates module
+      const templates = await import("./templates.js");
+
+      // Load built-in templates and get the result directly
+      const loadedTemplates = await templates.loadAllTemplates();
+
+      if (argv.debug) {
+        console.log(formatDebugMessage(`Loaded ${loadedTemplates.length} built-in templates.`));
       }
-      acc[category].push(template);
-      return acc;
-    }, {} as Record<string, typeof templates>);
 
-    // Print templates by category
-    for (const [category, categoryTemplates] of Object.entries(categorized)) {
-      console.log(`\n## ${category.charAt(0).toUpperCase() + category.slice(1)}`);
-      categoryTemplates.forEach(template => {
-        console.log(`  - ${template.name}: ${template.description}`);
-      });
+      // Try to load user templates if they exist
+      const userTemplatesDir = DEFAULT_USER_TEMPLATES_DIR;
+      await templates.loadUserTemplates(userTemplatesDir);
+
+      // Get the final list of templates after user templates are loaded
+      const templateList = templates.listTemplates();
+
+      if (templateList.length === 0) {
+        console.log("No templates found. Template loading failed.");
+        return 1;
+      }
+
+      // Group templates by category
+      const categorized = templateList.reduce((acc: Record<string, typeof templateList>, template) => {
+        const category = template.category || 'uncategorized';
+        if (!acc[category]) {
+          acc[category] = [];
+        }
+        acc[category].push(template);
+        return acc;
+      }, {} as Record<string, typeof templateList>);
+
+      // Print templates by category
+      for (const [category, categoryTemplates] of Object.entries(categorized)) {
+        console.log(`\n## ${category.charAt(0).toUpperCase() + category.slice(1)}`);
+        categoryTemplates.forEach(template => {
+          console.log(`  - ${template.name}: ${template.description}`);
+        });
+      }
+
+      console.log("\nUse --template <name> to apply a template to your analysis");
+      return 0;
+    } catch (error) {
+      console.error(formatErrorMessage(`Failed to list templates: ${error}`));
+      return 1;
     }
-
-    console.log("\nUse --template <n> to apply a template to your analysis");
-    return 0;
   }
 
   if (argv.debug) {

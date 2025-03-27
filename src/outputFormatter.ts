@@ -1,5 +1,5 @@
 import { PROP_SUMMARY, PROP_TREE, PROP_CONTENT } from "./constants.js";
-import { getTemplateByName, applyTemplate } from "./templates.js";
+import { getTemplateByName, processTemplate } from "./templates.js";
 import { buildXMLOutput } from "./xmlFormatter.js";
 
 interface OutputOptions {
@@ -24,9 +24,9 @@ interface OutputOptions {
  * @param source - The analyzed source path.
  * @param timestamp - A formatted timestamp string.
  * @param options - IngestFlags/options that may affect output (e.g. bulk, name, pipe).
- * @returns The complete output string in either XML or markdown format.
+ * @returns Promise of the complete output string in either XML or markdown format.
  */
-export function buildOutput(
+export async function buildOutput(
   digest: {
     [PROP_SUMMARY]: string;
     [PROP_TREE]: string;
@@ -35,7 +35,7 @@ export function buildOutput(
   source: string,
   timestamp: string,
   options: OutputOptions
-): string {
+): Promise<string> {
   // Use Markdown format only when explicitly requested with --markdown flag
   if (options.markdown) {
     // Use markdown format
@@ -77,33 +77,22 @@ export function buildOutput(
     if (options.template) {
       const template = getTemplateByName(options.template);
       if (template) {
-        // Combine all content for the template
-        const allContent = [
-          digest[PROP_SUMMARY] || "",
-          "```",
-          digest[PROP_TREE] || "",
-          "```",
-          digest[PROP_CONTENT] || ""
-        ].join("\n\n");
+        try {
+          // Process the template to handle includes
+          const processedTemplate = await processTemplate(template.templateContent);
 
-        // Apply the template to the content using async/await in synchronous context
-        // This is a workaround since we can't make this function async
-        let promptContent = "Processing template...";
-
-        // Using try/catch instead of await
-        applyTemplate(template.templateContent, allContent)
-          .then(result => {
-            promptContent = result;
-          })
-          .catch(error => {
-            promptContent = `Error applying template: ${error}`;
-          });
-
-        contentParts.push(
-          "## AI Prompt Template",
-          `Using template: ${template.name} (${template.description})`,
-          promptContent
-        );
+          // Add the processed template with proper formatting
+          contentParts.push(
+            "## AI Prompt Template",
+            `Using template: ${template.name} (${template.description})`,
+            '```\n' + processedTemplate + '\n```'
+          );
+        } catch (error) {
+          contentParts.push(
+            "## Template Error",
+            `Error processing template: ${error instanceof Error ? error.message : String(error)}`
+          );
+        }
       } else {
         contentParts.push(
           "## Template Error",
@@ -123,7 +112,7 @@ export function buildOutput(
     return output;
   }
 
-  // Default to XML output
+  // Default to XML output (need to handle async/await here too)
   return buildXMLOutput(digest, source, timestamp, {
     name: options.name,
     template: options.template,

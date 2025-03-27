@@ -20,6 +20,7 @@
     "test:clipboard": "pnpm build && vitest run --silent --test-name-pattern clipboard",
     "test:commit": "pnpm build && vitest run --silent --test-name-pattern commit",
     "test:watch": "pnpm build && vitest --watch",
+    "test:templates": "node scripts/test-templates.js",
     "dev": "node --experimental-strip-types src/index.ts",
     "build": "tsc",
     "build:check": "tsc --noEmit",
@@ -45,7 +46,9 @@
     "check:template:optimize": "pnpm build && pnpm exec node dist/index.js -i src/graph.ts --template optimize",
     "check:template:test": "pnpm build && pnpm exec node dist/index.js -i src/cli.ts --template test",
     "check:template:fix": "pnpm build && pnpm exec node dist/index.js -i src/outputFormatter.ts --template fix",
-    "check:template:plan": "pnpm build && pnpm exec node dist/index.js -i src/cli.ts --template plan --exclude test/fixtures --exclude .husky"
+    "check:template:plan": "pnpm build && pnpm exec node dist/index.js -i src/cli.ts --template plan --exclude test/fixtures --exclude .husky",
+    "check:template:pr": "pnpm build && pnpm exec node dist/index.js -i src/cli.ts --template pr --exclude test/fixtures --exclude .husky",
+    "check:template:branch": "pnpm build && pnpm exec node dist/index.js -i src/cli.ts --template branch --exclude test/fixtures --exclude .husky"
   },
   "publishConfig": {
     "access": "public"

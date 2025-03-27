@@ -1,6 +1,6 @@
 // import { format } from "date-fns";
 import { DigestResult, PROP_SUMMARY, PROP_TREE, PROP_CONTENT } from "./constants.js";
-import { getTemplateByName } from "./templates.js";
+import { getTemplateByName, processTemplate } from "./templates.js";
 import { existsSync } from "node:fs";
 import { execSync } from "node:child_process";
 
@@ -23,13 +23,6 @@ function escapeXML(str: string): string {
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&apos;");
-}
-
-/**
- * Wraps content in CDATA if it contains special characters
- */
-function wrapInCDATA(content: string): string {
-    return content;
 }
 
 /**
@@ -65,31 +58,14 @@ function getGitInfo(source: string): Record<string, string> {
 }
 
 /**
- * Extracts content from tags in a template string
- * @param templateContent The raw template content
- * @param tagName The tag name to extract content from
- * @returns The content within the specified tag or empty string if not found
- */
-function extractTagContent(templateContent: string, tagName: string): string {
-    // Skip extraction if templateContent is undefined
-    if (!templateContent) {
-        return '';
-    }
-
-    const regex = new RegExp(`<${tagName}>([\\s\\S]*?)<\\/${tagName}>`, 'i');
-    const match = templateContent.match(regex);
-    return match && match[1] ? match[1].trim() : '';
-}
-
-/**
  * Builds XML output for File Forge analysis
  */
-export function buildXMLOutput(
+export async function buildXMLOutput(
     digest: DigestResult,
     source: string,
     timestamp: string,
     options: XMLOutputOptions
-): string {
+): Promise<string> {
     // const projectName = options.name || "FileForgeAnalysis";
     // const generatedDate = format(new Date(), "yyyy-MM-dd'T'HH:mm:ss.SSSxxx");
 
@@ -124,12 +100,12 @@ export function buildXMLOutput(
 
     // Summary section
     xml += `${indent}<summary>\n`;
-    xml += `${childIndent}${wrapInCDATA(digest[PROP_SUMMARY] || "")}\n`;
+    xml += `${childIndent}${digest[PROP_SUMMARY] || ""}\n`;
     xml += `${indent}</summary>\n`;
 
     // Directory structure
     xml += `${indent}<directoryTree>\n`;
-    xml += `${childIndent}${wrapInCDATA(digest[PROP_TREE] || "")}\n`;
+    xml += `${childIndent}${digest[PROP_TREE] || ""}\n`;
     xml += `${indent}</directoryTree>\n`;
 
     // File contents (if verbose or saving to file)
@@ -149,7 +125,7 @@ export function buildXMLOutput(
             const content = fileContent.replace(/^=+\nFile: .*\n=+\n/, "").trim();
 
             xml += `${childIndent}<file path="${escapeXML(filename)}">\n`;
-            xml += `${contentIndent}${wrapInCDATA(content)}\n`;
+            xml += `${contentIndent}${content}\n`;
             xml += `${childIndent}</file>\n`;
         }
         xml += `${indent}</files>\n`;
@@ -169,35 +145,20 @@ export function buildXMLOutput(
         if (template) {
             xml += `\n`;
 
-            // Extract tag content directly from the raw template
-            const instructionsContent = extractTagContent(template.templateContent, 'instructions');
-            const exampleContent = extractTagContent(template.templateContent, 'example');
+            try {
+                // Process the template with includes first
+                const processedTemplate = await processTemplate(template.templateContent);
 
-            // For the task tag, use a default for the plan template or extract from the template
-            let taskContent = "Create a detailed implementation plan with specific steps marked as `<task/>` items.";
-
-            // But for other templates, extract the task content from the template
-            if (template.name !== 'plan') {
-                const extractedTaskContent = extractTagContent(template.templateContent, 'task');
-                if (extractedTaskContent) {
-                    taskContent = extractedTaskContent;
-                }
+                // Add the processed template content without any wrapper tags
+                xml += processedTemplate;
+            } catch (error) {
+                xml += `\n${indent}<e>Error processing template: ${error instanceof Error ? error.message : String(error)}</e>\n`;
             }
-
-            // Add the extracted content to the XML output
-            if (instructionsContent) {
-                xml += `${indent}<instructions>\n${childIndent}${wrapInCDATA(instructionsContent)}\n${indent}</instructions>\n`;
-            }
-
-            if (exampleContent) {
-                xml += `${indent}<example>\n${childIndent}${wrapInCDATA(exampleContent)}\n${indent}</example>\n`;
-            }
-
-            xml += `${indent}<task>\n${childIndent}${wrapInCDATA(taskContent)}\n${indent}</task>\n`;
         } else {
             xml += `\n${indent}<e>Template "${escapeXML(options.template)}" not found. Use --list-templates to see available templates.</e>\n`;
         }
     }
 
+    // xml += `</analysis>`;
     return xml;
 }
