@@ -205,16 +205,18 @@ export async function handleOutput(
   }
 
   // --> Add editor opening logic here <--
-  if (argv.open && !argv.pipe) {
+  if (typeof argv.open !== 'undefined' && !argv.pipe) { // Check if flag exists (even without value)
     try {
-      if (argv.debug) console.log(formatDebugMessage(`Attempting to open ${resultFilePath} in editor...`));
+      const editorCommand = typeof argv.open === 'string' ? argv.open : undefined; // Get command if provided
+      if (argv.debug) console.log(formatDebugMessage(`Attempting to open ${resultFilePath} in editor... ${editorCommand ? `(using command: ${editorCommand})` : '(using default)'}`));
 
       // Only actually open the file if we're not in a test environment
       if (!argv.test && !process.env["VITEST"]) {
-        await open(resultFilePath);
+        // Use open with specific app if command provided
+        await open(resultFilePath, editorCommand ? { app: { name: editorCommand } } : undefined);
       } else if (argv.debug || process.env["VITEST"]) {
         // For tests, log that we would have opened the file (helps with debugging)
-        console.log(`WOULD_OPEN_FILE: ${resultFilePath}`);
+        console.log(`WOULD_OPEN_FILE: ${resultFilePath}${editorCommand ? ` WITH_COMMAND: ${editorCommand}` : ''}`);
       }
 
       if (argv.debug) console.log(formatDebugMessage(`Editor launch command issued for ${resultFilePath}`));
@@ -229,7 +231,7 @@ export async function handleOutput(
 // Main function that handles the CLI flow
 export async function main(): Promise<number> {
   // Parse CLI arguments
-  const argv = await runCli() as IngestFlags & { _: (string | number)[] };
+  const argv = await runCli() as IngestFlags & { _: (string | number)[], config?: boolean };
 
   // Set up paths
   const paths = envPaths(APP_SYSTEM_ID);
@@ -242,6 +244,26 @@ export async function main(): Promise<number> {
     : DEFAULT_CONFIG_DIR;
   // Define the specific directory where user templates (.md files) should reside
   const DEFAULT_USER_TEMPLATES_DIR = resolve(USER_TEMPLATES_ROOT_DIR, "templates");
+
+  // Handle --config flag early
+  if (argv.config) {
+    try {
+      // Construct path to config.json (or similar, depending on 'conf' library specifics)
+      const configFilePath = resolve(paths.config, 'config.json');
+      console.log(`Opening configuration file: ${configFilePath}`);
+
+      // Only open if not in test mode
+      if (!process.env["VITEST"] && !argv.test) {
+        await open(configFilePath);
+      } else {
+        console.log(`WOULD_OPEN_CONFIG_FILE: ${configFilePath}`);
+      }
+      return 0; // Exit after opening config
+    } catch (error) {
+      console.error(formatErrorMessage(`Failed to open config file: ${error instanceof Error ? error.message : String(error)}`));
+      return 1;
+    }
+  }
 
   // Ensure built-in templates are loaded
   try {

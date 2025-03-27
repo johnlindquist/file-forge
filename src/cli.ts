@@ -108,9 +108,13 @@ export async function runCli() {
     })
     .option("open", {
       alias: "o",
+      type: "string",
+      describe: "Open results in editor, optionally specify editor command (e.g., --open=code)",
+    })
+    .option("config", {
       type: "boolean",
       default: false,
-      describe: "Open results in editor",
+      describe: "Open the configuration file in the default editor",
     })
     .option("verbose", {
       type: "boolean",
@@ -178,6 +182,14 @@ export async function runCli() {
     .example(
       '$0 /path/to/project --template "refactor"',
       "Analyze a project and apply the 'refactor' prompt template for AI processing"
+    )
+    .example(
+      '$0 /path/to/project --open code-insiders',
+      "Analyze project and open results in VS Code Insiders"
+    )
+    .example(
+      '$0 --config',
+      "Open the File Forge configuration file"
     )
     .help()
     .alias("help", "h")
