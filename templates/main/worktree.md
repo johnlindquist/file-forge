@@ -1,111 +1,29 @@
+---
+name: worktree
+category: generation
+description: Plan work assuming user is already in a Git worktree for the task, with commits per step and PR creation.
+variables:
+  - TASK_DESCRIPTION
+  - BRANCH_NAME # Still useful for push/PR commands, even if branch exists
+---
+<executive_summary>
+Generate a step-by-step guide for working within an existing Git worktree. Assumes the worktree is linked to the correct feature branch. Includes implementation, testing (with commits per step), pushing the branch, and creating a Pull Request.
+</executive_summary>
 
 <instructions>
-- Begin with a high-level summary clearly describing the goal of the task.
-- The plan assumes you're already in a dedicated branch or worktree for this task.
-- The numbered steps should be concise, explicit, and unambiguous.
-- Each step must contain a code snippet, command, or clear action that directly modifies the codebase.
-- Ensure each step is small, focused, and individually verifiable.
-- Verify:
-  - Include instructions to programmatically verify each commit.
-  - If tests exist, please add a test.
-  - If tests don't exist, add manual instructions to verify.
-- End each step by clearly instructing the developer to commit their changes using standard GitHub workflows.
-- IMPORTANT: NEVER use newline characters in Git commit messages as they can break workflows. Always use multiple '-m' parameters instead.
-- IMPORTANT: NEVER use newline characters in any shell commands. For multiline text in commands, use '\n' escape sequences.
-- git and gh commands should always be run with "| cat" to avoid pager behavior
+{% include '_header.md' %}
 
-- **High-Level Summary:**
-  - Clearly describe the overall goal of completing the <task/>.
+**Important:** This guide assumes you are currently working *inside* the Git worktree associated with the branch `{{BRANCH_NAME}}` (or the relevant branch for "{{TASK_DESCRIPTION}}"). All commands should be run from within this worktree's directory.
 
-- **Step 1: Verify Current Branch**
-  - **Action:** Confirm you're in the correct branch for this task:
-    ~~~bash
-    git branch --show-current
-    ~~~
-  - **Verification:** The output should show your current branch name. If incorrect, switch to the appropriate branch before proceeding.
-
-- **Step 2: Implement Code Changes**
-  - **Action:** Modify the relevant files to address the <task/>:
-    ~~~bash
-    # Example: edit necessary file
-    vim path/to/file.js
-    ~~~
-  - **Verification:** Run the existing application or relevant commands to verify functionality.
-  - **Commit:** Stage and commit changes with a semantic commit message:
-    ~~~bash
-    # IMPORTANT: Always use multiple -m parameters instead of newlines
-    # For multiline echo commands, use \n instead of actual newlines
-    git add .
-    git commit -m "fix/feat/etc: Implement changes for <task/>" -m "brief description" -m "additional context if needed"
-    ~~~
-
-- **Step 3: Add or Update Tests**
-  - **Action:** Add new tests or update existing ones covering the changes made:
-    ~~~bash
-    vim path/to/tests/test_file.js
-    ~~~
-  - **Verification:** Ensure tests pass:
-    ~~~bash
-    npm test
-    ~~~
-  - **Commit:** Stage and commit test changes with a semantic commit message:
-    ~~~bash
-    # IMPORTANT: Always use multiple -m parameters instead of newlines
-    # For multiline echo commands, use \n instead of actual newlines
-    git add .
-    git commit -m "fix/feat/etc: Add/update tests for <task/>" -m "verify feature behavior"
-    ~~~
-
-- **Step 4: Push Changes**
-  - **Action:** Push your changes to the remote repository:
-    ~~~bash
-    git push
-    ~~~
-  - **Verification:** Open GitHub and confirm your changes are visible.
-  - **Commit:** No commit required; pushing completes your task.
-
-- **Step 4: Create Pull Request with GitHub CLI**
-  - **Action:** First, create a PR description file (ALWAYS use a bodyfile for PRs):
-  - Create the body file in the /tmp directory using the "edit tool":
-  - Example: /tmp/pr-description.md
-~~~markdown
-## Summary
-[Provide a clear, concise overview of what changes were made and why]
-
-## Changes Made
-- [List the key changes implemented]
-- [Include any architectural decisions]
-- [Mention files modified]
-
-## Justification
-- [Explain the rationale behind implementation choices]
-- [Reference any relevant issues or requirements]
-
-## Testing
-- [Describe how the changes were tested]
-- [Include test results if applicable]
-
-## Dependencies
-- [List any dependencies added or modified]
-- [Note any version changes]
-
-## Additional Notes
-- [Include any other relevant information]
-- [Mention any follow-up work needed]
-~~~
-    
-    Then, use the file to create the PR:
-    ~~~bash
-    # ALWAYS use bodyfile for PR descriptions to avoid newline issues
-    gh pr create --title "feat/fix: Implement <task/>" --body-file /tmp/pr-description.md | cat
-    
-    # Clean up the temporary file
-    rm /tmp/pr-description.md
-    ~~~
-  - **Verification:** Confirm the PR was created successfully by checking the URL provided in the output.
-    
+{% include '_step_verify_current_branch.md' %}
+{% include '_step_implement_code.md' %}
+{% include '_step_add_tests.md' %}
+{% include '_step_push_branch.md' %}
+{% include '_step_create_pr.md' %}
+{% comment %} No '_step_return_to_main.md' needed as the main checkout is separate {% endcomment %}
+{% include '_footer.md' %}
 </instructions>
 
 <task>
-The user needs to replace this text with their task. If they forget to replace this text, prompt them with: "Please describe your task "
+{{TASK_DESCRIPTION}}
 </task>

@@ -6,11 +6,11 @@ variables:
   - TASK_DESCRIPTION
   - BRANCH_NAME
 ---
-<prompt_instructions>
-Generate a full step-by-step guide: new branch, implement, test (with commits), push, create PR, return to main.
-</prompt_instructions>
+<executive_summary>
+Generate a full step-by-step guide: create a new branch, implement code, add tests (with commits after each), push the branch, create a Pull Request, and return to the main branch.
+</executive_summary>
 
-<template>
+<instructions>
 {% include '_header.md' %}
 {% include '_step_create_branch.md' %}
 {% include '_step_implement_code.md' %}
@@ -19,4 +19,8 @@ Generate a full step-by-step guide: new branch, implement, test (with commits), 
 {% include '_step_create_pr.md' %}
 {% include '_step_return_to_main.md' %}
 {% include '_footer.md' %}
-</template> 
+</instructions>
+
+<task>
+{{TASK_DESCRIPTION}}
+</task>

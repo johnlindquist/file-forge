@@ -590,9 +590,12 @@ export async function processTemplate(templateContent: string): Promise<string> 
       return 'Error: Empty template content';
     }
 
+    // Remove frontmatter from the template content
+    const matterResult = matter(templateContent);
+    let contentToRender = matterResult.content;
+
     // Extract the template content from within <template> tags if present
-    let contentToRender = templateContent;
-    const templateMatch = templateContent.match(/<template>([\s\S]*?)<\/template>/);
+    const templateMatch = contentToRender.match(/<template>([\s\S]*?)<\/template>/);
     if (templateMatch && templateMatch[1]) {
       contentToRender = templateMatch[1];
       if (process.env['DEBUG']) {

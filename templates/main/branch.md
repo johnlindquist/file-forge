@@ -6,11 +6,11 @@ variables:
   - TASK_DESCRIPTION
   - BRANCH_NAME
 ---
-<prompt_instructions>
-Generate a guide starting with creating a new branch, with commits after code and test steps, ending before PR creation.
-</prompt_instructions>
+<executive_summary>
+Generate a guide starting with creating a new branch, with commits after code and test steps, ending before push/PR creation. Includes returning to the main branch.
+</executive_summary>
 
-<template>
+<instructions>
 {% include '_header.md' %}
 {% include '_step_create_branch.md' %}
 {% include '_step_implement_code.md' %}
@@ -18,4 +18,8 @@ Generate a guide starting with creating a new branch, with commits after code an
 {% comment %} No Push or PR steps included {% endcomment %}
 {% include '_step_return_to_main.md' %}
 {% include '_footer.md' %}
-</template> 
+</instructions>
+
+<task>
+{{TASK_DESCRIPTION}}
+</task> 

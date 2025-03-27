@@ -26,13 +26,6 @@ function escapeXML(str: string): string {
 }
 
 /**
- * Wraps content in CDATA if it contains special characters
- */
-function wrapInCDATA(content: string): string {
-    return content;
-}
-
-/**
  * Gets Git information for the current directory
  */
 function getGitInfo(source: string): Record<string, string> {
@@ -62,23 +55,6 @@ function getGitInfo(source: string): Record<string, string> {
     }
 
     return gitInfo;
-}
-
-/**
- * Extracts content from tags in a template string
- * @param templateContent The raw template content
- * @param tagName The tag name to extract content from
- * @returns The content within the specified tag or empty string if not found
- */
-function extractTagContent(templateContent: string, tagName: string): string {
-    // Skip extraction if templateContent is undefined
-    if (!templateContent) {
-        return '';
-    }
-
-    const regex = new RegExp(`<${tagName}>([\\s\\S]*?)<\\/${tagName}>`, 'i');
-    const match = templateContent.match(regex);
-    return match && match[1] ? match[1].trim() : '';
 }
 
 /**
@@ -124,12 +100,12 @@ export async function buildXMLOutput(
 
     // Summary section
     xml += `${indent}<summary>\n`;
-    xml += `${childIndent}${wrapInCDATA(digest[PROP_SUMMARY] || "")}\n`;
+    xml += `${childIndent}${digest[PROP_SUMMARY] || ""}\n`;
     xml += `${indent}</summary>\n`;
 
     // Directory structure
     xml += `${indent}<directoryTree>\n`;
-    xml += `${childIndent}${wrapInCDATA(digest[PROP_TREE] || "")}\n`;
+    xml += `${childIndent}${digest[PROP_TREE] || ""}\n`;
     xml += `${indent}</directoryTree>\n`;
 
     // File contents (if verbose or saving to file)
@@ -149,7 +125,7 @@ export async function buildXMLOutput(
             const content = fileContent.replace(/^=+\nFile: .*\n=+\n/, "").trim();
 
             xml += `${childIndent}<file path="${escapeXML(filename)}">\n`;
-            xml += `${contentIndent}${wrapInCDATA(content)}\n`;
+            xml += `${contentIndent}${content}\n`;
             xml += `${childIndent}</file>\n`;
         }
         xml += `${indent}</files>\n`;
@@ -173,30 +149,8 @@ export async function buildXMLOutput(
                 // Process the template with includes first
                 const processedTemplate = await processTemplate(template.templateContent);
 
-                // Treat all generation category templates the same way, including 'plan'
-                if (template.category === 'generation') {
-                    xml += `${indent}<plan name="${escapeXML(template.name)}">\n`;
-                    xml += `${childIndent}<![CDATA[\n${processedTemplate}\n]]>\n`;
-                    xml += `${indent}</plan>\n`;
-                } else {
-                    // Traditional extraction for other template categories
-                    // Extract tag content directly from the processed template
-                    const instructionsContent = extractTagContent(processedTemplate, 'instructions');
-                    const exampleContent = extractTagContent(processedTemplate, 'example');
-                    const taskContent = extractTagContent(processedTemplate, 'task') ||
-                        "Create a detailed implementation plan with specific steps marked as `<task/>` items.";
-
-                    // Add the extracted content to the XML output
-                    if (instructionsContent) {
-                        xml += `${indent}<instructions>\n${childIndent}${wrapInCDATA(instructionsContent)}\n${indent}</instructions>\n`;
-                    }
-
-                    if (exampleContent) {
-                        xml += `${indent}<example>\n${childIndent}${wrapInCDATA(exampleContent)}\n${indent}</example>\n`;
-                    }
-
-                    xml += `${indent}<task>\n${childIndent}${wrapInCDATA(taskContent)}\n${indent}</task>\n`;
-                }
+                // Add the processed template content without any wrapper tags
+                xml += processedTemplate;
             } catch (error) {
                 xml += `\n${indent}<e>Error processing template: ${error instanceof Error ? error.message : String(error)}</e>\n`;
             }
