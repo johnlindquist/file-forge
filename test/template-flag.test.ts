@@ -1,10 +1,11 @@
 // test/template-flag.test.ts
+// This test has been optimized to use direct function calls instead of process spawning
 import { test, expect, describe } from "vitest";
-import { runCLI } from "./test-helpers";
+import { runDirectCLI } from "../utils/directTestRunner.js";
 
 describe("CLI --template", () => {
   test("should list available templates with --list-templates", async () => {
-    const { stdout, exitCode } = await runCLI(["--list-templates"]);
+    const { stdout, exitCode } = await runDirectCLI(["--list-templates"]);
 
     expect(exitCode).toBe(0);
 
@@ -28,7 +29,7 @@ describe("CLI --template", () => {
   });
 
   test("should apply a template to the output", async () => {
-    const { stdout, exitCode } = await runCLI([
+    const { stdout, exitCode } = await runDirectCLI([
       "--path",
       "test/fixtures/sample-project",
       "--template",
@@ -54,7 +55,7 @@ describe("CLI --template", () => {
   });
 
   test("should show an error for an invalid template", async () => {
-    const { stdout, exitCode } = await runCLI([
+    const { stdout, exitCode } = await runDirectCLI([
       "--path",
       "test/fixtures/sample-project",
       "--template",
@@ -69,7 +70,7 @@ describe("CLI --template", () => {
   });
 
   test("should apply plan template with instruction and task tags", async () => {
-    const { stdout, exitCode } = await runCLI([
+    const { stdout, exitCode } = await runDirectCLI([
       "--path",
       "test/fixtures/sample-project",
       "--template",
@@ -101,7 +102,7 @@ describe("CLI --template", () => {
 
     // Run template tests in parallel instead of sequentially
     const results = await Promise.all(templates.map(name =>
-      runCLI([
+      runDirectCLI([
         "--path",
         "test/fixtures/sample-project",
         "--template",
@@ -123,10 +124,10 @@ describe("CLI --template", () => {
       expect(stdout).not.toContain("<![CDATA[");
       expect(stdout).not.toContain("]]>");
     }
-  }, 15000); // Reduced timeout since we're running in parallel
+  }, 10000); // Reduced timeout since direct execution is much faster
 
   test("should render correct content for plan template", async () => {
-    const { stdout, exitCode } = await runCLI([
+    const { stdout, exitCode } = await runDirectCLI([
       "--path",
       "test/fixtures/sample-project",
       "--template",
@@ -164,7 +165,7 @@ describe("CLI --template", () => {
     // Run all template tests in parallel
     const templateEntries = Object.entries(templateSnippets);
     const results = await Promise.all(templateEntries.map(([name]) =>
-      runCLI([
+      runDirectCLI([
         "--path",
         "test/fixtures/sample-project",
         "--template",
@@ -197,5 +198,5 @@ describe("CLI --template", () => {
         console.log(`Verified expected content for template: ${name}`);
       }
     }
-  }, 30000); // Increased timeout since we're testing multiple templates
+  }, 20000); // Reduced timeout since direct execution is much faster
 });
