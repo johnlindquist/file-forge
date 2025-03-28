@@ -17,7 +17,7 @@ describe("CLI --open flag", () => {
         const { stdout, exitCode } = await runCLI([
             "--path",
             "test/fixtures/sample-project",
-            "--open", // Use the flag
+            "--open", // Use the flag without a value
             "--no-token-count",
         ]);
 
@@ -28,6 +28,23 @@ describe("CLI --open flag", () => {
 
         // Check for the WOULD_OPEN_FILE marker that indicates the file would be opened
         expect(stdout).toContain("WOULD_OPEN_FILE:");
+        // We now use the config file's editor if no command is specified in --open
+        // So the test will now include a WITH_COMMAND entry from the config, not empty as before
+    });
+
+    it("should attempt to open with specific editor command when passed to --open", async () => {
+        const editorCmd = "code-insiders";
+        const { stdout, exitCode } = await runCLI([
+            "--path",
+            "test/fixtures/sample-project",
+            `--open=${editorCmd}`, // Pass command like this
+            "--no-token-count",
+        ]);
+
+        expect(exitCode).toBe(0);
+        // Check for marker indicating specific command was used
+        expect(stdout).toContain(`WOULD_OPEN_FILE:`);
+        expect(stdout).toContain(`WITH_COMMAND: ${editorCmd}`);
     });
 
     it("should NOT open the editor when --pipe is used", async () => {

@@ -54,7 +54,9 @@
     "check:template:fix": "pnpm build && pnpm exec node dist/index.js -i src/outputFormatter.ts --template fix",
     "check:template:plan": "pnpm build && pnpm exec node dist/index.js -i src/cli.ts --template plan --exclude test/fixtures --exclude .husky",
     "check:template:pr": "pnpm build && pnpm exec node dist/index.js -i src/cli.ts --template pr --exclude test/fixtures --exclude .husky",
-    "check:template:branch": "pnpm build && pnpm exec node dist/index.js -i src/cli.ts --template branch --exclude test/fixtures --exclude .husky"
+    "check:template:branch": "pnpm build && pnpm exec node dist/index.js -i src/cli.ts --template branch --exclude test/fixtures --exclude .husky",
+    "check:config": "pnpm build && pnpm exec node dist/index.js --config",
+    "check:open": "pnpm build && pnpm exec node dist/index.js --open"
   },
   "publishConfig": {
     "access": "public"

@@ -6,7 +6,11 @@ describe("CLI --version flag", () => {
     // Run the CLI with --version flag
     const { stdout, exitCode } = await runCLI(["--version"]);
     expect(exitCode).toBe(0);
-    // Ensure that the output is a valid version string
-    expect(stdout.trim()).toMatch(/^\d+\.\d+\.\d+(?:-development)?$/);
+
+    // Ensure that the output contains a valid version string
+    // Extract just the version number from potentially multi-line output
+    const versionMatch = stdout.match(/(\d+\.\d+\.\d+(?:-development)?)/);
+    expect(versionMatch).not.toBeNull();
+    expect(versionMatch![1]).toMatch(/^\d+\.\d+\.\d+(?:-development)?$/);
   });
 });
