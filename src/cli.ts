@@ -166,6 +166,10 @@ export async function runCli() {
       default: false,
       describe: "Enable extra indentation and spacing in output",
     })
+    .option("render-template", {
+      type: "string",
+      describe: "Render a template (including partials) and open it in the editor, skipping analysis. Provide template name.",
+    })
     .example("$0 --path /path/to/project", "Analyze a local project directory")
     .example(
       "$0 https://github.com/owner/repo --branch develop",
@@ -190,6 +194,10 @@ export async function runCli() {
     .example(
       '$0 --config',
       "Open the File Forge configuration file"
+    )
+    .example(
+      '$0 --render-template worktree',
+      "Render the 'worktree' template and open it in the editor"
     )
     .help()
     .alias("help", "h")
@@ -230,6 +238,7 @@ export async function runCli() {
     noTokenCount: argv["no-token-count"],
     createTemplate: argv["create-template"],
     editTemplate: argv["edit-template"],
+    renderTemplate: argv["render-template"],
   };
 
   return parsedArgs;

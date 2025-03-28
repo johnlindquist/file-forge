@@ -42,6 +42,12 @@ import { countTokens } from "./tokenCounter.js";
 import { execSync, spawn } from "node:child_process";
 import Conf from 'conf';
 import { getEditorConfig } from "./editor.js";
+import path from "path";
+import os from "os";
+
+// Constants for temp file
+const TEMP_FILE_PREFIX = "ffg-render-";
+const TEMP_FILE_SUFFIX = ".md";
 
 // Handle uncaught errors
 process.on("uncaughtException", (err: unknown) => {
@@ -313,10 +319,100 @@ export async function handleOutput(
   // --> End of new logic <--
 }
 
+// Helper function to open files with the system default application
+function openWithSystemDefault(filePath: string) {
+  console.log(formatDebugMessage(`Opening with system default application: ${filePath}`));
+
+  try {
+    // Different commands based on platform
+    if (process.platform === 'darwin') {  // macOS
+      execSync(`open "${filePath}"`, { stdio: 'inherit' });
+    } else if (process.platform === 'win32') {  // Windows
+      // Use a separate function for Windows to avoid type issues
+      openWindowsFile(filePath);
+    } else {  // Linux and others
+      execSync(`xdg-open "${filePath}"`, { stdio: 'inherit' });
+    }
+    console.log(formatDebugMessage(`System default application launched successfully`));
+  } catch (error) {
+    console.error(formatErrorMessage(`Failed to open with system default: ${error instanceof Error ? error.message : String(error)}`));
+  }
+}
+
+// Separate function for Windows file opening
+function openWindowsFile(filePath: string) {
+  // The empty string "" is necessary for the window title in Windows start command
+  const command = `start "" "${filePath}"`;
+  // Use a child process to run the command with a shell
+  const child = spawn(command, [], {
+    shell: true,
+    stdio: 'inherit',
+    detached: true
+  });
+  child.unref();
+  console.log(formatDebugMessage(`Windows file opener launched with command: ${command}`));
+}
+
+// Helper function to open file in editor
+async function openFileInEditor(filePath: string, editorCommandFromArg?: string | boolean, debug?: boolean) {
+  // Determine the editor command to use
+  let editorCommand: string | undefined = undefined;
+  let editorSource: string = "unknown";
+
+  if (typeof editorCommandFromArg === 'string' && editorCommandFromArg !== '') {
+    editorCommand = editorCommandFromArg;
+    editorSource = "command line flag";
+    if (debug) console.log(formatDebugMessage(`Using editor from command line flag: "${editorCommand}"`));
+  } else {
+    if (debug) console.log(formatDebugMessage(`No editor specified in command or empty string, attempting to read from config`));
+    try {
+      const editorConfig = await getEditorConfig();
+      if (editorConfig && typeof editorConfig.command === 'string') {
+        editorCommand = editorConfig.command;
+        editorSource = "config file";
+        if (debug) console.log(formatDebugMessage(`Using editor from config file: "${editorCommand}"`));
+      } else {
+        if (debug) console.log(formatDebugMessage(`No valid editor command found in config or it's null/undefined`));
+      }
+    } catch (configError) {
+      if (debug) console.log(formatDebugMessage(`Error reading config: ${configError instanceof Error ? configError.message : String(configError)}`));
+    }
+  }
+
+  console.log(`Opening file with: ${editorCommand ? `"${editorCommand}" (from ${editorSource})` : 'system default'}`);
+  console.log(`Full path: ${filePath}`);
+  if (debug) console.log(formatDebugMessage(`Current working directory: ${process.cwd()}`));
+
+  if (!process.env["VITEST"]) { // Only open if not in test mode
+    if (editorCommand) {
+      if (debug) console.log(formatDebugMessage(`Using specified editor command: ${editorCommand} ${filePath}`));
+      try {
+        const child = spawn(editorCommand, [filePath], { detached: true, stdio: 'ignore', shell: process.platform === 'win32' });
+        child.unref();
+        if (debug) console.log(formatDebugMessage(`Editor launched with command: ${editorCommand} ${filePath}`));
+      } catch (spawnError) {
+        console.error(formatErrorMessage(`Failed to spawn editor process: ${spawnError instanceof Error ? spawnError.message : String(spawnError)}`));
+        openWithSystemDefault(filePath); // Fallback
+      }
+    } else {
+      openWithSystemDefault(filePath);
+    }
+  } else if (debug || process.env["VITEST"]) {
+    // For tests, log that we would have opened the file
+    console.log(`WOULD_OPEN_FILE: ${filePath}${editorCommand ? ` WITH_COMMAND: ${editorCommand}` : ''}`);
+  }
+  if (debug) console.log(formatDebugMessage(`Editor launch command issued for ${filePath}`));
+}
+
+// Update the IngestFlags type to include renderTemplate
+interface ExtendedIngestFlags extends IngestFlags {
+  renderTemplate?: string;
+}
+
 // Main function that handles the CLI flow
 export async function main(): Promise<number> {
   // Parse CLI arguments
-  const argv = await runCli() as IngestFlags & { _: (string | number)[], config?: boolean };
+  const argv = await runCli() as ExtendedIngestFlags & { _: (string | number)[], config?: boolean };
 
   // Set up paths
   const paths = envPaths(APP_SYSTEM_ID);
@@ -581,6 +677,80 @@ export async function main(): Promise<number> {
       return 0;
     } catch (error) {
       console.error(formatErrorMessage(`Failed to list templates: ${error}`));
+      return 1;
+    }
+  }
+
+  // Handle --render-template flag
+  if (argv.renderTemplate) {
+    const templateName = argv.renderTemplate;
+
+    // Special logging for test environment
+    if (process.env["VITEST"]) {
+      console.log(`TEST_RENDER_TEMPLATE:${templateName}`);
+    }
+
+    console.log(formatSpinnerMessage(`Rendering template: ${templateName}...`));
+    try {
+      // Load templates
+      const { loadAllTemplates, loadUserTemplates, getTemplateByName, processTemplate } = await import("./templates.js");
+      await loadAllTemplates();
+      await loadUserTemplates(DEFAULT_USER_TEMPLATES_DIR);
+      if (argv.debug) console.log(formatDebugMessage(`Templates loaded for rendering.`));
+
+      // Find the template
+      const template = getTemplateByName(templateName);
+      if (!template) {
+        // Special error logging for test environment
+        if (process.env["VITEST"]) {
+          console.log(`TEST_TEMPLATE_NOT_FOUND:${templateName}`);
+          process.stderr.write(`TEST_TEMPLATE_NOT_FOUND:${templateName}\n`);
+        }
+
+        console.error(formatErrorMessage(`Template '${templateName}' not found.`));
+        return 1;
+      }
+
+      // Special logging for test environment
+      if (process.env["VITEST"]) {
+        console.log(`TEST_TEMPLATE_FOUND:${template.name}`);
+      }
+
+      if (argv.debug) console.log(formatDebugMessage(`Found template: ${template.name}`));
+
+      // Process the template (render includes)
+      const renderedContent = await processTemplate(template.templateContent);
+      if (argv.debug) console.log(formatDebugMessage(`Template rendered successfully. Length: ${renderedContent.length}`));
+
+      // Create a temporary file
+      const tempFilePath = path.join(os.tmpdir(), `${TEMP_FILE_PREFIX}${templateName}-${Date.now()}${TEMP_FILE_SUFFIX}`);
+      await fs.writeFile(tempFilePath, renderedContent, 'utf8');
+
+      // Special logging for test environment
+      if (process.env["VITEST"]) {
+        console.log(`TEST_TEMP_FILE_PATH:${tempFilePath}`);
+      }
+
+      console.log(formatSaveMessage(`Rendered template saved to temporary file: ${tempFilePath}`, !process.env["VITEST"]));
+
+      // Special editor logging for test environment
+      if (process.env["VITEST"] && typeof argv.open === 'string') {
+        console.log(`TEST_EDITOR_COMMAND:${argv.open}`);
+      }
+
+      // Open the temporary file in the editor
+      await openFileInEditor(tempFilePath, argv.open, argv.debug);
+
+      return 0; // Exit successfully
+    } catch (error) {
+      // Special error logging for test environment
+      if (process.env["VITEST"]) {
+        console.log(`TEST_RENDER_ERROR:${error instanceof Error ? error.message : String(error)}`);
+        process.stderr.write(`TEST_RENDER_ERROR:${error instanceof Error ? error.message : String(error)}\n`);
+      }
+
+      console.error(formatErrorMessage(`Failed to render template '${templateName}': ${error instanceof Error ? error.message : String(error)}`));
+      if (argv.debug && error instanceof Error) console.error(error.stack);
       return 1;
     }
   }
@@ -856,38 +1026,4 @@ if (isMainModule()) {
     console.error(error);
     process.exit(1);
   });
-}
-
-// Helper function to open files with the system default application
-function openWithSystemDefault(filePath: string) {
-  console.log(formatDebugMessage(`Opening with system default application: ${filePath}`));
-
-  try {
-    // Different commands based on platform
-    if (process.platform === 'darwin') {  // macOS
-      execSync(`open "${filePath}"`, { stdio: 'inherit' });
-    } else if (process.platform === 'win32') {  // Windows
-      // Use a separate function for Windows to avoid type issues
-      openWindowsFile(filePath);
-    } else {  // Linux and others
-      execSync(`xdg-open "${filePath}"`, { stdio: 'inherit' });
-    }
-    console.log(formatDebugMessage(`System default application launched successfully`));
-  } catch (error) {
-    console.error(formatErrorMessage(`Failed to open with system default: ${error instanceof Error ? error.message : String(error)}`));
-  }
-}
-
-// Separate function for Windows file opening
-function openWindowsFile(filePath: string) {
-  // The empty string "" is necessary for the window title in Windows start command
-  const command = `start "" "${filePath}"`;
-  // Use a child process to run the command with a shell
-  const child = spawn(command, [], {
-    shell: true,
-    stdio: 'inherit',
-    detached: true
-  });
-  child.unref();
-  console.log(formatDebugMessage(`Windows file opener launched with command: ${command}`));
 }
