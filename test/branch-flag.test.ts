@@ -1,18 +1,20 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { execSync } from "node:child_process";
 import { writeFileSync, mkdirSync, rmSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { runCLI, isOnMainBranch } from "./test-helpers";
 import { nanoid } from "nanoid"; // or just build your own random string
+import { runDirectCLI } from "../utils/directTestRunner.js";
 
 // Only run these tests on main branch
 if (isOnMainBranch()) {
   describe.concurrent("CLI --branch", () => {
     let repoPath: string;
 
-    beforeEach(() => {
-      // Create a brand new temp directory on each test run
+    // Use beforeAll instead of beforeEach for one-time setup
+    beforeAll(() => {
+      // Create a brand new temp directory once for all tests
       const randomFolder = `branch-test-${nanoid()}`;
       repoPath = join(tmpdir(), randomFolder);
 
@@ -53,8 +55,37 @@ if (isOnMainBranch()) {
       );
     });
 
+    // Clean up after all tests
+    afterAll(() => {
+      // Only attempt cleanup if repoPath is defined
+      if (repoPath) {
+        try {
+          rmSync(repoPath, { recursive: true, force: true });
+        } catch (error) {
+          console.warn(`Warning: Failed to clean up test directory: ${error}`);
+        }
+      }
+    });
+
     it("attempts to clone the specified branch from a Git repository", async () => {
       const { stdout, exitCode } = await runCLI([
+        "--repo",
+        repoPath,
+        "--branch",
+        "some-feature-branch",
+        "--pipe",
+      ]);
+
+      expect(exitCode).toBe(0);
+      expect(stdout).toContain("Text digest built");
+      expect(stdout).toMatch(/Branch: some-feature-branch/i);
+      expect(stdout).toContain("feature.js");
+      expect(stdout).not.toContain("main.js");
+    });
+
+    // Add a test using direct execution for comparison
+    it("attempts to clone the specified branch using direct execution", async () => {
+      const { stdout, exitCode } = await runDirectCLI([
         "--repo",
         repoPath,
         "--branch",

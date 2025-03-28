@@ -220,3 +220,71 @@ pnpm build
 ## License
 
 This project is licensed under the MIT License – see the LICENSE file for details.
+
+## Test Optimization
+
+The test suite has been optimized to run faster using several strategies:
+
+### Parallel Test Execution
+
+Tests can now run concurrently, leveraging multiple CPU cores for faster test execution. This is enabled in `vitest.config.ts` by removing the `sequence: { concurrent: false }` option.
+
+### Direct Function Testing
+
+Instead of spawning a new process for each test (which is slow), many tests now use the direct function testing approach through `utils/directTestRunner.ts`. This utility allows tests to call the main application functions directly while capturing their output.
+
+Benefits:
+- Much faster test execution (typically 5-10x faster)
+- Same test coverage and assertions
+- No process spawning overhead
+
+To migrate an existing test to use direct function testing:
+
+1. Run the test analysis to see candidates for optimization:
+   ```
+   pnpm test:optimize:analyze
+   ```
+
+2. Migrate a specific test file:
+   ```
+   pnpm test:optimize test/your-test-file.test.ts
+   ```
+
+3. Verify the test still passes and check the performance improvement.
+
+### Batch Migration
+
+To optimize multiple tests at once, you can use the batch processing options:
+
+1. Analyze and run a dry-run batch (no changes applied):
+   ```
+   pnpm test:optimize:batch:dry
+   ```
+
+2. Fast batch migration (skips performance measurement):
+   ```
+   pnpm test:optimize:batch:fast
+   ```
+
+3. Full batch migration with performance measurements:
+   ```
+   pnpm test:optimize:batch
+   ```
+
+Additional options:
+- Use `--force` to re-optimize already migrated files
+- Use `--dry-run` to see what would be changed without making actual changes
+- Use `--skip-measure` to skip performance measurements (faster)
+
+### Best Practices
+
+- Use `beforeAll` instead of `beforeEach` when the setup only needs to be done once for all tests in a describe block
+- For expensive file operations, consider mocking the filesystem
+- Use the `waitForFile` helper with appropriate timeouts for file-based tests
+- Run optimized test files with `pnpm test:direct` to verify they still work
+
+### Additional Tools
+
+- `scripts/optimize-tests.js`: Helper script to analyze and optimize test files
+- `utils/directTestRunner.ts`: Direct function execution utility
+- `test/helpers/fileWaiter.ts`: Optimized file waiting utility with adaptive polling
