@@ -21,7 +21,6 @@ import {
   PROP_TREE,
   PROP_CONTENT,
   DigestResult,
-  APP_NAME,
 } from "./constants.js";
 // Remove direct imports from templates as we're using dynamic imports now
 // import { listTemplates, loadAllTemplates } from "./templates.js";
@@ -40,7 +39,7 @@ import { getHashedSource } from "./utils.js";
 import { writeFile, mkdir } from "node:fs/promises";
 import { countTokens } from "./tokenCounter.js";
 import { execSync, spawn } from "node:child_process";
-import Conf from 'conf';
+import { config } from "./config.js";
 import { getEditorConfig } from "./editor.js";
 import path from "path";
 import os from "os";
@@ -236,12 +235,9 @@ export async function handleOutput(
         // Otherwise try to get the command from config
         console.log(formatDebugMessage(`No editor specified in command or empty string, attempting to read from config`));
         try {
-          // Create the config with defaults
+          // Get the editor config
           const editorConfig = await getEditorConfig();
-          console.log(formatDebugMessage(`Raw editor config from getEditorConfig(): ${JSON.stringify(editorConfig, null, 2)}`));
-
-          // Log the editor config for debugging
-          if (argv.debug) console.log(formatDebugMessage(`Editor config from getEditorConfig(): ${JSON.stringify(editorConfig, null, 2)}`));
+          console.log(formatDebugMessage(`Raw editor config for config flag: ${JSON.stringify(editorConfig, null, 2)}`));
 
           // Use the command from config if it's a string
           if (editorConfig && typeof editorConfig.command === 'string') {
@@ -431,21 +427,10 @@ export async function main(): Promise<number> {
     try {
       console.log(formatDebugMessage(`Processing --config flag`));
 
-      // Create a temporary Conf instance just to get the path
-      // Match the configuration in editor.ts with the same defaults
-      const tempConfig = new Conf({
-        projectName: APP_NAME,
-        defaults: {
-          editor: {
-            command: "code",
-            skipEditor: false
-          }
-        }
-      });
-
-      const configFilePath = tempConfig.path;
+      // Use the shared config instance
+      const configFilePath = config.path;
       console.log(formatDebugMessage(`Config file path: ${configFilePath}`));
-      console.log(formatDebugMessage(`Current config contents: ${JSON.stringify(tempConfig.store, null, 2)}`));
+      console.log(formatDebugMessage(`Current config contents: ${JSON.stringify(config.store, null, 2)}`));
 
       // Create the file with default editor config if it doesn't exist
       try {
@@ -458,9 +443,9 @@ export async function main(): Promise<number> {
         console.log(formatDebugMessage(`Created config directory: ${configDir}`));
 
         // Since we're using defaults, we don't need to explicitly create the file
-        // The file will be created automatically when we access tempConfig.store
+        // The file will be created automatically when we access config.store
         console.log(`Created new config file with default editor settings at: ${configFilePath}`);
-        console.log(formatDebugMessage(`Default config: ${JSON.stringify(tempConfig.store, null, 2)}`));
+        console.log(formatDebugMessage(`Default config: ${JSON.stringify(config.store, null, 2)}`));
       }
 
       console.log(`Opening configuration file: ${configFilePath}`);

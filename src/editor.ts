@@ -1,24 +1,9 @@
 // src/editor.ts
 
-import Conf from "conf";
 import * as p from "@clack/prompts";
 import { EditorConfig } from "./types.js";
-import { APP_NAME } from "./constants.js"
 import { formatDebugMessage } from "./formatter.js";
-
-// Define the default editor configuration
-const DEFAULT_EDITOR_CONFIG: EditorConfig = {
-  command: "code",
-  skipEditor: false
-};
-
-// Global configuration for editor settings
-const config = new Conf<{ editor: EditorConfig }>({
-  projectName: APP_NAME,
-  defaults: {
-    editor: DEFAULT_EDITOR_CONFIG
-  }
-});
+import { config } from "./config.js";
 
 console.log(formatDebugMessage(`Editor config path: ${config.path}`));
 

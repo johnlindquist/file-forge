@@ -2,7 +2,7 @@
 import { describe, it, expect, afterAll } from "vitest";
 import { runCLI } from "./test-helpers.js";
 import { runDirectCLI } from "../utils/directTestRunner.js";
-import { writeFileSync } from "node:fs";
+import { writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 
 describe("CLI --pipe", () => {
@@ -12,7 +12,11 @@ describe("CLI --pipe", () => {
   // Write performance results to a file after tests complete
   afterAll(() => {
     if (performanceResults.length > 0) {
-      const resultsPath = join(process.cwd(), 'performance-results.txt');
+      // Create .temp directory if it doesn't exist
+      const perfDir = join(process.cwd(), '.temp');
+      mkdirSync(perfDir, { recursive: true });
+
+      const resultsPath = join(perfDir, 'pipe-flag-performance.txt');
       writeFileSync(resultsPath, performanceResults.join('\n'), 'utf8');
       console.log(`Performance results written to ${resultsPath}`);
     }
