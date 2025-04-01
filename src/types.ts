@@ -23,7 +23,7 @@ export type IngestFlags = {
   find?: string[];
   require?: string[];
   useRegularGit?: boolean | undefined;
-  open?: boolean | undefined;
+  open?: string | boolean | undefined;
   graph?: string | undefined;
   verbose?: boolean | undefined;
   test?: boolean | undefined;
