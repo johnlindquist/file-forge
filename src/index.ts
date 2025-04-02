@@ -1055,7 +1055,51 @@ ${contentStr}
     );
   }
 
-  // After getting digest, call handleOutput
+  // --- Add Dry Run Check ---
+  if (argv.dryRun) {
+    if (argv.debug) console.log(formatDebugMessage("Dry run mode enabled. Generating output for stdout..."));
+
+    // If digest is null, create an empty digest for dry run output
+    const safeDigest = digest || {
+      [PROP_SUMMARY]: "No files found or directory is empty",
+      [PROP_TREE]: "",
+      [PROP_CONTENT]: ""
+    };
+
+    // Capture the original command for the output
+    const originalCommand = `ffg ${process.argv.slice(2).join(' ')}`;
+
+    // Generate output for stdout (respecting verbose, markdown etc.)
+    const dryRunOutput = await buildOutput(safeDigest, source, timestamp, {
+      ...argv,
+      pipe: true, // Treat dry-run like piping for formatting purposes
+      command: originalCommand,
+    });
+
+    // Print directly to stdout
+    process.stdout.write(dryRunOutput);
+
+    // Handle clipboard if requested (output message to stderr)
+    if (argv.clipboard) {
+      try {
+        clipboard.writeSync(dryRunOutput);
+        // Print clipboard message to stderr to avoid mixing with main output
+        process.stderr.write("\n" + formatClipboardMessage() + "\n");
+      } catch (error) {
+        process.stderr.write(`Clipboard error: ${error instanceof Error ? error.message : String(error)}\n`);
+        // Don't fail for clipboard errors, but log in tests
+        if (process.env["VITEST"]) {
+          process.stderr.write("\n" + formatClipboardMessage() + "\n"); // Still log mock success in tests
+        }
+      }
+    }
+
+    if (argv.debug) console.log(formatDebugMessage("Dry run complete. Skipping file save and editor open."));
+    return 0; // Exit main function successfully after dry run
+  }
+  // --- End of Dry Run Check ---
+
+  // After getting digest, call handleOutput (only if not dryRun)
   await handleOutput(digest, source, resultFilePath, argv);
   return 0; // Return success by default
 }

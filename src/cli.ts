@@ -170,6 +170,12 @@ export async function runCli() {
       type: "string",
       describe: "Render a template (including partials) and open it in the editor, skipping analysis. Provide template name.",
     })
+    .option("dry-run", {
+      alias: "D",
+      type: "boolean",
+      default: false,
+      describe: "Perform analysis and print output to stdout without saving to file or opening editor."
+    })
     .example("$0 --path /path/to/project", "Analyze a local project directory")
     .example(
       "$0 https://github.com/owner/repo --branch develop",
@@ -239,6 +245,7 @@ export async function runCli() {
     createTemplate: argv["create-template"],
     editTemplate: argv["edit-template"],
     renderTemplate: argv["render-template"],
+    dryRun: argv["dry-run"],
   };
 
   return parsedArgs;
