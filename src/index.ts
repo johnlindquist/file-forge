@@ -43,6 +43,7 @@ import { config } from "./config.js";
 import { getEditorConfig } from "./editor.js";
 import path from "path";
 import os from "os";
+import process from "node:process";
 
 // Constants for temp file
 const TEMP_FILE_PREFIX = "ffg-render-";
@@ -76,6 +77,49 @@ function isTestEnvironment(): boolean {
     process.env["CI"] === "true" ||
     process.env["CI"] === "1"
   );
+}
+
+// Helper function to check if a command exists in PATH
+function commandExists(command: string): boolean {
+  try {
+    const platform = process.platform;
+    const cmd = platform === 'win32'
+      ? `where.exe ${command}`
+      : `command -v ${command}`;
+
+    execSync(cmd, { stdio: 'ignore' });
+    return true;
+  } catch {
+    // Error ignored, command not found
+    return false;
+  }
+}
+
+// Get the full path to VS Code on macOS
+function getVSCodePath(): string | null {
+  try {
+    if (process.platform === 'darwin') {
+      // Check common VS Code locations on macOS
+      const possiblePaths = [
+        '/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code',
+        '/Applications/VSCode.app/Contents/Resources/app/bin/code',
+        '/usr/local/bin/code'
+      ];
+
+      for (const path of possiblePaths) {
+        try {
+          execSync(`test -x "${path}"`, { stdio: 'ignore' });
+          return path;
+        } catch {
+          // Path doesn't exist or isn't executable, try next
+        }
+      }
+    }
+    return null;
+  } catch (error) {
+    console.log(formatDebugMessage(`Error locating VS Code: ${error instanceof Error ? error.message : String(error)}`));
+    return null;
+  }
 }
 
 // Export handleOutput for testing
@@ -271,35 +315,37 @@ export async function handleOutput(
         }, null, 2)}`);
 
         try {
-          // Use direct command execution instead of the open package
-          console.log(formatDebugMessage(`Attempting to open file with direct command execution`));
-
-          if (editorCommand) {
-            // If an editor command is specified, use it
-            console.log(formatDebugMessage(`Using specified editor command: ${editorCommand} ${resultFilePath}`));
-            try {
-              // Use spawn to launch the editor without waiting for it to close
-              const child = spawn(editorCommand, [resultFilePath], {
-                detached: true,
-                stdio: 'ignore',
-                shell: process.platform === 'win32' // Use shell on Windows
-              });
-              // Unref the child process to allow the parent to exit
-              child.unref();
-              console.log(formatDebugMessage(`Editor launched with command: ${editorCommand} ${resultFilePath}`));
-            } catch (spawnError) {
-              console.error(formatErrorMessage(`Failed to spawn editor process: ${spawnError instanceof Error ? spawnError.message : String(spawnError)}`));
-              // Fallback to system default if specified editor fails
-              openWithSystemDefault(resultFilePath);
+          // Check if command exists when it's 'code'
+          if (editorCommand === 'code' && !commandExists('code')) {
+            // Try to get the full path to VS Code on macOS
+            const vscodePath = getVSCodePath();
+            if (vscodePath) {
+              console.log(formatDebugMessage(`'code' command not found in PATH, using full path: ${vscodePath}`));
+              editorCommand = vscodePath;
+            } else {
+              throw new Error("VS Code 'code' command not found in PATH");
             }
-          } else {
-            // Use system default application
-            openWithSystemDefault(resultFilePath);
           }
 
-          console.log(formatDebugMessage(`Editor launch command completed without errors`));
-        } catch (openError) {
-          console.error(formatErrorMessage(`Error launching editor: ${openError instanceof Error ? openError.message : String(openError)}`));
+          // Add a null check here to ensure editorCommand is defined
+          if (editorCommand) {
+            // Use spawn to launch the editor without waiting for it to close
+            const child = spawn(editorCommand, [resultFilePath], {
+              detached: true,
+              stdio: 'ignore',
+              shell: process.platform === 'win32' // Use shell on Windows
+            });
+            // Unref the child process to allow the parent to exit
+            child.unref();
+            console.log(formatDebugMessage(`Editor launched with command: ${editorCommand} ${resultFilePath}`));
+          } else {
+            throw new Error("Editor command is undefined");
+          }
+        } catch (spawnError) {
+          console.error(formatErrorMessage(`Failed to spawn editor process: ${spawnError instanceof Error ? spawnError.message : String(spawnError)}`));
+          // Fallback to system default if specified editor fails
+          console.log(formatDebugMessage(`Falling back to system default application`));
+          openWithSystemDefault(resultFilePath);
         }
       } else if (argv.debug || process.env["VITEST"]) {
         // For tests, log that we would have opened the file (helps with debugging)
@@ -490,18 +536,36 @@ export async function main(): Promise<number> {
           // If an editor command is specified, use it
           console.log(formatDebugMessage(`Using specified editor command: ${editorCommand} ${configFilePath}`));
           try {
-            // Use spawn to launch the editor without waiting for it to close
-            const child = spawn(editorCommand, [configFilePath], {
-              detached: true,
-              stdio: 'ignore',
-              shell: process.platform === 'win32' // Use shell on Windows
-            });
-            // Unref the child process to allow the parent to exit
-            child.unref();
-            console.log(formatDebugMessage(`Editor launched with command: ${editorCommand} ${configFilePath}`));
+            // Check if command exists when it's 'code'
+            if (editorCommand === 'code' && !commandExists('code')) {
+              // Try to get the full path to VS Code on macOS
+              const vscodePath = getVSCodePath();
+              if (vscodePath) {
+                console.log(formatDebugMessage(`'code' command not found in PATH, using full path: ${vscodePath}`));
+                editorCommand = vscodePath;
+              } else {
+                throw new Error("VS Code 'code' command not found in PATH");
+              }
+            }
+
+            // Add a null check here to ensure editorCommand is defined
+            if (editorCommand) {
+              // Use spawn to launch the editor without waiting for it to close
+              const child = spawn(editorCommand, [configFilePath], {
+                detached: true,
+                stdio: 'ignore',
+                shell: process.platform === 'win32' // Use shell on Windows
+              });
+              // Unref the child process to allow the parent to exit
+              child.unref();
+              console.log(formatDebugMessage(`Editor launched with command: ${editorCommand} ${configFilePath}`));
+            } else {
+              throw new Error("Editor command is undefined");
+            }
           } catch (spawnError) {
             console.error(formatErrorMessage(`Failed to spawn editor process: ${spawnError instanceof Error ? spawnError.message : String(spawnError)}`));
             // Fallback to system default if specified editor fails
+            console.log(formatDebugMessage(`Falling back to system default application`));
             openWithSystemDefault(configFilePath);
           }
         } else {
