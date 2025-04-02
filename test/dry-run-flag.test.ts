@@ -48,4 +48,64 @@ describe("CLI --dry-run flag", () => {
         expect(stdout).not.toContain("WOULD_OPEN_FILE:"); // Marker from test helpers
         expect(stdout).not.toContain("Results saved:"); // User-facing message
     }, 30000); // Timeout might be needed if analysis takes time
+
+    it("should work with --verbose flag", async () => {
+        const { stdout, stderr, exitCode } = await runDirectCLI([
+            "--path",
+            "test/fixtures/sample-project",
+            "--dry-run",
+            "--verbose",
+            "--no-token-count",
+        ]);
+
+        expect(exitCode).toBe(0);
+        expect(stderr).toBe('');
+        expect(stdout).toContain("<files>"); // Verbose should include <files>
+    });
+
+    it("should work with --markdown flag", async () => {
+        const { stdout, stderr, exitCode } = await runDirectCLI([
+            "--path",
+            "test/fixtures/sample-project",
+            "--dry-run",
+            "--markdown",
+            "--no-token-count",
+        ]);
+
+        expect(exitCode).toBe(0);
+        expect(stderr).toBe('');
+        expect(stdout).toContain("# Summary"); // Markdown should include markdown headers
+    });
+
+    it("should copy to clipboard when --dry-run and --clipboard are used", async () => {
+        // Renamed test for clarity
+        const { stderr, exitCode } = await runDirectCLI([
+            "--path",
+            "test/fixtures/sample-project",
+            "--dry-run",
+            "--clipboard",
+            "--no-token-count",
+        ]);
+
+        expect(exitCode).toBe(0);
+        // Expect the SUCCESS message on stderr, not an error
+        expect(stderr).toContain("Copied to clipboard");
+    });
+
+    it("should ignore --open flag when --dry-run is used", async () => {
+        // Renamed test for clarity
+        const { stdout, stderr, exitCode } = await runDirectCLI([
+            "--path",
+            "test/fixtures/sample-project",
+            "--dry-run",
+            "--open", // This flag should be ignored
+            "--no-token-count",
+        ]);
+
+        expect(exitCode).toBe(0);
+        expect(stderr).toBe(''); // stderr should be empty
+        // Ensure no editor opening markers are present in stdout either
+        expect(stdout).not.toContain("WOULD_OPEN_FILE:");
+        expect(stdout).not.toContain("Opening file with:");
+    });
 }); 
