@@ -38,6 +38,7 @@ export type IngestFlags = {
   markdown?: boolean | undefined;
   noTokenCount?: boolean;
   whitespace?: boolean | undefined;
+  dryRun?: boolean | undefined;
 };
 
 export type ScanStats = {
