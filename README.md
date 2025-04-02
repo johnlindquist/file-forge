@@ -17,6 +17,7 @@
   - Copy output to clipboard using `--clipboard`
   - Generate Markdown output with `--markdown` (default output is XML)
   - Control whitespace/indentation with `--whitespace`
+  - Preview output in terminal without saving using `--dry-run` / `-D`
 - **Advanced Modes**:
   - **Bulk Mode**: Append AI processing instructions with `--bulk`
   - **Debug/Verbose**: Enable additional logging with `--debug` or `--verbose`
@@ -111,6 +112,12 @@ ffg --graph src/index.js
 - **Enable whitespace/indentation in output:**
   ```bash
   ffg src --whitespace
+  ```
+- **Preview output without saving (Dry Run):**
+  ```bash
+  ffg src --dry-run
+  # Alias
+  ffg src -D
   ```
 - **Bulk Analysis Mode:**
   ```bash
