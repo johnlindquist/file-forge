@@ -7,7 +7,7 @@ variables:
   - BRANCH_NAME # Still useful for push/PR commands, even if branch exists
 ---
 <executive_summary>
-Generate a step-by-step guide for working within an existing Git worktree. Assumes the worktree is linked to the correct feature branch. Includes implementation, testing (with commits per step), pushing the branch, and creating a Pull Request.
+Generate a step-by-step guide for implementing a task **assuming you are already working inside the relevant Git worktree and on the correct feature branch.** This guide covers code implementation, testing (with commits per step), pushing the branch, and creating a Pull Request.
 </executive_summary>
 
 <instructions>
