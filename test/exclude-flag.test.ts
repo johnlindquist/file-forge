@@ -20,4 +20,25 @@ describe("CLI --exclude", () => {
     // But the .ts file is still present
     expect(stdout).toMatch(/test\.ts/);
   });
+
+  it("excludes patterns from multiple --exclude flags", async () => {
+    // We'll exclude *.md and *.js
+    const { stdout, exitCode } = await runCLI([
+      "--path",
+      "test/fixtures/sample-project",
+      "--exclude",
+      "*.md",
+      "--exclude",
+      "*.js",
+      "--pipe",
+    ]);
+
+    expect(exitCode).toBe(0);
+    // Output shouldn't have 'readme.md' or 'hello.js'
+    expect(stdout).not.toMatch(/readme\.md/);
+    expect(stdout).not.toMatch(/hello\.js/);
+
+    // But the .ts file is still present
+    expect(stdout).toMatch(/test\.ts/);
+  });
 });

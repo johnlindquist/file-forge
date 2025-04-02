@@ -3,6 +3,7 @@ import { describe, it, expect } from "vitest";
 import { promises as fs } from "node:fs";
 import { join, resolve } from "node:path";
 import { ingestDirectory } from "../src/ingest.js";
+import { runCLI } from "./test-helpers.js";
 
 describe("include flag functionality", () => {
   const FIXTURE_DIR = join(__dirname, "fixtures", "sample-project");
@@ -31,7 +32,7 @@ describe("include flag functionality", () => {
       expect(result.tree).not.toContain(externalFilePath);
     } finally {
       // Clean up
-      await fs.unlink(externalFilePath).catch(() => {});
+      await fs.unlink(externalFilePath).catch(() => { });
     }
   });
 
@@ -63,7 +64,7 @@ describe("include flag functionality", () => {
       // Verify both internal and external content is present
       expect(result.content).toContain(externalFilePath);
       expect(result.content).toContain(externalContent);
-      expect(result.content).toContain(".js"); // Should find at least one JS file
+      expect(result.content).toMatch(/hello\.js/); // Corrected assertion
 
       // Verify the summary includes total file count
       const totalFiles = parseInt(
@@ -72,7 +73,27 @@ describe("include flag functionality", () => {
       expect(totalFiles).toBeGreaterThan(1); // Should have at least the external file and one .js file
     } finally {
       // Clean up
-      await fs.unlink(externalFilePath).catch(() => {});
+      await fs.unlink(externalFilePath).catch(() => { });
     }
+  });
+
+  it("handles multiple --include flags correctly via CLI", async () => {
+    const { stdout, exitCode } = await runCLI([
+      "--path",
+      FIXTURE_DIR,
+      "--include",
+      "*.js",
+      "--include",
+      "*.md",
+      "--pipe",
+    ]);
+
+    expect(exitCode).toBe(0);
+    // Check if output contains expected files from both includes
+    expect(stdout).toMatch(/hello\.js/); // From *.js
+    // Look for the specific line in the directory tree
+    expect(stdout).toMatch(/├── README\.md/); // From *.md
+    // Check if an excluded file type is not present
+    expect(stdout).not.toMatch(/test\.ts/);
   });
 });

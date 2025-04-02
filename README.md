@@ -57,13 +57,28 @@ ffg /path/to/local/project
 ```
 
 ### Filter Files by Pattern
-```bash
-# Filter in current directory
-ffg --include "*.ts,*.tsx" --exclude "*.spec.*,node_modules"
 
-# Filter in specific directory
-ffg src --include "*.ts" --exclude "*.test.ts"
+Use glob patterns to precisely control which files are included or excluded.
+
+```bash
+# Include only TypeScript files in the root of the current directory
+ffg --include "*.ts"
+
+# Include TypeScript files recursively in all subdirectories
+ffg --include "**/*.ts"
+
+# Exclude node_modules and test files recursively
+ffg --exclude "**/*test.*,node_modules/**"
+
+# Combine include and exclude for specific filtering in the 'src' directory
+ffg src --include "**/*.ts" --exclude "**/*.spec.ts,**/__tests__/**"
 ```
+
+**Note:**
+- A pattern like `*.ts` matches files only in the immediate directory being scanned.
+- Use `**/*` to match files recursively through all subdirectories (e.g., `**/*.ts`).
+- You can provide multiple patterns separated by commas (e.g., `"*.ts,*.js"`) or by using multiple `--include` / `--exclude` flags (e.g., `--include "*.ts" --include "*.js"`).
+- You can also include specific files using their absolute paths alongside glob patterns (e.g., `ffg --include "**/*.ts,/Users/me/Documents/important_config.json"`).
 
 ### Search for Specific Content
 - **Find files containing ANY of the terms:**
