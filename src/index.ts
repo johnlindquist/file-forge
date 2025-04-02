@@ -771,24 +771,35 @@ export async function main(): Promise<number> {
       const renderedContent = await processTemplate(template.templateContent);
       if (argv.debug) console.log(formatDebugMessage(`Template rendered successfully. Length: ${renderedContent.length}`));
 
-      // Create a temporary file
-      const tempFilePath = path.join(os.tmpdir(), `${TEMP_FILE_PREFIX}${templateName}-${Date.now()}${TEMP_FILE_SUFFIX}`);
-      await fs.writeFile(tempFilePath, renderedContent, 'utf8');
+      // === Add this conditional logic ===
+      if (argv.pipe) {
+        // Pipe mode: Write rendered content directly to stdout
+        process.stdout.write(renderedContent);
+        // Add a marker for testing purposes
+        if (process.env["VITEST"]) {
+          console.log(`\nTEST_RENDERED_TO_STDOUT`);
+        }
+      } else {
+        // Original mode: Save to temp file and open in editor
+        const tempFilePath = path.join(os.tmpdir(), `${TEMP_FILE_PREFIX}${templateName}-${Date.now()}${TEMP_FILE_SUFFIX}`);
+        await fs.writeFile(tempFilePath, renderedContent, 'utf8');
 
-      // Special logging for test environment
-      if (process.env["VITEST"]) {
-        console.log(`TEST_TEMP_FILE_PATH:${tempFilePath}`);
+        // Special logging for test environment
+        if (process.env["VITEST"]) {
+          console.log(`TEST_TEMP_FILE_PATH:${tempFilePath}`);
+        }
+
+        console.log(formatSaveMessage(`Rendered template saved to temporary file: ${tempFilePath}`, !process.env["VITEST"]));
+
+        // Special editor logging for test environment
+        if (process.env["VITEST"] && typeof argv.open === 'string') {
+          console.log(`TEST_EDITOR_COMMAND:${argv.open}`);
+        }
+
+        // Open the temporary file in the editor
+        await openFileInEditor(tempFilePath, argv.open, argv.debug);
       }
-
-      console.log(formatSaveMessage(`Rendered template saved to temporary file: ${tempFilePath}`, !process.env["VITEST"]));
-
-      // Special editor logging for test environment
-      if (process.env["VITEST"] && typeof argv.open === 'string') {
-        console.log(`TEST_EDITOR_COMMAND:${argv.open}`);
-      }
-
-      // Open the temporary file in the editor
-      await openFileInEditor(tempFilePath, argv.open, argv.debug);
+      // ==================================
 
       return 0; // Exit successfully
     } catch (error) {
