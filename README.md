@@ -310,3 +310,7 @@ Additional options:
 - `scripts/optimize-tests.js`: Helper script to analyze and optimize test files
 - `utils/directTestRunner.ts`: Direct function execution utility
 - `test/helpers/fileWaiter.ts`: Optimized file waiting utility with adaptive polling
+
+### Inspiration
+
+- https://gitingest.com/
