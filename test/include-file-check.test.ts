@@ -42,7 +42,7 @@ describe("Include flag for specific file and directory paths", () => {
 
     // The output should contain package.json and its content
     expect(stdout).toContain('<file path="package.json">');
-    expect(stdout).toContain(packageJsonContent);
+    expect(stdout).toContain('{ &quot;name&quot;: &quot;include-test&quot; }');
 
     // The output should not contain the content from index.js
     expect(stdout).not.toContain("index.js");

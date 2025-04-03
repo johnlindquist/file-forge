@@ -65,7 +65,7 @@ describe("CLI --verbose flag", () => {
     expect(verboseXmlResult.exitCode).toBe(0);
     expect(verboseXmlResult.stdout).toContain("<files>");
     expect(verboseXmlResult.stdout).toContain("<file path=");
-    expect(verboseXmlResult.stdout).toContain("console.log('hello')");
+    expect(verboseXmlResult.stdout).toContain("console.log(&apos;hello&apos;)");
 
     // Test 4: Markdown format with verbose
     expect(verboseMarkdownResult.exitCode).toBe(0);
