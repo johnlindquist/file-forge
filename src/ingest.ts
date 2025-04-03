@@ -2,7 +2,7 @@
 
 import { promises as fs } from "node:fs";
 import * as path from "node:path";
-import { resolve, basename, join } from "node:path";
+import { resolve, basename, join, relative } from "node:path";
 import { globby } from "globby";
 import ignore from "ignore";
 import { fileExists } from "./utils.js";
@@ -143,107 +143,94 @@ export async function ingestDirectory(
   basePath: string,
   flags: IngestFlags
 ): Promise<DigestResult> {
-  // Add debug logging
   if (flags.debug) {
     console.log("[DEBUG] Starting ingestDirectory with basePath:", basePath);
     console.log("[DEBUG] Flags:", JSON.stringify(flags, null, 2));
   }
 
-  // Handle branch/commit checkout if needed
   if (flags.branch || flags.commit) {
     await resetRepo(basePath, flags);
   }
 
-  // Separate include patterns into absolute and relative
-  const absoluteIncludes = (flags.include || []).filter((p) =>
-    path.isAbsolute(p)
-  );
-  const relativeIncludes = (flags.include || []).filter(
-    (p) => !path.isAbsolute(p)
-  );
+  const absoluteIncludes = (flags.include || []).filter((p) => path.isAbsolute(p));
+  const relativeIncludes = (flags.include || []).filter((p) => !path.isAbsolute(p));
+  const externalPaths = new Set(absoluteIncludes); // Identify external paths upfront
 
   if (flags.debug) {
     console.log("[DEBUG] Absolute includes:", absoluteIncludes);
     console.log("[DEBUG] Relative includes:", relativeIncludes);
+    console.log("[DEBUG] External paths identified:", Array.from(externalPaths));
   }
 
   try {
-    // Process files and get tree structure for relative paths
-    const { files: internalFiles, tree } = await processFiles(basePath, {
-      ...flags,
-      include: relativeIncludes,
-    });
+    // Process internal structure first, passing externalPaths to skip during content gathering
+    const { files: internalFiles, tree } = await processFiles(basePath, flags, externalPaths);
 
     if (flags.debug) {
-      console.log("[DEBUG] Internal files found:", internalFiles.length);
-      console.log("[DEBUG] Tree structure generated");
+      console.log(`[DEBUG] Processed ${internalFiles.length} internal files (after skipping external).`);
     }
 
-    // Process external files
+    // Now process ONLY the external files to get their content with absolute paths
     const externalFiles: FileContent[] = [];
     for (const absPath of absoluteIncludes) {
       try {
         const stat = await fs.stat(absPath);
-        if (stat.isFile()) {
-          const content = await getFileContent(
-            absPath,
-            flags.maxSize ?? DEFAULT_MAX_SIZE,
-            absPath
-          );
-          if (content !== null) {
-            externalFiles.push({
-              path: absPath,
-              content,
-              size: stat.size,
-            });
-          }
+        if (!stat.isFile()) continue; // Skip directories if specified absolutely
+
+        const content = await getFileContent(
+          absPath,
+          flags.maxSize ?? DEFAULT_MAX_SIZE,
+          absPath, // Use the full absolute path for display
+          { skipHeader: false }
+        );
+        if (content !== null) {
+          externalFiles.push({
+            path: absPath,
+            content,
+            size: stat.size,
+          });
         }
       } catch (error) {
-        if (flags.debug) {
-          console.error(
-            `[DEBUG] Error processing external file ${absPath}:`,
-            error
-          );
-        }
+        if (flags.debug) console.error(`[DEBUG] Error processing external file ${absPath}:`, error);
       }
     }
+    if (flags.debug) {
+      console.log(`[DEBUG] Processed ${externalFiles.length} external files for content.`);
+    }
 
-    // Combine internal and external files
-    const allFiles = [...internalFiles, ...externalFiles];
+    // Combine the two lists. Duplicates are prevented because internalFiles
+    // should not contain any files that were in externalPaths.
+    const uniqueFiles = [...externalFiles, ...internalFiles];
 
     if (flags.debug) {
-      console.log("[DEBUG] Total files found:", allFiles.length);
+      console.log("[DEBUG] Final unique files count:", uniqueFiles.length);
+      console.log("[DEBUG] Final unique file paths:", uniqueFiles.map(f => f.path));
     }
 
-    // Build summary
+    // Build summary and content string from uniqueFiles...
     const maxSize = flags.maxSize ?? DEFAULT_MAX_SIZE;
-    const stats = { totalFiles: allFiles.length };
+    const stats = { totalFiles: uniqueFiles.length };
     let summary = `Analyzing: ${basePath}
-Max file size: ${maxSize}KB${flags.branch ? `\nBranch: ${flags.branch}` : ""}${flags.commit ? `\nCommit: ${flags.commit}` : ""
-      }
+Max file size: ${maxSize}KB${flags.branch ? `\nBranch: ${flags.branch}` : ""}${flags.commit ? `\nCommit: ${flags.commit}` : ""}
 Skipping build artifacts and generated files
 Files analyzed: ${stats.totalFiles}`;
 
-    if (externalFiles.length > 0) {
-      summary += `\nIncluding external files:\n${externalFiles
-        .map((f) => f.path)
-        .join("\n")}`;
+    if (absoluteIncludes.length > 0) { // Report based on initially identified external files
+      summary += `\nIncluding external files:\n${absoluteIncludes.join("\n")}`;
     }
 
-    // Always include file contents in the content, but without repeating the summary
-    const fileContents = allFiles
-      .map((f) => `${f.path}:\n${f.content}`)
-      .join("\n\n");
+    const fileContents = uniqueFiles
+      .map((f) => f.content)
+      .join("\n");
 
     return {
       [PROP_SUMMARY]: summary,
       [PROP_TREE]: tree,
       [PROP_CONTENT]: fileContents,
     };
+
   } catch (error) {
-    if (flags.debug) {
-      console.error("[DEBUG] Error in ingestDirectory:", error);
-    }
+    if (flags.debug) console.error("[DEBUG] Error in ingestDirectory:", error);
     throw error;
   }
 }
@@ -652,49 +639,77 @@ export async function filterFilesByContent(
   return Array.from(matchingFiles);
 }
 
-/** Gather files from a directory tree */
+/** Gather file content for a tree node */
 export async function gatherFiles(
   node: TreeNode,
-  options: IngestFlags
+  options: IngestFlags,
+  basePath: string,
+  externalPaths: Set<string> // Use this to skip content generation
 ): Promise<FileContent[]> {
   const files: FileContent[] = [];
-  const seenPaths = new Set<string>();
   const ignoredFiles = new Set<string>();
   const binaryFiles = new Set<string>();
   const svgFiles = new Set<string>();
 
   async function processNode(node: TreeNode) {
     if (node.type === "file") {
-      if (seenPaths.has(node.path)) {
+      // Skip content generation if it's an external file (path matches absolute include)
+      if (externalPaths.has(node.path)) {
         if (options.debug) {
-          console.log("[DEBUG] Skipping duplicate file:", node.path);
+          console.log(`[DEBUG] gatherFiles: Skipping content generation for external file: ${node.path}`);
         }
-        return;
-      }
-      seenPaths.add(node.path);
+        // Still process flags for the tree view
+        try {
+          const buffer = await fs.readFile(node.path);
+          node.isBinary = isBinaryFile(buffer, node.path);
+          if (node.name.toLowerCase().endsWith('.svg')) {
+            node.isSvgIncluded = !!options.svg;
+            if (!node.isSvgIncluded) svgFiles.add(node.path);
+          }
+          if (node.isBinary) binaryFiles.add(node.path);
 
-      // Check if the file is an SVG file
+          const maxSize = options.maxSize ?? DEFAULT_MAX_SIZE;
+          if (node.isBinary && node.size <= maxSize) {
+            node.tooLarge = false; // Override tooLarge if binary & within size
+          }
+        } catch (error) {
+          if (options.debug) console.log(`[DEBUG] gatherFiles: Error stat-ing external file ${node.path} for flags:`, error);
+          ignoredFiles.add(node.path);
+        }
+        return; // Skip content retrieval
+      }
+
+      // Handle SVG exclusion for internal files
       if (node.name.toLowerCase().endsWith('.svg')) {
         if (!options.svg) {
           if (options.debug) {
-            console.log("[DEBUG] SVG file excluded:", node.path);
+            console.log("[DEBUG] SVG file excluded (internal):", node.path);
           }
           svgFiles.add(node.path);
-          // Still include the file in the tree, but mark it as excluded SVG
-          return;
+          node.isSvgIncluded = false;
+          // We still need to check if it's binary for the tree view, but skip content
+          try {
+            const buffer = await fs.readFile(node.path);
+            node.isBinary = isBinaryFile(buffer, node.path);
+            if (node.isBinary) binaryFiles.add(node.path);
+            const maxSize = options.maxSize ?? DEFAULT_MAX_SIZE;
+            if (node.isBinary && node.size <= maxSize) node.tooLarge = false;
+          } catch (error) {
+            if (options.debug) console.log(`[DEBUG] gatherFiles: Error stat-ing internal SVG ${node.path} for flags:`, error);
+            ignoredFiles.add(node.path);
+          }
+          return; // Skip content if SVG is excluded
+        } else {
+          node.isSvgIncluded = true; // Mark included if flag is set
         }
       }
 
+      // Process internal file content
       try {
-        // Check if the file is binary
         const buffer = await fs.readFile(node.path);
         const isBinary = isBinaryFile(buffer, node.path);
-
-        // Set the isBinary flag on the node
         node.isBinary = isBinary;
 
-        // For binary files that are not too large by size, we should override the tooLarge flag
-        // This ensures binary files like small PNGs are only labeled as binary, not as too large
         const maxSize = options.maxSize ?? DEFAULT_MAX_SIZE;
         if (isBinary && node.size <= maxSize) {
           node.tooLarge = false;
@@ -702,42 +717,39 @@ export async function gatherFiles(
 
         if (isBinary) {
           if (options.debug) {
-            console.log("[DEBUG] Binary file detected:", node.path);
+            console.log("[DEBUG] Binary file detected (internal):", node.path);
           }
           binaryFiles.add(node.path);
-          // Still include the file in the tree, but mark it as binary
-          return;
+          return; // Skip content for binary files
         }
 
-        // For non-binary files, ensure the isBinary flag is explicitly set to false
-        // This ensures large text files are not incorrectly labeled as binary
         node.isBinary = false;
 
+        // Use RELATIVE path for display for internal files
+        const relativePath = relative(basePath, node.path);
         const content = await getFileContent(
           node.path,
-          options.maxSize ?? DEFAULT_MAX_SIZE,
-          basename(node.path),
+          maxSize,
+          relativePath, // Correct display path for internal files
           { skipHeader: false }
         );
         if (content === null) {
           if (options.debug) {
-            console.log("[DEBUG] File ignored by getFileContent:", node.path);
+            console.log("[DEBUG] File ignored by getFileContent (internal):", node.path);
           }
           ignoredFiles.add(node.path);
           return;
         }
-        files.push({
-          path: node.path,
-          content: content,
-          size: node.size,
-        });
+        files.push({ path: node.path, content: content, size: node.size });
       } catch (error) {
         if (options.debug) {
-          console.log("[DEBUG] Error processing file:", node.path, error);
+          console.log("[DEBUG] Error processing internal file:", node.path, error);
         }
         ignoredFiles.add(node.path);
       }
     } else if (node.type === "directory" && node.children) {
+      // Ensure children are sorted before processing for consistent output
+      sortTree(node); // Sort children here if not done in scanDirectory
       for (const child of node.children) {
         await processNode(child);
       }
@@ -747,13 +759,10 @@ export async function gatherFiles(
   await processNode(node);
 
   if (options.debug) {
-    console.log("[DEBUG] Total files gathered:", files.length);
-    console.log("[DEBUG] Total binary files:", binaryFiles.size);
-    console.log("[DEBUG] Total SVG files:", svgFiles.size);
-    console.log("[DEBUG] Total files ignored:", ignoredFiles.size);
-    console.log("[DEBUG] Ignored files:", Array.from(ignoredFiles));
-    console.log("[DEBUG] Binary files:", Array.from(binaryFiles));
-    console.log("[DEBUG] SVG files:", Array.from(svgFiles));
+    console.log("[DEBUG] gatherFiles: Internal files content gathered:", files.length);
+    console.log("[DEBUG] gatherFiles: Binary files marked:", binaryFiles.size);
+    console.log("[DEBUG] gatherFiles: SVG files marked:", svgFiles.size);
+    console.log("[DEBUG] gatherFiles: Files ignored (errors/size):", ignoredFiles.size);
   }
   return files;
 }
@@ -808,12 +817,20 @@ export function createTree(
 }
 
 /** Process files from a directory */
-async function processFiles(basePath: string, flags: IngestFlags) {
+async function processFiles(basePath: string, flags: IngestFlags, externalPaths: Set<string>) {
   const rootNode = await scanDirectory(basePath, flags);
-  if (!rootNode)
-    throw new Error("No files found or directory is empty after scanning.");
+  if (!rootNode) {
+    if (flags.debug) console.log("[DEBUG] processFiles: scanDirectory returned null.");
+    // If scan is null (e.g., empty dir or only externals matching), return empty results
+    return { files: [], tree: "" };
+  }
 
-  const files = await gatherFiles(rootNode, flags);
+  // Ensure tree is sorted before gathering files or creating tree string
+  sortTree(rootNode);
+
+  // Pass externalPaths to gatherFiles so it knows which files to skip content generation for
+  const files = await gatherFiles(rootNode, flags, basePath, externalPaths);
+  // Create tree string *after* gatherFiles might have updated node flags (like isBinary)
   const tree = createTree(rootNode, "", true, flags);
 
   return { files, tree };

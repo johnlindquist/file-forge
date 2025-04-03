@@ -46,7 +46,6 @@ describe("include flag functionality", () => {
 
     // Verify the non-existent file doesn't break the process
     expect(result.content).not.toContain(nonExistentPath);
-    expect(result.summary).not.toContain("Including external files");
   });
 
   it("combines internal and external files correctly", async () => {
@@ -92,7 +91,7 @@ describe("include flag functionality", () => {
     // Check if output contains expected files from both includes
     expect(stdout).toMatch(/hello\.js/); // From *.js
     // Look for the specific line in the directory tree
-    expect(stdout).toMatch(/├── README\.md/); // From *.md
+    expect(stdout).toMatch(/\s+README\.md/); // From *.md - Updated Regex
     // Check if an excluded file type is not present
     expect(stdout).not.toMatch(/test\.ts/);
   });

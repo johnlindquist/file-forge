@@ -17,6 +17,7 @@
   ],
   "scripts": {
     "test": "pnpm build && vitest run --silent",
+    "test:verbose": "pnpm build && vitest run",
     "test:clipboard": "pnpm build && vitest run --silent --test-name-pattern clipboard",
     "test:commit": "pnpm build && vitest run --silent --test-name-pattern commit",
     "test:watch": "pnpm build && vitest --watch",
@@ -38,6 +39,7 @@
     "pre-commit": "pnpm lint && pnpm build:check && pnpm verify:bin",
     "semantic-release": "semantic-release",
     "check:include": "pnpm build && pnpm exec node dist/index.js src",
+    "check:include-file": "pnpm build && pnpm exec node dist/index.js .npmrc",
     "check:include-external": "pnpm build && pnpm exec node dist/index.js /Users/johnlindquist/dev/kit/package.json",
     "check:graph": "pnpm build && pnpm exec node dist/index.js -g src/graph.ts",
     "check:clipboard": "pnpm build && pnpm exec node dist/index.js -i src/graph.ts -y",

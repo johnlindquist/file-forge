@@ -60,7 +60,7 @@ async function gatherGraphFiles(
     seenPaths.add(relativePath);
 
     try {
-      const content = await getFileContent(file, maxSize, basename(file), { skipHeader: false });
+      const content = await getFileContent(file, maxSize, relativePath, { skipHeader: false });
       if (content === null) {
         console.log(`[DEBUG] File ignored by getFileContent: ${file}`);
         continue;

@@ -105,7 +105,7 @@ export async function buildXMLOutput(
 
     // Directory structure
     xml += `${indent}<directoryTree>\n`;
-    xml += `${childIndent}${digest[PROP_TREE] || ""}\n`;
+    xml += `${digest[PROP_TREE] || ""}\n`;
     xml += `${indent}</directoryTree>\n`;
 
     // File contents (if verbose or saving to file)
@@ -113,21 +113,37 @@ export async function buildXMLOutput(
         xml += `${indent}<files>\n`;
         // Split content by file sections and wrap each in a file tag
         const fileContents = (digest[PROP_CONTENT] || "").split(/(?=^=+\nFile: .*\n=+\n)/m);
+
+        if (process.env["DEBUG"]) {
+            console.log(`[DEBUG] XML Formatter: Found ${fileContents.length} file content blocks`);
+        }
+
         for (const fileContent of fileContents) {
             if (!fileContent.trim()) continue;
 
             // Extract filename from the content using the actual header format
             const headerMatch = fileContent.match(/^=+\nFile: (.*)\n=+\n/);
-            if (!headerMatch || !headerMatch[1]) continue;
+            if (!headerMatch || !headerMatch[1]) {
+                if (process.env["DEBUG"]) {
+                    console.log(`[DEBUG] XML Formatter: No header match found in content: ${fileContent.substring(0, 100)}...`);
+                }
+                continue;
+            }
 
-            const filename = headerMatch[1].trim();
+            const fullPath = headerMatch[1].trim();
+
+            if (process.env["DEBUG"]) {
+                console.log(`[DEBUG] XML Formatter: Processing file path: ${fullPath}`);
+            }
+
             // Remove the header to get the file content
-            const content = fileContent.replace(/^=+\nFile: .*\n=+\n/, "").trim();
+            const content = fileContent.replace(/^=+\nFile: .*\n=+\n/, "");
 
-            xml += `${childIndent}<file path="${escapeXML(filename)}">\n`;
-            xml += `${contentIndent}${content}\n`;
+            xml += `${childIndent}<file path="${escapeXML(fullPath)}">`;
+            xml += `${escapeXML(content)}`;
             xml += `${childIndent}</file>\n`;
         }
+
         xml += `${indent}</files>\n`;
     }
 
