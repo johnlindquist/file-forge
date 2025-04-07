@@ -55,6 +55,7 @@ jobs:
         run: pnpm test
       - name: Run tests (Windows)
         if: matrix.os == 'windows-latest'
+        shell: bash
         run: pnpm test -- --no-threads
       - name: Verify CLI on ${{ matrix.os }}
         run: |
