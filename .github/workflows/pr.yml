@@ -58,7 +58,7 @@ jobs:
         shell: bash
         env:
           VITEST_TEST_TIMEOUT: 60000
-        run: pnpm test -- --threads false
+        run: pnpm test
       - name: Verify CLI on ${{ matrix.os }}
         run: |
           pnpm link --global
