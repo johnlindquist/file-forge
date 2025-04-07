@@ -121,7 +121,7 @@ describe("duplicate lines", () => {
     expect(xmlResult.exitCode).toBe(0);
     expect(xmlResult.stdout).toContain("<files>");
     expect(xmlResult.stdout).toContain("<file");
-    expect(xmlResult.stdout).toContain("console.log(&apos;test1&apos;)");
-    expect(xmlResult.stdout).toContain("console.log(&apos;test2&apos;)");
+    expect(xmlResult.stdout).toContain("console.log('test1');");
+    expect(xmlResult.stdout).toContain("console.log('test2');");
   });
 });
