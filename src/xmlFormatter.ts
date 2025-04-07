@@ -140,7 +140,7 @@ export async function buildXMLOutput(
             const content = fileContent.replace(/^=+\nFile: .*\n=+\n/, "");
 
             xml += `${childIndent}<file path="${escapeXML(fullPath)}">\n`;
-            xml += `${escapeXML(content)}`;
+            xml += `${content}`;
             xml += `${childIndent}</file>\n`;
         }
 

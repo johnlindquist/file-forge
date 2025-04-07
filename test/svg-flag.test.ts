@@ -78,7 +78,7 @@ describe("SVG file handling", () => {
         // Test 3: Include SVG content with --svg and --verbose flags
         expect(verboseResult.exitCode).toBe(0);
         expect(verboseResult.stdout).toContain("This is a text file");
-        expect(verboseResult.stdout).toContain("&lt;svg xmlns");
-        expect(verboseResult.stdout).toContain("&lt;circle cx=");
+        expect(verboseResult.stdout).toContain("<svg xmlns");
+        expect(verboseResult.stdout).toContain("<circle cx=");
     });
 }); 
