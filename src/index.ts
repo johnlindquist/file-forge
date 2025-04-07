@@ -1117,22 +1117,37 @@ ${contentStr}
 
 // Helper function to check if we're the main module
 function isMainModule(): boolean {
-  // Resolve and normalize both paths for reliable comparison
-  const importPath = path.normalize(path.resolve(new URL(import.meta.url).pathname));
-  const execPath = process.argv[1] ? path.normalize(path.resolve(process.argv[1])) : '';
-
-  if (!execPath) {
+  // Get the entry point script path from arguments
+  const execPathArg = process.argv[1];
+  if (!execPathArg) {
     console.warn("Could not determine execution path (process.argv[1] is undefined). Assuming not main module.");
     return false;
   }
 
-  // Direct comparison of normalized, absolute paths
-  const result = importPath === execPath;
+  // Resolve and normalize both the potential execution path and the module's own path
+  const execPath = path.normalize(path.resolve(execPathArg));
+  const modulePath = path.normalize(path.resolve(new URL(import.meta.url).pathname));
+
+  // Check if the resolved module path matches the resolved execution path
+  // This works for direct execution (e.g., `node dist/index.js`)
+  let isDirectExecution = modulePath === execPath;
+
+  // Also check if the execution path *ends* with the expected compiled path,
+  // relative to the project root. This handles cases where the script is run
+  // via a symlink or global install (e.g., `ffg`), where process.argv[1]
+  // might point to the symlink itself, but the underlying script is still dist/index.js.
+  // We normalize separators for cross-platform compatibility.
+  const expectedEndPath = path.normalize('dist/index.js');
+  let isLikelyBinExecution = execPath.endsWith(expectedEndPath);
+
+  const result = isDirectExecution || isLikelyBinExecution;
 
   // Add debug logging to help diagnose issues
   if (process.env['FFG_DEBUG_MAIN_MODULE'] || process.env['DEBUG']) {
-    console.log(`[DEBUG isMainModule] importPath: ${importPath}`);
+    console.log(`[DEBUG isMainModule] modulePath: ${modulePath}`);
     console.log(`[DEBUG isMainModule] execPath:   ${execPath}`);
+    console.log(`[DEBUG isMainModule] isDirect:   ${isDirectExecution}`);
+    console.log(`[DEBUG isMainModule] endsWith:   ${isLikelyBinExecution}`);
     console.log(`[DEBUG isMainModule] Result:     ${result}`);
   }
 

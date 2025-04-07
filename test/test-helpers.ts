@@ -65,7 +65,9 @@ export async function runCLI(args: string[]): Promise<{
   }
 
   return new Promise((resolve) => {
-    const proc = spawn("pnpm", ["node", "dist/index.js", ...args], {
+    // Use node directly, assuming dist/index.js is the entry point
+    // Ensure pnpm setup adds node to the PATH correctly
+    const proc = spawn("node", ["dist/index.js", ...args], {
       env: {
         ...process.env,
         VITEST: "1",
@@ -129,7 +131,8 @@ export function runCLISync(args: string[]): {
   hashedSource: string;
 } {
   try {
-    const result = execSync(`pnpm node dist/index.js ${args.join(" ")}`, {
+    // Use node directly here as well
+    const result = execSync(`node dist/index.js ${args.join(" ")}`, {
       env: { ...process.env, VITEST: "1", NO_COLOR: "1", NO_INTRO: "1" },
     }) as ExecResult;
 
