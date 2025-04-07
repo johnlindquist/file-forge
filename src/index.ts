@@ -1117,11 +1117,26 @@ ${contentStr}
 
 // Helper function to check if we're the main module
 function isMainModule(): boolean {
-  const importPath = new URL(import.meta.url).pathname;
-  const execPath = process.argv[1];
-  if (!execPath) return false;
-  // Compare last 3 path segments (e.g., '@org/package/dist/index.js')
-  return importPath.endsWith(execPath.split('/').slice(-3).join('/'));
+  // Resolve and normalize both paths for reliable comparison
+  const importPath = path.normalize(path.resolve(new URL(import.meta.url).pathname));
+  const execPath = process.argv[1] ? path.normalize(path.resolve(process.argv[1])) : '';
+
+  if (!execPath) {
+    console.warn("Could not determine execution path (process.argv[1] is undefined). Assuming not main module.");
+    return false;
+  }
+
+  // Direct comparison of normalized, absolute paths
+  const result = importPath === execPath;
+
+  // Add debug logging to help diagnose issues
+  if (process.env['FFG_DEBUG_MAIN_MODULE'] || process.env['DEBUG']) {
+    console.log(`[DEBUG isMainModule] importPath: ${importPath}`);
+    console.log(`[DEBUG isMainModule] execPath:   ${execPath}`);
+    console.log(`[DEBUG isMainModule] Result:     ${result}`);
+  }
+
+  return result;
 }
 
 // Only run main if this is the main module

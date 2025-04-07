@@ -33,7 +33,10 @@ jobs:
   test:
     needs: check_changes
     if: ${{ needs.check_changes.outputs.should_skip != 'true' }}
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -48,7 +51,7 @@ jobs:
       - run: pnpm install
       - run: pnpm build
       - run: pnpm test
-      - name: Verify CLI
+      - name: Verify CLI on ${{ matrix.os }}
         run: |
           pnpm link --global
           ffg --help || exit 1 
