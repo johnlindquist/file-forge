@@ -50,7 +50,12 @@ jobs:
           version: 8
       - run: pnpm install
       - run: pnpm build
-      - run: pnpm test
+      - name: Run tests (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: pnpm test
+      - name: Run tests (Windows)
+        if: matrix.os == 'windows-latest'
+        run: pnpm test --no-threads
       - name: Verify CLI on ${{ matrix.os }}
         run: |
           pnpm link --global
