@@ -453,8 +453,15 @@ interface ExtendedIngestFlags extends IngestFlags {
 
 // Main function that handles the CLI flow
 export async function main(): Promise<number> {
-  // Parse CLI arguments
   const argv = await runCli() as ExtendedIngestFlags & { _: (string | number)[], config?: boolean };
+
+  // +++ DEBUG LOGGING +++
+  if (process.env['CI'] === 'true' && process.platform === 'win32') {
+    console.log('[DEBUG CI Windows] Raw process.argv:', JSON.stringify(process.argv));
+    console.log('[DEBUG CI Windows] Parsed argv from runCli:', JSON.stringify(argv, null, 2));
+    console.log('[DEBUG CI Windows] process.cwd():', process.cwd());
+  }
+  // +++ END DEBUG LOGGING +++
 
   // Set up paths
   const paths = envPaths(APP_SYSTEM_ID);
