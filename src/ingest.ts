@@ -18,7 +18,10 @@ import {
   PERMANENT_IGNORE_PATTERNS,
   PERMANENT_IGNORE_DIRS,
 } from "./constants.js";
-import { existsSync, lstatSync } from "fs";
+import { existsSync as fsExistsSync, lstatSync as fsLstatSync } from "fs";
+
+/** Converts Windows backslashes to POSIX forward slashes */
+const toPosixPath = (p: string): string => p.replace(/\\/g, "/");
 
 /** Constants for ingest */
 const DEFAULT_MAX_SIZE = 10 * 1024; // 10MB in KB
@@ -303,47 +306,49 @@ export async function scanDirectory(
   // Handle include patterns correctly
   const patterns = options.include?.length
     ? options.include.map((pattern) => {
+      const posixPattern = toPosixPath(pattern); // Convert input pattern first
       // If pattern already contains a star, leave it unchanged.
-      if (pattern.includes("*")) {
-        return pattern;
+      if (posixPattern.includes("*")) {
+        return posixPattern;
       }
 
       // Resolve the pattern relative to the base path
-      const resolvedPath = resolve(dir, pattern);
+      const resolvedPath = resolve(dir, pattern); // Use original pattern for resolving
 
       // Check if the resolved path exists
-      if (existsSync(resolvedPath)) {
+      if (fsExistsSync(resolvedPath)) { // Use explicit sync import
         try {
-          const stats = lstatSync(resolvedPath);
+          const stats = fsLstatSync(resolvedPath); // Use explicit sync import
           if (stats.isFile()) {
-            // For files, use the exact path
-            return resolvedPath;
+            // For files, use the exact POSIX path
+            return toPosixPath(resolvedPath);
           } else if (stats.isDirectory()) {
-            // For directories, include all files within
-            return join(pattern, "**/*");
+            // For directories, include all files within using POSIX path
+            return toPosixPath(join(pattern, "**/*")); // Use original pattern for join
           }
         } catch (error) {
           // If an error occurs (e.g., permission error), fallback to default behavior.
           if (options.debug) {
             console.log("[DEBUG] Error checking path:", resolvedPath, error);
           }
-          return join(pattern, "**/*");
+          return toPosixPath(join(pattern, "**/*")); // Use original pattern for join
         }
       }
 
       // Fallback: if the path does not exist, use the heuristic:
       // If pattern does not contain a slash, assume it's a directory.
-      if (!pattern.includes("/")) {
-        return join(pattern, "**/*");
+      // Use the POSIX version for the check
+      if (!posixPattern.includes("/")) {
+        return toPosixPath(join(pattern, "**/*")); // Use original pattern for join
       }
 
-      return pattern;
+      return posixPattern; // Return the POSIX version of the original pattern
     })
     : ["**/*", "**/.*"];
 
   const ignorePatterns =
     options.ignore === false
-      ? [...(options.exclude ?? [])]
+      ? [...(options.exclude?.map(toPosixPath) ?? [])] // Convert excludes
       : [
         // Always exclude these directories regardless of nesting
         ...PERMANENT_IGNORE_PATTERNS,
@@ -360,7 +365,7 @@ export async function scanDirectory(
           })
           : []),
         ...gitignorePatterns,
-        ...(options.exclude ?? []),
+        ...(options.exclude?.map(toPosixPath) ?? []), // Convert excludes
       ];
 
   // Special handling for SVG files - we want to include them in the tree even when excluded
@@ -387,7 +392,7 @@ export async function scanDirectory(
   };
 
   // For root directory with include patterns, only search in those directories
-  const files =
+  const filesRaw =
     isRoot && options.include?.length
       ? await globby(patterns, globbyOptions)
       : await globby(["**/*", "**/.*"], {
@@ -398,10 +403,13 @@ export async function scanDirectory(
         ],
       });
 
+  // Normalize file paths returned by globby
+  const files = filesRaw.map(toPosixPath);
+
   // Find SVG files separately if they're excluded but we want to show them in the tree
-  let svgFiles: string[] = [];
+  let svgFilesRaw: string[] = [];
   if (!options.svg) {
-    svgFiles = await globby(["**/*.svg"], {
+    svgFilesRaw = await globby(["**/*.svg"], {
       cwd: searchDir,
       dot: true,
       absolute: true,
@@ -411,9 +419,12 @@ export async function scanDirectory(
     });
 
     if (options.debug) {
-      console.log("[DEBUG] Found SVG files:", svgFiles);
+      console.log("[DEBUG] Found raw SVG files:", svgFilesRaw);
     }
   }
+
+  // Normalize SVG file paths
+  const svgFiles = svgFilesRaw.map(toPosixPath);
 
   // Combine regular files and SVG files
   const allFiles = [...files, ...svgFiles];
@@ -487,8 +498,9 @@ export async function scanDirectory(
           );
         break;
       }
-      const relPath = file.slice(dir.length + 1);
-      const segments = relPath.split(/[/\\]/);
+      // Ensure relPath uses POSIX separators before splitting
+      const relPath = toPosixPath(relative(dir, file)); // Use toPosixPath here
+      const segments = relPath.split("/"); // Now only split by forward slash
       let currentNode = node;
       for (let i = 0; i < segments.length - 1; i++) {
         const segment = segments[i];

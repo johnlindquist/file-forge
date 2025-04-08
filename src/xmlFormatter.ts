@@ -4,6 +4,9 @@ import { getTemplateByName, processTemplate } from "./templates.js";
 import { existsSync } from "node:fs";
 import { execSync } from "node:child_process";
 
+/** Converts Windows backslashes to POSIX forward slashes */
+const toPosixPath = (p: string) => p.replace(/\\/g, "/");
+
 interface XMLOutputOptions {
     name?: string | undefined;
     template?: string | undefined;
@@ -131,15 +134,16 @@ export async function buildXMLOutput(
             }
 
             const fullPath = headerMatch[1].trim();
+            const posixPath = toPosixPath(fullPath); // Convert to POSIX path
 
             if (process.env["DEBUG"]) {
-                console.log(`[DEBUG] XML Formatter: Processing file path: ${fullPath}`);
+                console.log(`[DEBUG] XML Formatter: Processing file path: ${posixPath}`); // Log posixPath
             }
 
             // Remove the header to get the file content
             const content = fileContent.replace(/^=+\nFile: .*\n=+\n/, "");
 
-            xml += `${childIndent}<file path="${escapeXML(fullPath)}">\n`;
+            xml += `${childIndent}<file path="${escapeXML(posixPath)}">\n`; // Use posixPath
             xml += `${content}`;
             xml += `${childIndent}</file>\n`;
         }
