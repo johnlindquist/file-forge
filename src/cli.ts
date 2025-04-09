@@ -109,7 +109,8 @@ export async function runCli() {
     .option("open", {
       alias: "o",
       type: "string",
-      describe: "Open results in editor, optionally specify editor command (e.g., --open=code)",
+      describe:
+        "Open results in editor, optionally specify editor command (e.g., --open=code)",
     })
     .option("config", {
       type: "boolean",
@@ -137,7 +138,8 @@ export async function runCli() {
     .option("template", {
       alias: "t",
       type: "string",
-      describe: "Apply a prompt template to the output (use --list-templates to see available templates)",
+      describe:
+        "Apply a prompt template to the output (use --list-templates to see available templates)",
     })
     .option("list-templates", {
       type: "boolean",
@@ -145,11 +147,13 @@ export async function runCli() {
     })
     .option("create-template", {
       type: "string",
-      describe: "Create a new template file with the given name in the user templates directory",
+      describe:
+        "Create a new template file with the given name in the user templates directory",
     })
     .option("edit-template", {
       type: "string",
-      describe: "Find an existing template by name and display its file path for editing",
+      describe:
+        "Find an existing template by name and display its file path for editing",
     })
     .option("markdown", {
       type: "boolean",
@@ -168,13 +172,21 @@ export async function runCli() {
     })
     .option("render-template", {
       type: "string",
-      describe: "Render a template (including partials) and open it in the editor, skipping analysis. Provide template name.",
+      describe:
+        "Render a template (including partials) and open it in the editor, skipping analysis. Provide template name.",
     })
     .option("dry-run", {
       alias: "D",
       type: "boolean",
       default: false,
-      describe: "Perform analysis and print output to stdout without saving to file or opening editor."
+      describe:
+        "Perform analysis and print output to stdout without saving to file or opening editor.",
+    })
+    .option("show-tokens-per-file", {
+      type: "boolean",
+      default: false,
+      describe:
+        "Display token count for each file in the output (useful for identifying large files to exclude)",
     })
     .example("$0 --path /path/to/project", "Analyze a local project directory")
     .example(
@@ -194,15 +206,12 @@ export async function runCli() {
       "Analyze a project and apply the 'refactor' prompt template for AI processing"
     )
     .example(
-      '$0 /path/to/project --open code-insiders',
+      "$0 /path/to/project --open code-insiders",
       "Analyze project and open results in VS Code Insiders"
     )
+    .example("$0 --config", "Open the File Forge configuration file")
     .example(
-      '$0 --config',
-      "Open the File Forge configuration file"
-    )
-    .example(
-      '$0 --render-template worktree',
+      "$0 --render-template worktree",
       "Render the 'worktree' template and open it in the editor"
     )
     .help()
@@ -246,6 +255,7 @@ export async function runCli() {
     editTemplate: argv["edit-template"],
     renderTemplate: argv["render-template"],
     dryRun: argv["dry-run"],
+    showTokensPerFile: argv["show-tokens-per-file"],
   };
 
   return parsedArgs;

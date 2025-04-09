@@ -39,6 +39,7 @@ export type IngestFlags = {
   noTokenCount?: boolean;
   whitespace?: boolean | undefined;
   dryRun?: boolean | undefined;
+  showTokensPerFile?: boolean | undefined;
 };
 
 export type ScanStats = {

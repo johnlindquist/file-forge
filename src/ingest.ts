@@ -19,6 +19,7 @@ import {
   PERMANENT_IGNORE_DIRS,
 } from "./constants.js";
 import { existsSync as fsExistsSync, lstatSync as fsLstatSync } from "fs";
+import { countTokens } from "./tokenCounter.js";
 
 /** Converts Windows backslashes to POSIX forward slashes */
 const toPosixPath = (p: string): string => p.replace(/\\/g, "/");
@@ -91,6 +92,7 @@ interface FileContent {
   path: string;
   content: string;
   size: number;
+  tokenCount?: number | undefined;
 }
 
 /**
@@ -98,43 +100,49 @@ interface FileContent {
  * This handles leading slashes and other gitignore-specific syntax
  */
 function normalizeGitignorePatterns(patterns: string[]): string[] {
-  return patterns.map(pattern => {
-    // Skip negated patterns (those starting with !)
-    if (pattern.startsWith('!')) {
-      return pattern;
-    }
-
-    // Remove leading slash - in gitignore, a leading slash means the pattern is relative to the .gitignore location
-    // but globby expects patterns without leading slashes
-    if (pattern.startsWith('/')) {
-      pattern = pattern.substring(1);
-    }
-
-    // If pattern ends with a slash, it's a directory pattern
-    // Add ** to match all files inside that directory
-    if (pattern.endsWith('/')) {
-      pattern = `${pattern}**`;
-    }
-
-    // Handle patterns with /** at the end - don't create additional patterns for these
-    // as they're already correctly formatted for globby
-    if (pattern.endsWith('/**')) {
-      return pattern;
-    }
-
-    // If pattern doesn't have any glob characters, make it match both the directory and its contents
-    // but only if it doesn't contain path separators (which might indicate a specific file path)
-    // and doesn't look like a file extension pattern
-    if (!pattern.includes('*') && !pattern.includes('?') && !pattern.includes('[')) {
-      // Don't add /** to patterns that might be file paths, contain path separators,
-      // or look like file extension patterns (starting with *)
-      if (!pattern.includes('/') && !pattern.startsWith('*')) {
+  return patterns
+    .map((pattern) => {
+      // Skip negated patterns (those starting with !)
+      if (pattern.startsWith("!")) {
         return pattern;
       }
-    }
 
-    return pattern;
-  }).flat();
+      // Remove leading slash - in gitignore, a leading slash means the pattern is relative to the .gitignore location
+      // but globby expects patterns without leading slashes
+      if (pattern.startsWith("/")) {
+        pattern = pattern.substring(1);
+      }
+
+      // If pattern ends with a slash, it's a directory pattern
+      // Add ** to match all files inside that directory
+      if (pattern.endsWith("/")) {
+        pattern = `${pattern}**`;
+      }
+
+      // Handle patterns with /** at the end - don't create additional patterns for these
+      // as they're already correctly formatted for globby
+      if (pattern.endsWith("/**")) {
+        return pattern;
+      }
+
+      // If pattern doesn't have any glob characters, make it match both the directory and its contents
+      // but only if it doesn't contain path separators (which might indicate a specific file path)
+      // and doesn't look like a file extension pattern
+      if (
+        !pattern.includes("*") &&
+        !pattern.includes("?") &&
+        !pattern.includes("[")
+      ) {
+        // Don't add /** to patterns that might be file paths, contain path separators,
+        // or look like file extension patterns (starting with *)
+        if (!pattern.includes("/") && !pattern.startsWith("*")) {
+          return pattern;
+        }
+      }
+
+      return pattern;
+    })
+    .flat();
 }
 
 /**
@@ -155,22 +163,35 @@ export async function ingestDirectory(
     await resetRepo(basePath, flags);
   }
 
-  const absoluteIncludes = (flags.include || []).filter((p) => path.isAbsolute(p));
-  const relativeIncludes = (flags.include || []).filter((p) => !path.isAbsolute(p));
+  const absoluteIncludes = (flags.include || []).filter((p) =>
+    path.isAbsolute(p)
+  );
+  const relativeIncludes = (flags.include || []).filter(
+    (p) => !path.isAbsolute(p)
+  );
   const externalPaths = new Set(absoluteIncludes); // Identify external paths upfront
 
   if (flags.debug) {
     console.log("[DEBUG] Absolute includes:", absoluteIncludes);
     console.log("[DEBUG] Relative includes:", relativeIncludes);
-    console.log("[DEBUG] External paths identified:", Array.from(externalPaths));
+    console.log(
+      "[DEBUG] External paths identified:",
+      Array.from(externalPaths)
+    );
   }
 
   try {
     // Process internal structure first, passing externalPaths to skip during content gathering
-    const { files: internalFiles, tree } = await processFiles(basePath, flags, externalPaths);
+    const { files: internalFiles, tree } = await processFiles(
+      basePath,
+      flags,
+      externalPaths
+    );
 
     if (flags.debug) {
-      console.log(`[DEBUG] Processed ${internalFiles.length} internal files (after skipping external).`);
+      console.log(
+        `[DEBUG] Processed ${internalFiles.length} internal files (after skipping external).`
+      );
     }
 
     // Now process ONLY the external files to get their content with absolute paths
@@ -194,11 +215,17 @@ export async function ingestDirectory(
           });
         }
       } catch (error) {
-        if (flags.debug) console.error(`[DEBUG] Error processing external file ${absPath}:`, error);
+        if (flags.debug)
+          console.error(
+            `[DEBUG] Error processing external file ${absPath}:`,
+            error
+          );
       }
     }
     if (flags.debug) {
-      console.log(`[DEBUG] Processed ${externalFiles.length} external files for content.`);
+      console.log(
+        `[DEBUG] Processed ${externalFiles.length} external files for content.`
+      );
     }
 
     // Combine the two lists. Duplicates are prevented because internalFiles
@@ -207,31 +234,34 @@ export async function ingestDirectory(
 
     if (flags.debug) {
       console.log("[DEBUG] Final unique files count:", uniqueFiles.length);
-      console.log("[DEBUG] Final unique file paths:", uniqueFiles.map(f => f.path));
+      console.log(
+        "[DEBUG] Final unique file paths:",
+        uniqueFiles.map((f) => f.path)
+      );
     }
 
     // Build summary and content string from uniqueFiles...
     const maxSize = flags.maxSize ?? DEFAULT_MAX_SIZE;
     const stats = { totalFiles: uniqueFiles.length };
     let summary = `Analyzing: ${basePath}
-Max file size: ${maxSize}KB${flags.branch ? `\nBranch: ${flags.branch}` : ""}${flags.commit ? `\nCommit: ${flags.commit}` : ""}
+Max file size: ${maxSize}KB${flags.branch ? `\nBranch: ${flags.branch}` : ""}${
+      flags.commit ? `\nCommit: ${flags.commit}` : ""
+    }
 Skipping build artifacts and generated files
 Files analyzed: ${stats.totalFiles}`;
 
-    if (absoluteIncludes.length > 0) { // Report based on initially identified external files
+    if (absoluteIncludes.length > 0) {
+      // Report based on initially identified external files
       summary += `\nIncluding external files:\n${absoluteIncludes.join("\n")}`;
     }
 
-    const fileContents = uniqueFiles
-      .map((f) => f.content)
-      .join("\n");
+    const fileContents = uniqueFiles.map((f) => f.content).join("\n");
 
     return {
       [PROP_SUMMARY]: summary,
       [PROP_TREE]: tree,
       [PROP_CONTENT]: fileContents,
     };
-
   } catch (error) {
     if (flags.debug) console.error("[DEBUG] Error in ingestDirectory:", error);
     throw error;
@@ -300,73 +330,79 @@ export async function scanDirectory(
       if (options.debug) {
         console.log("[DEBUG] Raw gitignore patterns:", gitignorePatterns);
       }
-    } catch { }
+    } catch {}
   }
 
   // Handle include patterns correctly
   const patterns = options.include?.length
     ? options.include.map((pattern) => {
-      const posixPattern = toPosixPath(pattern); // Convert input pattern first
-      // If pattern already contains a star, leave it unchanged.
-      if (posixPattern.includes("*")) {
-        return posixPattern;
-      }
+        const posixPattern = toPosixPath(pattern); // Convert input pattern first
+        // If pattern already contains a star, leave it unchanged.
+        if (posixPattern.includes("*")) {
+          return posixPattern;
+        }
 
-      // Resolve the pattern relative to the base path
-      const resolvedPath = resolve(dir, pattern); // Use original pattern for resolving
+        // Resolve the pattern relative to the base path
+        const resolvedPath = resolve(dir, pattern); // Use original pattern for resolving
 
-      // Check if the resolved path exists
-      if (fsExistsSync(resolvedPath)) { // Use explicit sync import
-        try {
-          const stats = fsLstatSync(resolvedPath); // Use explicit sync import
-          if (stats.isFile()) {
-            // For files, use the exact POSIX path
-            return toPosixPath(resolvedPath);
-          } else if (stats.isDirectory()) {
-            // For directories, include all files within using POSIX path
+        // Check if the resolved path exists
+        if (fsExistsSync(resolvedPath)) {
+          // Use explicit sync import
+          try {
+            const stats = fsLstatSync(resolvedPath); // Use explicit sync import
+            if (stats.isFile()) {
+              // For files, use the exact POSIX path
+              return toPosixPath(resolvedPath);
+            } else if (stats.isDirectory()) {
+              // For directories, include all files within using POSIX path
+              return toPosixPath(join(pattern, "**/*")); // Use original pattern for join
+            }
+          } catch (error) {
+            // If an error occurs (e.g., permission error), fallback to default behavior.
+            if (options.debug) {
+              console.log("[DEBUG] Error checking path:", resolvedPath, error);
+            }
             return toPosixPath(join(pattern, "**/*")); // Use original pattern for join
           }
-        } catch (error) {
-          // If an error occurs (e.g., permission error), fallback to default behavior.
-          if (options.debug) {
-            console.log("[DEBUG] Error checking path:", resolvedPath, error);
-          }
+        }
+
+        // Fallback: if the path does not exist, use the heuristic:
+        // If pattern does not contain a slash, assume it's a directory.
+        // Use the POSIX version for the check
+        if (!posixPattern.includes("/")) {
           return toPosixPath(join(pattern, "**/*")); // Use original pattern for join
         }
-      }
 
-      // Fallback: if the path does not exist, use the heuristic:
-      // If pattern does not contain a slash, assume it's a directory.
-      // Use the POSIX version for the check
-      if (!posixPattern.includes("/")) {
-        return toPosixPath(join(pattern, "**/*")); // Use original pattern for join
-      }
-
-      return posixPattern; // Return the POSIX version of the original pattern
-    })
+        return posixPattern; // Return the POSIX version of the original pattern
+      })
     : ["**/*", "**/.*"];
 
   const ignorePatterns =
     options.ignore === false
       ? [...(options.exclude?.map(toPosixPath) ?? [])] // Convert excludes
       : [
-        // Always exclude these directories regardless of nesting
-        ...PERMANENT_IGNORE_PATTERNS,
-        ...(options.skipArtifacts ? DEFAULT_IGNORE.filter(p =>
-          !PERMANENT_IGNORE_DIRS.includes(p as typeof PERMANENT_IGNORE_DIRS[number])
-        ) : []),
-        ...(options.skipArtifacts
-          ? ARTIFACT_FILES.filter(pattern => {
-            // If the svg flag is true, don't exclude SVG files
-            if (options.svg && pattern === "*.svg") {
-              return false;
-            }
-            return true;
-          })
-          : []),
-        ...gitignorePatterns,
-        ...(options.exclude?.map(toPosixPath) ?? []), // Convert excludes
-      ];
+          // Always exclude these directories regardless of nesting
+          ...PERMANENT_IGNORE_PATTERNS,
+          ...(options.skipArtifacts
+            ? DEFAULT_IGNORE.filter(
+                (p) =>
+                  !PERMANENT_IGNORE_DIRS.includes(
+                    p as (typeof PERMANENT_IGNORE_DIRS)[number]
+                  )
+              )
+            : []),
+          ...(options.skipArtifacts
+            ? ARTIFACT_FILES.filter((pattern) => {
+                // If the svg flag is true, don't exclude SVG files
+                if (options.svg && pattern === "*.svg") {
+                  return false;
+                }
+                return true;
+              })
+            : []),
+          ...gitignorePatterns,
+          ...(options.exclude?.map(toPosixPath) ?? []), // Convert excludes
+        ];
 
   // Special handling for SVG files - we want to include them in the tree even when excluded
   const svgPatterns = options.svg ? [] : ["*.svg"];
@@ -396,12 +432,12 @@ export async function scanDirectory(
     isRoot && options.include?.length
       ? await globby(patterns, globbyOptions)
       : await globby(["**/*", "**/.*"], {
-        ...globbyOptions,
-        ignore: [
-          ...ignorePatterns,
-          ...(options.include?.length ? ["**/*"] : []),
-        ],
-      });
+          ...globbyOptions,
+          ignore: [
+            ...ignorePatterns,
+            ...(options.include?.length ? ["**/*"] : []),
+          ],
+        });
 
   // Normalize file paths returned by globby
   const files = filesRaw.map(toPosixPath);
@@ -432,8 +468,10 @@ export async function scanDirectory(
   let filteredFiles = allFiles;
 
   // Filter out SVG files from the TypeScript files when using include patterns
-  if (options.include?.some(pattern => pattern.includes('.ts'))) {
-    filteredFiles = filteredFiles.filter(file => !file.toLowerCase().endsWith('.svg'));
+  if (options.include?.some((pattern) => pattern.includes(".ts"))) {
+    filteredFiles = filteredFiles.filter(
+      (file) => !file.toLowerCase().endsWith(".svg")
+    );
   }
 
   const rawFindTerms =
@@ -540,7 +578,7 @@ export async function scanDirectory(
         };
 
         // Set isSvgIncluded flag for SVG files
-        if (fileName.toLowerCase().endsWith('.svg')) {
+        if (fileName.toLowerCase().endsWith(".svg")) {
           fileNode.isSvgIncluded = !!options.svg;
         }
 
@@ -668,13 +706,15 @@ export async function gatherFiles(
       // Skip content generation if it's an external file (path matches absolute include)
       if (externalPaths.has(node.path)) {
         if (options.debug) {
-          console.log(`[DEBUG] gatherFiles: Skipping content generation for external file: ${node.path}`);
+          console.log(
+            `[DEBUG] gatherFiles: Skipping content generation for external file: ${node.path}`
+          );
         }
         // Still process flags for the tree view
         try {
           const buffer = await fs.readFile(node.path);
           node.isBinary = isBinaryFile(buffer, node.path);
-          if (node.name.toLowerCase().endsWith('.svg')) {
+          if (node.name.toLowerCase().endsWith(".svg")) {
             node.isSvgIncluded = !!options.svg;
             if (!node.isSvgIncluded) svgFiles.add(node.path);
           }
@@ -685,14 +725,18 @@ export async function gatherFiles(
             node.tooLarge = false; // Override tooLarge if binary & within size
           }
         } catch (error) {
-          if (options.debug) console.log(`[DEBUG] gatherFiles: Error stat-ing external file ${node.path} for flags:`, error);
+          if (options.debug)
+            console.log(
+              `[DEBUG] gatherFiles: Error stat-ing external file ${node.path} for flags:`,
+              error
+            );
           ignoredFiles.add(node.path);
         }
         return; // Skip content retrieval
       }
 
       // Handle SVG exclusion for internal files
-      if (node.name.toLowerCase().endsWith('.svg')) {
+      if (node.name.toLowerCase().endsWith(".svg")) {
         if (!options.svg) {
           if (options.debug) {
             console.log("[DEBUG] SVG file excluded (internal):", node.path);
@@ -707,7 +751,11 @@ export async function gatherFiles(
             const maxSize = options.maxSize ?? DEFAULT_MAX_SIZE;
             if (node.isBinary && node.size <= maxSize) node.tooLarge = false;
           } catch (error) {
-            if (options.debug) console.log(`[DEBUG] gatherFiles: Error stat-ing internal SVG ${node.path} for flags:`, error);
+            if (options.debug)
+              console.log(
+                `[DEBUG] gatherFiles: Error stat-ing internal SVG ${node.path} for flags:`,
+                error
+              );
             ignoredFiles.add(node.path);
           }
           return; // Skip content if SVG is excluded
@@ -747,15 +795,44 @@ export async function gatherFiles(
         );
         if (content === null) {
           if (options.debug) {
-            console.log("[DEBUG] File ignored by getFileContent (internal):", node.path);
+            console.log(
+              "[DEBUG] File ignored by getFileContent (internal):",
+              node.path
+            );
           }
           ignoredFiles.add(node.path);
           return;
         }
-        files.push({ path: node.path, content: content, size: node.size });
+
+        // Count tokens for the file content if the flag is enabled
+        let tokenCount: number | undefined = undefined;
+        if (options.showTokensPerFile) {
+          try {
+            const rawContent = await fs.readFile(node.path, "utf8");
+            tokenCount = countTokens(rawContent);
+          } catch (error) {
+            if (options.debug) {
+              console.log(
+                `[DEBUG] Error counting tokens for file ${node.path}:`,
+                error
+              );
+            }
+          }
+        }
+
+        files.push({
+          path: node.path,
+          content: content,
+          size: node.size,
+          tokenCount,
+        });
       } catch (error) {
         if (options.debug) {
-          console.log("[DEBUG] Error processing internal file:", node.path, error);
+          console.log(
+            "[DEBUG] Error processing internal file:",
+            node.path,
+            error
+          );
         }
         ignoredFiles.add(node.path);
       }
@@ -771,10 +848,16 @@ export async function gatherFiles(
   await processNode(node);
 
   if (options.debug) {
-    console.log("[DEBUG] gatherFiles: Internal files content gathered:", files.length);
+    console.log(
+      "[DEBUG] gatherFiles: Internal files content gathered:",
+      files.length
+    );
     console.log("[DEBUG] gatherFiles: Binary files marked:", binaryFiles.size);
     console.log("[DEBUG] gatherFiles: SVG files marked:", svgFiles.size);
-    console.log("[DEBUG] gatherFiles: Files ignored (errors/size):", ignoredFiles.size);
+    console.log(
+      "[DEBUG] gatherFiles: Files ignored (errors/size):",
+      ignoredFiles.size
+    );
   }
   return files;
 }
@@ -803,12 +886,14 @@ export function createTree(
     }
 
     // Add indication for SVG files that are excluded
-    if (node.name.toLowerCase().endsWith('.svg') && !node.isSvgIncluded) {
+    if (node.name.toLowerCase().endsWith(".svg") && !node.isSvgIncluded) {
       additionalInfo += " (excluded - svg)";
     }
   }
 
-  const tree = `${prefix}${branchStr}${node.name}${node.type === "directory" ? "/" : additionalInfo}\n`;
+  const tree = `${prefix}${branchStr}${node.name}${
+    node.type === "directory" ? "/" : additionalInfo
+  }\n`;
 
   if (node.type === "directory" && node.children && node.children.length > 0) {
     // Use conditional whitespace based on the flag
@@ -829,10 +914,15 @@ export function createTree(
 }
 
 /** Process files from a directory */
-async function processFiles(basePath: string, flags: IngestFlags, externalPaths: Set<string>) {
+async function processFiles(
+  basePath: string,
+  flags: IngestFlags,
+  externalPaths: Set<string>
+) {
   const rootNode = await scanDirectory(basePath, flags);
   if (!rootNode) {
-    if (flags.debug) console.log("[DEBUG] processFiles: scanDirectory returned null.");
+    if (flags.debug)
+      console.log("[DEBUG] processFiles: scanDirectory returned null.");
     // If scan is null (e.g., empty dir or only externals matching), return empty results
     return { files: [], tree: "" };
   }
