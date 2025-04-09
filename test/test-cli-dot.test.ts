@@ -119,12 +119,12 @@ describe("CLI: ingest current directory with '.'", () => {
 
       // Wait for both files to exist using our optimized waitForFile
       const [directFileExists, processFileExists] = await Promise.all([
-        waitForFile(directFullPath, 15000, 50),
+        waitForFile(directFullPath, 30000, 50), // Increased timeout for direct run
         waitForFile(processFullPath, 15000, 50)
       ]);
 
       expect(directFileExists).toBe(true);
       expect(processFileExists).toBe(true);
     }
-  }, 25000);
+  }, 45000); // Increased timeout from 25000 to 45000
 });

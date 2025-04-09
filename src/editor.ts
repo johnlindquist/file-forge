@@ -5,10 +5,14 @@ import { EditorConfig } from "./types.js";
 import { formatDebugMessage } from "./formatter.js";
 import { config } from "./config.js";
 
-console.log(formatDebugMessage(`Editor config path: ${config.path}`));
-
 /** Prompt for editor configuration if not already set */
 export async function getEditorConfig(): Promise<EditorConfig> {
+  // Log the config path only when this function is actually called
+  if (process.env['DEBUG']) {
+    console.log(formatDebugMessage(`Editor config path: ${config.path}`));
+    console.log(formatDebugMessage(`Raw config store: ${JSON.stringify(config.store, null, 2)}`));
+  }
+
   console.log(formatDebugMessage(`getEditorConfig() called`));
   console.log(formatDebugMessage(`Config file location: ${config.path}`));
   console.log(formatDebugMessage(`Raw config store: ${JSON.stringify(config.store, null, 2)}`));

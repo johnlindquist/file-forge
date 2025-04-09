@@ -68,3 +68,14 @@ export interface GitResetOptions {
   source?: string | undefined;
   repoPath?: string | undefined;
 }
+
+// New type for a command definition within the config file
+export type FfgCommand = Partial<IngestFlags>;
+
+// New type for the overall ffg.config.jsonc structure
+export type FfgConfig = {
+  defaultCommand?: FfgCommand;
+  commands?: {
+    [commandName: string]: FfgCommand;
+  };
+};

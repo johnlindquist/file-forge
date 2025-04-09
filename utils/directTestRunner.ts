@@ -1,6 +1,7 @@
-import { main } from "../src/index";
+import { main, getLastCliArgsForTest } from "../src/index";
 import { vi } from "vitest";
 import clipboard from "clipboardy";
+import { IngestFlags, FfgConfig } from "../src/types.js";
 
 // Mock process.exit to prevent tests from exiting
 vi.mock("process", async () => {
@@ -20,11 +21,13 @@ const originalArgv = [...process.argv];
  * Directly execute the main function of the CLI with the given arguments.
  * This avoids spawning a new process, making tests run much faster.
  */
-export async function runDirectCLI(args: string[]): Promise<{
+export async function runDirectCLI(args: string[], configData: FfgConfig | null = null): Promise<{
     stdout: string;
     stderr: string;
     exitCode: number;
     hashedSource: string;
+    flags: IngestFlags | null;
+    _: string[] | undefined;
 }> {
     // Mock stdout and stderr to capture output
     let stdoutOutput = "";
@@ -59,11 +62,19 @@ export async function runDirectCLI(args: string[]): Promise<{
     process.env["NO_INTRO"] = "1";
     process.env["TEST_MODE"] = "1";
 
+    // Set up for config data if provided
+    if (configData) {
+        // This will be detected in main() and used instead of loading from disk
+        process.env["FFG_TEST_CONFIG"] = JSON.stringify(configData);
+    }
+
     // Modify process.argv
     process.argv = ["node", "dist/index.js", ...args];
 
     let exitCode = 0;
     let hashedSource = "";
+    let flags: IngestFlags | null = null;
+    let positionalArgs: string[] | undefined = undefined;
 
     try {
         // Try to extract the source from args for hashing
@@ -83,6 +94,20 @@ export async function runDirectCLI(args: string[]): Promise<{
 
         // Run the main function
         exitCode = await main();
+
+        // Get last CLI args after main execution
+        const fullArgv = getLastCliArgsForTest();
+        if (fullArgv) {
+            // Filter out metadata properties from yargs
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            const { _: __, $0: _$0, ...relevantFlags } = fullArgv;
+            flags = relevantFlags as IngestFlags;
+            positionalArgs = __;
+        } else {
+            flags = null;
+            positionalArgs = undefined;
+        }
+
     } catch (error: unknown) {
         // Check for our special exit code pattern
         const errorObj = error as { message?: string };
@@ -102,6 +127,12 @@ export async function runDirectCLI(args: string[]): Promise<{
         errorSpy.mockRestore();
         clipboardSpy.mockRestore();
         process.argv = originalArgv;
+
+        // Clear the test config env var if it was set
+        if (process.env["FFG_TEST_CONFIG"]) {
+            delete process.env["FFG_TEST_CONFIG"];
+        }
+
         process.env = originalEnv;
     }
 
@@ -109,6 +140,8 @@ export async function runDirectCLI(args: string[]): Promise<{
         stdout: stdoutOutput,
         stderr: stderrOutput,
         exitCode,
-        hashedSource
+        hashedSource,
+        flags,
+        _: positionalArgs,
     };
 } 
