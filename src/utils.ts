@@ -91,3 +91,18 @@ function fileExistsSync(filePath: string): boolean {
     return false;
   }
 }
+
+/** Writes the FfgConfig object to ffg.config.jsonc in the specified directory */
+export async function writeFfgConfig(configData: FfgConfig, cwd: string): Promise<void> {
+  const configPath = path.join(cwd, "ffg.config.jsonc"); // Always write to .jsonc
+  try {
+    const configString = JSON.stringify(configData, null, 2); // Pretty print JSON
+    await fsPromises.writeFile(configPath, configString, "utf8");
+    if (process.env['DEBUG']) { // Use DEBUG env var check
+      console.log(`[DEBUG] Successfully wrote config to ${configPath}`);
+    }
+  } catch (error) {
+    console.error(`Error writing config file ${configPath}: ${error instanceof Error ? error.message : String(error)}`);
+    throw error; // Re-throw to indicate failure
+  }
+}

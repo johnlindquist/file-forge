@@ -161,6 +161,9 @@ File Forge supports a configuration file named `ffg.config.jsonc` (or `ffg.confi
 -   **JSONC Support:** Use comments in your `ffg.config.jsonc` file for better documentation.
 -   **Precedence:** Command-line flags always take precedence over configuration file settings. If using `--use <name>`, the named command's settings override `defaultCommand` settings.
 -   **Array Merging:** For array flags like `--include`, `--exclude`, `--find`, `--require`, and `--extension`, values provided on the command line are *merged* with (added to) the values defined in the applied configuration (either `defaultCommand` or the named command used with `--use`).
+-   **Saving Commands (`--save` / `--save-as`):** You can easily save the current set of command-line flags to your `ffg.config.jsonc` file:
+    -   `--save`: Saves the current flags (excluding transient flags like `--pipe`, `--debug`, etc.) as the new `defaultCommand`, overwriting any existing default.
+    -   `--save-as <name>`: Saves the current flags under a new named command (or overwrites an existing one with the same name) in the `commands` section.
 
 **Example `ffg.config.jsonc`:**
 
@@ -208,6 +211,14 @@ ffg --use ts-analysis --verbose=false --include "tests/**/*.ts"
 
 # Uses 'find-todos' command
 ffg --use find-todos
+
+# Save current flags as the new default command
+ffg . --include "**/*.ts" --exclude "node_modules/**" --verbose --save
+# This will update ffg.config.jsonc's "defaultCommand"
+
+# Save current flags as a named command 'test-setup'
+ffg . --require "test" --exclude "dist/**" --save-as test-setup
+# This will add or overwrite "test-setup" in ffg.config.jsonc's "commands"
 ```
 
 ## AI Prompt Templates

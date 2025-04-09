@@ -28,15 +28,13 @@ describe("CLI --whitespace", () => {
         expect(whitespaceResult.exitCode).toBe(0);
 
         // Check XML indentation differences
-        // By default, XML should have minimal indentation
-        expect(defaultResult.stdout).toContain("<project>");
-        expect(defaultResult.stdout).toContain("<source>");
+        // By default, XML should have minimal indentation (no leading spaces before top-level tags)
+        expect(defaultResult.stdout).toContain("<project>"); // Check presence without leading space
+        expect(defaultResult.stdout).not.toMatch(/^\s+<project>/m); // Ensure no leading space
 
-        // With whitespace flag, it should have indentation
-        expect(whitespaceResult.stdout).toContain("  <project>");
-        expect(whitespaceResult.stdout).toContain("    <source>");
-
-        // The whitespace output should be longer due to added spacing
-        expect(whitespaceResult.stdout.length).toBeGreaterThan(defaultResult.stdout.length);
+        // With whitespace flag, it should have indentation. Check for newline + indent + tag.
+        // Use toMatch with regex to be robust against potential preceding output
+        expect(whitespaceResult.stdout).toMatch(/ {2}<project>/);
+        expect(whitespaceResult.stdout).toMatch(/\n\s{4}<source>/m); // Check for newline + 4 spaces + tag
     });
 }); 

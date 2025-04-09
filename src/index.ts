@@ -12,7 +12,7 @@ import { runCli } from "./cli.js";
 import { ingestDirectory } from "./ingest.js";
 import { ingestGraph } from "./graph.js";
 import { getRepoPath } from "./repo.js";
-import { IngestFlags } from "./types.js";
+import { FfgCommand, IngestFlags } from "./types.js";
 import {
   APP_ANALYSIS_HEADER,
   APP_HEADER,
@@ -35,7 +35,7 @@ import {
   formatTokenCountMessage,
 } from "./formatter.js";
 import { buildOutput } from "./outputFormatter.js";
-import { getHashedSource, loadFfgConfig } from "./utils.js";
+import { getHashedSource, loadFfgConfig, writeFfgConfig } from "./utils.js";
 import { writeFile, mkdir } from "node:fs/promises";
 import { countTokens } from "./tokenCounter.js";
 import { execSync, spawn } from "node:child_process";
@@ -44,6 +44,8 @@ import { getEditorConfig } from "./editor.js";
 import path from "path";
 import os from "os";
 import process from "node:process";
+import { hideBin } from "yargs/helpers";
+import yargs from "yargs";
 
 // Constants for temp file
 const TEMP_FILE_PREFIX = "ffg-render-";
@@ -848,6 +850,78 @@ export async function main(): Promise<number> {
         return 1;
       }
     }
+
+    // ---> ADDED: Handle --save and --save-as flags <---
+    if (argv.save || argv.saveAs) {
+      if (argv.debug) console.log(formatDebugMessage("Save flag detected. Preparing to save configuration..."));
+
+      // 1. Load or initialize config
+      let currentConfig = loadFfgConfig(process.cwd()) || { defaultCommand: {}, commands: {} };
+      if (argv.debug) console.log(formatDebugMessage(`Loaded existing config: ${JSON.stringify(currentConfig)}`));
+
+      // 2. Prepare flags to save (KEEP only relevant flags)
+      const flagsToSave: Record<string, unknown> = {};
+      // Get raw arguments provided by the user, excluding node path and script path
+      const rawUserArgs = hideBin(process.argv);
+      // Parse raw args minimally just to see what was explicitly passed, without defaults/configs
+      const explicitArgs = yargs(rawUserArgs).help(false).version(false).parseSync();
+
+      const allowedFlags: (keyof ExtendedIngestFlags)[] = [
+        'repo', 'path', 'include', 'exclude', 'branch', 'commit', 'maxSize',
+        'pipe', 'bulk', 'ignore', 'skipArtifacts', 'clipboard', 'noEditor',
+        'find', 'require', 'useRegularGit', 'open', 'graph', 'verbose',
+        'name', 'extension', 'svg', 'template', 'markdown', 'noTokenCount',
+        'whitespace', 'use'
+      ];
+
+      if (argv.debug) console.log(formatDebugMessage(`Explicit args parsed: ${JSON.stringify(explicitArgs)}`));
+
+      for (const key of allowedFlags) {
+        let shouldSaveFlag = false;
+
+        // If --use was involved, save any allowed flag present in the final merged argv
+        if (argv.use) {
+          shouldSaveFlag = key in argv && argv[key] !== undefined;
+        }
+        // If --use was NOT involved, only save flags explicitly set by the user
+        else {
+          shouldSaveFlag = key in explicitArgs && argv[key] !== undefined;
+        }
+
+        if (shouldSaveFlag) {
+          const finalValue = argv[key];
+          // Skip empty arrays unless explicitly set as empty (less common)
+          if (Array.isArray(finalValue) && finalValue.length === 0 && !(key in explicitArgs && explicitArgs[key] === null)) {
+            continue;
+          }
+          flagsToSave[key] = finalValue;
+        }
+      }
+
+      if (argv.debug) console.log(formatDebugMessage(`Flags prepared for saving (only allowed flags): ${JSON.stringify(flagsToSave, null, 2)}`));
+
+      // 3. Update the config object
+      if (argv.saveAs) {
+        const saveName = argv.saveAs;
+        currentConfig.commands = currentConfig.commands || {}; // Ensure commands object exists
+        currentConfig.commands[saveName] = {} as FfgCommand;
+        currentConfig.commands[saveName] = flagsToSave as FfgCommand; // Assign the new flags
+        if (argv.debug) console.log(formatDebugMessage(`Saving flags under named command: ${saveName}`));
+        console.log(`Saved current flags as named command "${saveName}" in ffg.config.jsonc`);
+      } else { // Implies argv.save is true
+        currentConfig.defaultCommand = {} as FfgCommand;
+        currentConfig.defaultCommand = flagsToSave as FfgCommand; // Assign the new flags
+        if (argv.debug) console.log(formatDebugMessage("Saving flags as defaultCommand"));
+        console.log("Saved current flags as default command in ffg.config.jsonc");
+      }
+
+      // 4. Write the updated config back to disk
+      await writeFfgConfig(currentConfig, process.cwd());
+
+      // 5. Exit successfully - DO NOT proceed with analysis
+      return 0; // Indicate success
+    }
+    // ---> END ADDED <---
 
     if (argv.debug) {
       console.log(formatDebugMessage(`CLI Arguments:`));

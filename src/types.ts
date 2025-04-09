@@ -39,6 +39,9 @@ export type IngestFlags = {
   noTokenCount?: boolean;
   whitespace?: boolean | undefined;
   dryRun?: boolean | undefined;
+  save?: boolean | undefined;
+  saveAs?: string | undefined;
+  use?: string | undefined;
 };
 
 export type ScanStats = {
@@ -79,3 +82,12 @@ export type FfgConfig = {
     [commandName: string]: FfgCommand;
   };
 };
+
+
+export interface ErrnoException extends Error {
+  errno?: number;
+  code?: string;
+  path?: string;
+  syscall?: string;
+  stack?: string;
+} 

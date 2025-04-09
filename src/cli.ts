@@ -194,6 +194,15 @@ export async function runCli(configData: FfgConfig | null) {
       type: "string",
       describe: "Use a named command defined in ffg.config.jsonc"
     })
+    .option("save", {
+      type: "boolean",
+      default: false,
+      describe: "Save the current flags as the default command in ffg.config.jsonc"
+    })
+    .option("save-as", {
+      type: "string",
+      describe: "Save the current flags as a named command in ffg.config.jsonc (e.g., --save-as my-query)"
+    })
     .example("$0 --path /path/to/project", "Analyze a local project directory")
     .example(
       "$0 https://github.com/owner/repo --branch develop",
