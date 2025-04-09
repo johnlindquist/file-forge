@@ -1,5 +1,5 @@
 export const APP_NAME = "@johnlindquist/file-forge";
-export const APP_COMMAND = "ffg";
+export const APP_COMMAND = "f";
 export const APP_DISPLAY_NAME = "File Forge";
 export const APP_DESCRIPTION =
   "File Forge is a powerful CLI tool for deep analysis of codebases, generating markdown reports to feed AI reasoning models.";
@@ -55,4 +55,6 @@ export const PERMANENT_IGNORE_DIRS = [
 ] as const;
 
 /** Glob patterns for permanently ignored directories */
-export const PERMANENT_IGNORE_PATTERNS = PERMANENT_IGNORE_DIRS.map(dir => `**/${dir}/**`);
+export const PERMANENT_IGNORE_PATTERNS = PERMANENT_IGNORE_DIRS.map(
+  (dir) => `**/${dir}/**`
+);

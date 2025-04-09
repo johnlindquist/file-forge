@@ -20,10 +20,7 @@ import * as p from "@clack/prompts";
  * @param showIntro - Whether to show the intro (default: true)
  * @returns A formatted intro message
  */
-export function formatIntroMessage(
-  message: string,
-  showIntro = true
-): string {
+export function formatIntroMessage(message: string, showIntro = true): string {
   const formattedMessage = `\x1b[1m\x1b[32m🔍 ${message}\x1b[0m`;
   if (showIntro) {
     p.intro(message);
@@ -113,4 +110,17 @@ export function formatSaveMessage(path: string, useClack = true): string {
  */
 export function formatTokenCountMessage(count: number): string {
   return `✓ Token count: ${count.toLocaleString()} tokens`;
+}
+
+/**
+ * Formats a token count per file message with file path
+ * @param path - The file path
+ * @param count - The token count
+ * @returns A formatted token count per file message
+ */
+export function formatTokenCountPerFileMessage(
+  path: string,
+  count: number
+): string {
+  return `📄 ${path}: ${count.toLocaleString()} tokens`;
 }

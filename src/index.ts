@@ -33,6 +33,7 @@ import {
   formatClipboardMessage,
   formatSaveMessage,
   formatTokenCountMessage,
+  formatTokenCountPerFileMessage,
 } from "./formatter.js";
 import { buildOutput } from "./outputFormatter.js";
 import { getHashedSource } from "./utils.js";
@@ -83,11 +84,10 @@ function isTestEnvironment(): boolean {
 function commandExists(command: string): boolean {
   try {
     const platform = process.platform;
-    const cmd = platform === 'win32'
-      ? `where.exe ${command}`
-      : `command -v ${command}`;
+    const cmd =
+      platform === "win32" ? `where.exe ${command}` : `command -v ${command}`;
 
-    execSync(cmd, { stdio: 'ignore' });
+    execSync(cmd, { stdio: "ignore" });
     return true;
   } catch {
     // Error ignored, command not found
@@ -98,17 +98,17 @@ function commandExists(command: string): boolean {
 // Get the full path to VS Code on macOS
 function getVSCodePath(): string | null {
   try {
-    if (process.platform === 'darwin') {
+    if (process.platform === "darwin") {
       // Check common VS Code locations on macOS
       const possiblePaths = [
-        '/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code',
-        '/Applications/VSCode.app/Contents/Resources/app/bin/code',
-        '/usr/local/bin/code'
+        "/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code",
+        "/Applications/VSCode.app/Contents/Resources/app/bin/code",
+        "/usr/local/bin/code",
       ];
 
       for (const path of possiblePaths) {
         try {
-          execSync(`test -x "${path}"`, { stdio: 'ignore' });
+          execSync(`test -x "${path}"`, { stdio: "ignore" });
           return path;
         } catch {
           // Path doesn't exist or isn't executable, try next
@@ -117,7 +117,13 @@ function getVSCodePath(): string | null {
     }
     return null;
   } catch (error) {
-    console.log(formatDebugMessage(`Error locating VS Code: ${error instanceof Error ? error.message : String(error)}`));
+    console.log(
+      formatDebugMessage(
+        `Error locating VS Code: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      )
+    );
     return null;
   }
 }
@@ -132,13 +138,13 @@ export async function handleOutput(
   const timestamp = format(new Date(), "yyyyMMdd-HHmmss");
 
   // Capture the original command with the executable name
-  const originalCommand = `ffg ${process.argv.slice(2).join(' ')}`;
+  const originalCommand = `ffg ${process.argv.slice(2).join(" ")}`;
 
   // If digest is null, create an empty digest
   const safeDigest = digest || {
     [PROP_SUMMARY]: "No files found or directory is empty",
     [PROP_TREE]: "",
-    [PROP_CONTENT]: ""
+    [PROP_CONTENT]: "",
   };
 
   // For file output, always include everything
@@ -177,14 +183,22 @@ export async function handleOutput(
     if (argv.clipboard) {
       try {
         // In CI test environments, still call writeSync if VITEST is set
-        if (isTestEnvironment() && (process.env["CI"] === "true" || process.env["CI"] === "1") && !process.env["VITEST"]) {
+        if (
+          isTestEnvironment() &&
+          (process.env["CI"] === "true" || process.env["CI"] === "1") &&
+          !process.env["VITEST"]
+        ) {
           console.log("\n" + formatClipboardMessage());
         } else {
           clipboard.writeSync(consoleOutput);
           console.log("\n" + formatClipboardMessage());
         }
       } catch (error) {
-        console.error(`Clipboard error: ${error instanceof Error ? error.message : String(error)}`);
+        console.error(
+          `Clipboard error: ${
+            error instanceof Error ? error.message : String(error)
+          }`
+        );
         // Don't fail the process for clipboard errors
         if (process.env["VITEST"]) {
           console.log("\n" + formatClipboardMessage());
@@ -199,14 +213,22 @@ export async function handleOutput(
     if (argv.clipboard) {
       try {
         // In CI test environments, still call writeSync if VITEST is set
-        if (isTestEnvironment() && (process.env["CI"] === "true" || process.env["CI"] === "1") && !process.env["VITEST"]) {
+        if (
+          isTestEnvironment() &&
+          (process.env["CI"] === "true" || process.env["CI"] === "1") &&
+          !process.env["VITEST"]
+        ) {
           console.log("\n" + formatClipboardMessage());
         } else {
           clipboard.writeSync(consoleOutput);
           console.log("\n" + formatClipboardMessage());
         }
       } catch (error) {
-        console.error(`Clipboard error: ${error instanceof Error ? error.message : String(error)}`);
+        console.error(
+          `Clipboard error: ${
+            error instanceof Error ? error.message : String(error)
+          }`
+        );
         // Don't fail the process for clipboard errors
         if (process.env["VITEST"]) {
           console.log("\n" + formatClipboardMessage());
@@ -226,14 +248,22 @@ export async function handleOutput(
     if (argv.clipboard) {
       try {
         // In CI test environments, still call writeSync if VITEST is set
-        if (isTestEnvironment() && (process.env["CI"] === "true" || process.env["CI"] === "1") && !process.env["VITEST"]) {
+        if (
+          isTestEnvironment() &&
+          (process.env["CI"] === "true" || process.env["CI"] === "1") &&
+          !process.env["VITEST"]
+        ) {
           console.log("\n" + formatClipboardMessage());
         } else {
           clipboard.writeSync(consoleOutput);
           console.log("\n" + formatClipboardMessage());
         }
       } catch (error) {
-        console.error(`Clipboard error: ${error instanceof Error ? error.message : String(error)}`);
+        console.error(
+          `Clipboard error: ${
+            error instanceof Error ? error.message : String(error)
+          }`
+        );
         // Don't fail the process for clipboard errors
         if (process.env["VITEST"]) {
           console.log("\n" + formatClipboardMessage());
@@ -243,13 +273,49 @@ export async function handleOutput(
   }
 
   // Check both the parsed argv and the raw process.argv for the --no-token-count flag
-  const hasNoTokenCountFlag = argv.noTokenCount || process.argv.includes("--no-token-count");
+  const hasNoTokenCountFlag =
+    argv.noTokenCount || process.argv.includes("--no-token-count");
 
   // Display token count information if not disabled
   if (!hasNoTokenCountFlag) {
     // Only calculate tokens if we're going to display them
     tokenCount = countTokens(fileOutput);
     console.log(formatTokenCountMessage(tokenCount));
+
+    // Display token counts per file if requested
+    if (argv.showTokensPerFile && digest) {
+      console.log("\nToken counts per file (sorted by token count):");
+
+      // Extract files with token counts from the digest content
+      const fileContents = (digest[PROP_CONTENT] || "").split(
+        /(?=^=+\nFile: .*\n=+\n)/m
+      );
+      const filesWithTokens: { path: string; tokenCount: number }[] = [];
+
+      for (const fileContent of fileContents) {
+        if (!fileContent.trim()) continue;
+
+        // Extract filename from the content
+        const headerMatch = fileContent.match(/^=+\nFile: (.*)\n=+\n/);
+        if (!headerMatch || !headerMatch[1]) continue;
+
+        const filePath = headerMatch[1].trim();
+        // Remove the header to get the file content
+        const content = fileContent.replace(/^=+\nFile: .*\n=+\n/, "");
+
+        // Count tokens for this file
+        const fileTokenCount = countTokens(content);
+        filesWithTokens.push({ path: filePath, tokenCount: fileTokenCount });
+      }
+
+      // Sort files by token count in descending order
+      filesWithTokens.sort((a, b) => b.tokenCount - a.tokenCount);
+
+      // Display token counts for files
+      for (const file of filesWithTokens) {
+        console.log(formatTokenCountPerFileMessage(file.path, file.tokenCount));
+      }
+    }
   }
 
   if (!argv.test && !process.env["NO_INTRO"] && !argv.pipe) {
@@ -257,70 +323,162 @@ export async function handleOutput(
   }
 
   // --> Add editor opening logic here <--
-  if (typeof argv.open !== 'undefined' && !argv.pipe) { // Check if flag exists (even without value)
+  if (typeof argv.open !== "undefined" && !argv.pipe) {
+    // Check if flag exists (even without value)
     try {
       console.log(formatDebugMessage(`----- EDITOR OPENING DEBUG START -----`));
-      console.log(formatDebugMessage(`argv.open = ${JSON.stringify(argv.open)}`));
+      console.log(
+        formatDebugMessage(`argv.open = ${JSON.stringify(argv.open)}`)
+      );
       console.log(formatDebugMessage(`typeof argv.open = ${typeof argv.open}`));
-      console.log(formatDebugMessage(`argv.open === '' is ${typeof argv.open === 'string' && argv.open === ''}`));
-      console.log(formatDebugMessage(`process.argv = ${JSON.stringify(process.argv)}`));
+      console.log(
+        formatDebugMessage(
+          `argv.open === '' is ${
+            typeof argv.open === "string" && argv.open === ""
+          }`
+        )
+      );
+      console.log(
+        formatDebugMessage(`process.argv = ${JSON.stringify(process.argv)}`)
+      );
 
       // Get editor command from parameter or config
       let editorCommand: string | undefined = undefined;
       let editorSource: string = "unknown";
 
-      if (typeof argv.open === 'string' && argv.open !== '') {
+      if (typeof argv.open === "string" && argv.open !== "") {
         // Use the explicitly provided command if available and not empty
         editorCommand = argv.open;
         editorSource = "command line flag";
-        console.log(formatDebugMessage(`Using editor from command line flag: "${editorCommand}"`));
-        if (argv.debug) console.log(formatDebugMessage(`Using explicitly provided editor: ${editorCommand}`));
+        console.log(
+          formatDebugMessage(
+            `Using editor from command line flag: "${editorCommand}"`
+          )
+        );
+        if (argv.debug)
+          console.log(
+            formatDebugMessage(
+              `Using explicitly provided editor: ${editorCommand}`
+            )
+          );
       } else {
         // Otherwise try to get the command from config
-        console.log(formatDebugMessage(`No editor specified in command or empty string, attempting to read from config`));
+        console.log(
+          formatDebugMessage(
+            `No editor specified in command or empty string, attempting to read from config`
+          )
+        );
         try {
           // Get the editor config
           const editorConfig = await getEditorConfig();
-          console.log(formatDebugMessage(`Raw editor config for config flag: ${JSON.stringify(editorConfig, null, 2)}`));
+          console.log(
+            formatDebugMessage(
+              `Raw editor config for config flag: ${JSON.stringify(
+                editorConfig,
+                null,
+                2
+              )}`
+            )
+          );
 
           // Use the command from config if it's a string
-          if (editorConfig && typeof editorConfig.command === 'string') {
+          if (editorConfig && typeof editorConfig.command === "string") {
             editorCommand = editorConfig.command;
             editorSource = "config file";
-            console.log(formatDebugMessage(`Using editor from config file: "${editorCommand}"`));
-            if (argv.debug) console.log(formatDebugMessage(`Using editor from config: ${editorCommand}`));
+            console.log(
+              formatDebugMessage(
+                `Using editor from config file: "${editorCommand}"`
+              )
+            );
+            if (argv.debug)
+              console.log(
+                formatDebugMessage(`Using editor from config: ${editorCommand}`)
+              );
           } else {
-            console.log(formatDebugMessage(`No valid editor command found in config or it's null/undefined`));
-            if (argv.debug) console.log(formatDebugMessage(`No valid editor command in config, using system default`));
+            console.log(
+              formatDebugMessage(
+                `No valid editor command found in config or it's null/undefined`
+              )
+            );
+            if (argv.debug)
+              console.log(
+                formatDebugMessage(
+                  `No valid editor command in config, using system default`
+                )
+              );
           }
         } catch (configError) {
-          console.log(formatDebugMessage(`Error reading config: ${configError instanceof Error ? configError.message : String(configError)}`));
-          if (argv.debug) console.log(formatDebugMessage(`Failed to get editor from config, will use system default: ${configError instanceof Error ? configError.message : String(configError)}`));
+          console.log(
+            formatDebugMessage(
+              `Error reading config: ${
+                configError instanceof Error
+                  ? configError.message
+                  : String(configError)
+              }`
+            )
+          );
+          if (argv.debug)
+            console.log(
+              formatDebugMessage(
+                `Failed to get editor from config, will use system default: ${
+                  configError instanceof Error
+                    ? configError.message
+                    : String(configError)
+                }`
+              )
+            );
         }
       }
 
       // Always log the exact open command being used (not just in debug mode)
-      console.log(`Opening file with: ${editorCommand ? `"${editorCommand}" (from ${editorSource})` : 'system default'}`);
+      console.log(
+        `Opening file with: ${
+          editorCommand
+            ? `"${editorCommand}" (from ${editorSource})`
+            : "system default"
+        }`
+      );
       console.log(`Full path: ${resultFilePath}`);
-      console.log(formatDebugMessage(`Current working directory: ${process.cwd()}`));
+      console.log(
+        formatDebugMessage(`Current working directory: ${process.cwd()}`)
+      );
 
-      if (argv.debug) console.log(formatDebugMessage(`Attempting to open ${resultFilePath} in editor... ${editorCommand ? `(using command: ${editorCommand})` : '(using default)'}`));
+      if (argv.debug)
+        console.log(
+          formatDebugMessage(
+            `Attempting to open ${resultFilePath} in editor... ${
+              editorCommand
+                ? `(using command: ${editorCommand})`
+                : "(using default)"
+            }`
+          )
+        );
 
       // Only actually open the file if we're not in a test environment
       if (!argv.test && !process.env["VITEST"]) {
         // Log the exact open command parameters
-        console.log(`Opening with params: ${JSON.stringify({
-          file: resultFilePath,
-          app: editorCommand
-        }, null, 2)}`);
+        console.log(
+          `Opening with params: ${JSON.stringify(
+            {
+              file: resultFilePath,
+              app: editorCommand,
+            },
+            null,
+            2
+          )}`
+        );
 
         try {
           // Check if command exists when it's 'code'
-          if (editorCommand === 'code' && !commandExists('code')) {
+          if (editorCommand === "code" && !commandExists("code")) {
             // Try to get the full path to VS Code on macOS
             const vscodePath = getVSCodePath();
             if (vscodePath) {
-              console.log(formatDebugMessage(`'code' command not found in PATH, using full path: ${vscodePath}`));
+              console.log(
+                formatDebugMessage(
+                  `'code' command not found in PATH, using full path: ${vscodePath}`
+                )
+              );
               editorCommand = vscodePath;
             } else {
               throw new Error("VS Code 'code' command not found in PATH");
@@ -332,29 +490,58 @@ export async function handleOutput(
             // Use spawn to launch the editor without waiting for it to close
             const child = spawn(editorCommand, [resultFilePath], {
               detached: true,
-              stdio: 'ignore',
-              shell: process.platform === 'win32' // Use shell on Windows
+              stdio: "ignore",
+              shell: process.platform === "win32", // Use shell on Windows
             });
             // Unref the child process to allow the parent to exit
             child.unref();
-            console.log(formatDebugMessage(`Editor launched with command: ${editorCommand} ${resultFilePath}`));
+            console.log(
+              formatDebugMessage(
+                `Editor launched with command: ${editorCommand} ${resultFilePath}`
+              )
+            );
           } else {
             throw new Error("Editor command is undefined");
           }
         } catch (spawnError) {
-          console.error(formatErrorMessage(`Failed to spawn editor process: ${spawnError instanceof Error ? spawnError.message : String(spawnError)}`));
+          console.error(
+            formatErrorMessage(
+              `Failed to spawn editor process: ${
+                spawnError instanceof Error
+                  ? spawnError.message
+                  : String(spawnError)
+              }`
+            )
+          );
           // Fallback to system default if specified editor fails
-          console.log(formatDebugMessage(`Falling back to system default application`));
+          console.log(
+            formatDebugMessage(`Falling back to system default application`)
+          );
           openWithSystemDefault(resultFilePath);
         }
       } else if (argv.debug || process.env["VITEST"]) {
         // For tests, log that we would have opened the file (helps with debugging)
-        console.log(`WOULD_OPEN_FILE: ${resultFilePath}${editorCommand ? ` WITH_COMMAND: ${editorCommand}` : ''}`);
+        console.log(
+          `WOULD_OPEN_FILE: ${resultFilePath}${
+            editorCommand ? ` WITH_COMMAND: ${editorCommand}` : ""
+          }`
+        );
       }
 
-      if (argv.debug) console.log(formatDebugMessage(`Editor launch command issued for ${resultFilePath}`));
+      if (argv.debug)
+        console.log(
+          formatDebugMessage(
+            `Editor launch command issued for ${resultFilePath}`
+          )
+        );
     } catch (error) {
-      console.error(formatErrorMessage(`Failed to open file in editor: ${error instanceof Error ? error.message : String(error)}`));
+      console.error(
+        formatErrorMessage(
+          `Failed to open file in editor: ${
+            error instanceof Error ? error.message : String(error)
+          }`
+        )
+      );
       // Don't fail the whole process if opening fails
     }
   }
@@ -363,21 +550,34 @@ export async function handleOutput(
 
 // Helper function to open files with the system default application
 function openWithSystemDefault(filePath: string) {
-  console.log(formatDebugMessage(`Opening with system default application: ${filePath}`));
+  console.log(
+    formatDebugMessage(`Opening with system default application: ${filePath}`)
+  );
 
   try {
     // Different commands based on platform
-    if (process.platform === 'darwin') {  // macOS
-      execSync(`open "${filePath}"`, { stdio: 'inherit' });
-    } else if (process.platform === 'win32') {  // Windows
+    if (process.platform === "darwin") {
+      // macOS
+      execSync(`open "${filePath}"`, { stdio: "inherit" });
+    } else if (process.platform === "win32") {
+      // Windows
       // Use a separate function for Windows to avoid type issues
       openWindowsFile(filePath);
-    } else {  // Linux and others
-      execSync(`xdg-open "${filePath}"`, { stdio: 'inherit' });
+    } else {
+      // Linux and others
+      execSync(`xdg-open "${filePath}"`, { stdio: "inherit" });
     }
-    console.log(formatDebugMessage(`System default application launched successfully`));
+    console.log(
+      formatDebugMessage(`System default application launched successfully`)
+    );
   } catch (error) {
-    console.error(formatErrorMessage(`Failed to open with system default: ${error instanceof Error ? error.message : String(error)}`));
+    console.error(
+      formatErrorMessage(
+        `Failed to open with system default: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      )
+    );
   }
 }
 
@@ -388,52 +588,119 @@ function openWindowsFile(filePath: string) {
   // Use a child process to run the command with a shell
   const child = spawn(command, [], {
     shell: true,
-    stdio: 'inherit',
-    detached: true
+    stdio: "inherit",
+    detached: true,
   });
   child.unref();
-  console.log(formatDebugMessage(`Windows file opener launched with command: ${command}`));
+  console.log(
+    formatDebugMessage(`Windows file opener launched with command: ${command}`)
+  );
 }
 
 // Helper function to open file in editor
-async function openFileInEditor(filePath: string, editorCommandFromArg?: string | boolean, debug?: boolean) {
+async function openFileInEditor(
+  filePath: string,
+  editorCommandFromArg?: string | boolean,
+  debug?: boolean
+) {
   // Determine the editor command to use
   let editorCommand: string | undefined = undefined;
   let editorSource: string = "unknown";
 
-  if (typeof editorCommandFromArg === 'string' && editorCommandFromArg !== '') {
+  if (typeof editorCommandFromArg === "string" && editorCommandFromArg !== "") {
     editorCommand = editorCommandFromArg;
     editorSource = "command line flag";
-    if (debug) console.log(formatDebugMessage(`Using editor from command line flag: "${editorCommand}"`));
+    if (debug)
+      console.log(
+        formatDebugMessage(
+          `Using editor from command line flag: "${editorCommand}"`
+        )
+      );
   } else {
-    if (debug) console.log(formatDebugMessage(`No editor specified in command or empty string, attempting to read from config`));
+    if (debug)
+      console.log(
+        formatDebugMessage(
+          `No editor specified in command or empty string, attempting to read from config`
+        )
+      );
     try {
       const editorConfig = await getEditorConfig();
-      if (editorConfig && typeof editorConfig.command === 'string') {
+      if (editorConfig && typeof editorConfig.command === "string") {
         editorCommand = editorConfig.command;
         editorSource = "config file";
-        if (debug) console.log(formatDebugMessage(`Using editor from config file: "${editorCommand}"`));
+        if (debug)
+          console.log(
+            formatDebugMessage(
+              `Using editor from config file: "${editorCommand}"`
+            )
+          );
       } else {
-        if (debug) console.log(formatDebugMessage(`No valid editor command found in config or it's null/undefined`));
+        if (debug)
+          console.log(
+            formatDebugMessage(
+              `No valid editor command found in config or it's null/undefined`
+            )
+          );
       }
     } catch (configError) {
-      if (debug) console.log(formatDebugMessage(`Error reading config: ${configError instanceof Error ? configError.message : String(configError)}`));
+      if (debug)
+        console.log(
+          formatDebugMessage(
+            `Error reading config: ${
+              configError instanceof Error
+                ? configError.message
+                : String(configError)
+            }`
+          )
+        );
     }
   }
 
-  console.log(`Opening file with: ${editorCommand ? `"${editorCommand}" (from ${editorSource})` : 'system default'}`);
+  console.log(
+    `Opening file with: ${
+      editorCommand
+        ? `"${editorCommand}" (from ${editorSource})`
+        : "system default"
+    }`
+  );
   console.log(`Full path: ${filePath}`);
-  if (debug) console.log(formatDebugMessage(`Current working directory: ${process.cwd()}`));
+  if (debug)
+    console.log(
+      formatDebugMessage(`Current working directory: ${process.cwd()}`)
+    );
 
-  if (!process.env["VITEST"]) { // Only open if not in test mode
+  if (!process.env["VITEST"]) {
+    // Only open if not in test mode
     if (editorCommand) {
-      if (debug) console.log(formatDebugMessage(`Using specified editor command: ${editorCommand} ${filePath}`));
+      if (debug)
+        console.log(
+          formatDebugMessage(
+            `Using specified editor command: ${editorCommand} ${filePath}`
+          )
+        );
       try {
-        const child = spawn(editorCommand, [filePath], { detached: true, stdio: 'ignore', shell: process.platform === 'win32' });
+        const child = spawn(editorCommand, [filePath], {
+          detached: true,
+          stdio: "ignore",
+          shell: process.platform === "win32",
+        });
         child.unref();
-        if (debug) console.log(formatDebugMessage(`Editor launched with command: ${editorCommand} ${filePath}`));
+        if (debug)
+          console.log(
+            formatDebugMessage(
+              `Editor launched with command: ${editorCommand} ${filePath}`
+            )
+          );
       } catch (spawnError) {
-        console.error(formatErrorMessage(`Failed to spawn editor process: ${spawnError instanceof Error ? spawnError.message : String(spawnError)}`));
+        console.error(
+          formatErrorMessage(
+            `Failed to spawn editor process: ${
+              spawnError instanceof Error
+                ? spawnError.message
+                : String(spawnError)
+            }`
+          )
+        );
         openWithSystemDefault(filePath); // Fallback
       }
     } else {
@@ -441,9 +708,16 @@ async function openFileInEditor(filePath: string, editorCommandFromArg?: string 
     }
   } else if (debug || process.env["VITEST"]) {
     // For tests, log that we would have opened the file
-    console.log(`WOULD_OPEN_FILE: ${filePath}${editorCommand ? ` WITH_COMMAND: ${editorCommand}` : ''}`);
+    console.log(
+      `WOULD_OPEN_FILE: ${filePath}${
+        editorCommand ? ` WITH_COMMAND: ${editorCommand}` : ""
+      }`
+    );
   }
-  if (debug) console.log(formatDebugMessage(`Editor launch command issued for ${filePath}`));
+  if (debug)
+    console.log(
+      formatDebugMessage(`Editor launch command issued for ${filePath}`)
+    );
 }
 
 // Update the IngestFlags type to include renderTemplate
@@ -454,7 +728,10 @@ interface ExtendedIngestFlags extends IngestFlags {
 // Main function that handles the CLI flow
 export async function main(): Promise<number> {
   // Parse CLI arguments
-  const argv = await runCli() as ExtendedIngestFlags & { _: (string | number)[], config?: boolean };
+  const argv = (await runCli()) as ExtendedIngestFlags & {
+    _: (string | number)[];
+    config?: boolean;
+  };
 
   // Set up paths
   const paths = envPaths(APP_SYSTEM_ID);
@@ -466,7 +743,10 @@ export async function main(): Promise<number> {
     ? resolve(process.env["FFG_TEMPLATES_DIR"])
     : DEFAULT_CONFIG_DIR;
   // Define the specific directory where user templates (.md files) should reside
-  const DEFAULT_USER_TEMPLATES_DIR = resolve(USER_TEMPLATES_ROOT_DIR, "templates");
+  const DEFAULT_USER_TEMPLATES_DIR = resolve(
+    USER_TEMPLATES_ROOT_DIR,
+    "templates"
+  );
 
   // Handle --config flag early
   if (argv.config) {
@@ -476,22 +756,36 @@ export async function main(): Promise<number> {
       // Use the shared config instance
       const configFilePath = config.path;
       console.log(formatDebugMessage(`Config file path: ${configFilePath}`));
-      console.log(formatDebugMessage(`Current config contents: ${JSON.stringify(config.store, null, 2)}`));
+      console.log(
+        formatDebugMessage(
+          `Current config contents: ${JSON.stringify(config.store, null, 2)}`
+        )
+      );
 
       // Create the file with default editor config if it doesn't exist
       try {
         await fs.access(configFilePath);
-        console.log(formatDebugMessage(`Config file exists at ${configFilePath}`));
+        console.log(
+          formatDebugMessage(`Config file exists at ${configFilePath}`)
+        );
       } catch {
         // File doesn't exist, create it with default configuration
         const configDir = dirname(configFilePath);
         await mkdir(configDir, { recursive: true });
-        console.log(formatDebugMessage(`Created config directory: ${configDir}`));
+        console.log(
+          formatDebugMessage(`Created config directory: ${configDir}`)
+        );
 
         // Since we're using defaults, we don't need to explicitly create the file
         // The file will be created automatically when we access config.store
-        console.log(`Created new config file with default editor settings at: ${configFilePath}`);
-        console.log(formatDebugMessage(`Default config: ${JSON.stringify(config.store, null, 2)}`));
+        console.log(
+          `Created new config file with default editor settings at: ${configFilePath}`
+        );
+        console.log(
+          formatDebugMessage(
+            `Default config: ${JSON.stringify(config.store, null, 2)}`
+          )
+        );
       }
 
       console.log(`Opening configuration file: ${configFilePath}`);
@@ -502,46 +796,92 @@ export async function main(): Promise<number> {
         let editorCommand: string | undefined = undefined;
         let editorSource: string = "unknown";
 
-        if (typeof argv.open === 'string' && argv.open !== '') {
+        if (typeof argv.open === "string" && argv.open !== "") {
           // Use the explicitly provided command if available and not empty
           editorCommand = argv.open;
           editorSource = "command line flag";
-          console.log(formatDebugMessage(`Using editor from command line flag: "${editorCommand}"`));
+          console.log(
+            formatDebugMessage(
+              `Using editor from command line flag: "${editorCommand}"`
+            )
+          );
         } else {
           // Otherwise try to get the command from config
-          console.log(formatDebugMessage(`No editor specified in command or empty string, attempting to read from config`));
+          console.log(
+            formatDebugMessage(
+              `No editor specified in command or empty string, attempting to read from config`
+            )
+          );
           try {
             // Get the editor config
             const editorConfig = await getEditorConfig();
-            console.log(formatDebugMessage(`Raw editor config for config flag: ${JSON.stringify(editorConfig, null, 2)}`));
+            console.log(
+              formatDebugMessage(
+                `Raw editor config for config flag: ${JSON.stringify(
+                  editorConfig,
+                  null,
+                  2
+                )}`
+              )
+            );
 
             // Use the command from config if it's a string
-            if (editorConfig && typeof editorConfig.command === 'string') {
+            if (editorConfig && typeof editorConfig.command === "string") {
               editorCommand = editorConfig.command;
               editorSource = "config file";
-              console.log(formatDebugMessage(`Using editor from config file: "${editorCommand}"`));
+              console.log(
+                formatDebugMessage(
+                  `Using editor from config file: "${editorCommand}"`
+                )
+              );
             } else {
-              console.log(formatDebugMessage(`No valid editor command found in config or it's null/undefined`));
+              console.log(
+                formatDebugMessage(
+                  `No valid editor command found in config or it's null/undefined`
+                )
+              );
             }
           } catch (configError) {
-            console.log(formatDebugMessage(`Error reading config: ${configError instanceof Error ? configError.message : String(configError)}`));
+            console.log(
+              formatDebugMessage(
+                `Error reading config: ${
+                  configError instanceof Error
+                    ? configError.message
+                    : String(configError)
+                }`
+              )
+            );
           }
         }
 
         // Log the editor being used
-        console.log(`Opening config file with: ${editorCommand ? `"${editorCommand}" (from ${editorSource})` : 'system default'}`);
+        console.log(
+          `Opening config file with: ${
+            editorCommand
+              ? `"${editorCommand}" (from ${editorSource})`
+              : "system default"
+          }`
+        );
         console.log(`Config file path: ${configFilePath}`);
 
         if (editorCommand) {
           // If an editor command is specified, use it
-          console.log(formatDebugMessage(`Using specified editor command: ${editorCommand} ${configFilePath}`));
+          console.log(
+            formatDebugMessage(
+              `Using specified editor command: ${editorCommand} ${configFilePath}`
+            )
+          );
           try {
             // Check if command exists when it's 'code'
-            if (editorCommand === 'code' && !commandExists('code')) {
+            if (editorCommand === "code" && !commandExists("code")) {
               // Try to get the full path to VS Code on macOS
               const vscodePath = getVSCodePath();
               if (vscodePath) {
-                console.log(formatDebugMessage(`'code' command not found in PATH, using full path: ${vscodePath}`));
+                console.log(
+                  formatDebugMessage(
+                    `'code' command not found in PATH, using full path: ${vscodePath}`
+                  )
+                );
                 editorCommand = vscodePath;
               } else {
                 throw new Error("VS Code 'code' command not found in PATH");
@@ -553,19 +893,33 @@ export async function main(): Promise<number> {
               // Use spawn to launch the editor without waiting for it to close
               const child = spawn(editorCommand, [configFilePath], {
                 detached: true,
-                stdio: 'ignore',
-                shell: process.platform === 'win32' // Use shell on Windows
+                stdio: "ignore",
+                shell: process.platform === "win32", // Use shell on Windows
               });
               // Unref the child process to allow the parent to exit
               child.unref();
-              console.log(formatDebugMessage(`Editor launched with command: ${editorCommand} ${configFilePath}`));
+              console.log(
+                formatDebugMessage(
+                  `Editor launched with command: ${editorCommand} ${configFilePath}`
+                )
+              );
             } else {
               throw new Error("Editor command is undefined");
             }
           } catch (spawnError) {
-            console.error(formatErrorMessage(`Failed to spawn editor process: ${spawnError instanceof Error ? spawnError.message : String(spawnError)}`));
+            console.error(
+              formatErrorMessage(
+                `Failed to spawn editor process: ${
+                  spawnError instanceof Error
+                    ? spawnError.message
+                    : String(spawnError)
+                }`
+              )
+            );
             // Fallback to system default if specified editor fails
-            console.log(formatDebugMessage(`Falling back to system default application`));
+            console.log(
+              formatDebugMessage(`Falling back to system default application`)
+            );
             openWithSystemDefault(configFilePath);
           }
         } else {
@@ -575,7 +929,7 @@ export async function main(): Promise<number> {
       } else {
         // For test and debug environments, determine the editor that would have been used
         // This ensures test output shows what command would be used for verification
-        if (typeof argv.open === 'string' && argv.open !== '') {
+        if (typeof argv.open === "string" && argv.open !== "") {
           const editorCmd = argv.open;
           // Log the editor command for test verification - these logs must be visible in the test output
           console.log(`CONFIG_FLAG_EDITOR: command line flag "${editorCmd}"`);
@@ -587,7 +941,13 @@ export async function main(): Promise<number> {
       }
       return 0; // Exit successfully after handling config
     } catch (error) {
-      console.error(formatErrorMessage(`Failed to open config file: ${error instanceof Error ? error.message : String(error)}`));
+      console.error(
+        formatErrorMessage(
+          `Failed to open config file: ${
+            error instanceof Error ? error.message : String(error)
+          }`
+        )
+      );
       // Determine the exit code based on the environment
       if (process.env["VITEST"] || argv.test) {
         // In test mode, return non-zero to indicate failure but don't exit process
@@ -609,7 +969,9 @@ export async function main(): Promise<number> {
       console.log(formatDebugMessage(`Loaded built-in templates.`));
     }
   } catch (error) {
-    console.error(formatErrorMessage(`Error loading built-in templates: ${error}`));
+    console.error(
+      formatErrorMessage(`Error loading built-in templates: ${error}`)
+    );
     if (argv.debug) {
       console.log(formatDebugMessage(`Built-in template loading failed.`));
     }
@@ -647,7 +1009,9 @@ export async function main(): Promise<number> {
         console.log(`Open template file for editing at: ${templatePath}`);
         return 0;
       } else {
-        console.error(formatErrorMessage(`Template '${argv.editTemplate}' not found`));
+        console.error(
+          formatErrorMessage(`Template '${argv.editTemplate}' not found`)
+        );
         if (process.env["VITEST"]) {
           console.error(`EXIT_CODE:1`);
           return 1;
@@ -669,7 +1033,11 @@ export async function main(): Promise<number> {
     const { loadUserTemplates } = await import("./templates.js");
     await loadUserTemplates(DEFAULT_USER_TEMPLATES_DIR);
     if (argv.debug) {
-      console.log(formatDebugMessage(`Checked for user templates in: ${DEFAULT_USER_TEMPLATES_DIR}`));
+      console.log(
+        formatDebugMessage(
+          `Checked for user templates in: ${DEFAULT_USER_TEMPLATES_DIR}`
+        )
+      );
     }
   } catch (error) {
     if (argv.debug) {
@@ -689,7 +1057,11 @@ export async function main(): Promise<number> {
       const loadedTemplates = await templates.loadAllTemplates();
 
       if (argv.debug) {
-        console.log(formatDebugMessage(`Loaded ${loadedTemplates.length} built-in templates.`));
+        console.log(
+          formatDebugMessage(
+            `Loaded ${loadedTemplates.length} built-in templates.`
+          )
+        );
       }
 
       // Try to load user templates if they exist
@@ -705,24 +1077,31 @@ export async function main(): Promise<number> {
       }
 
       // Group templates by category
-      const categorized = templateList.reduce((acc: Record<string, typeof templateList>, template) => {
-        const category = template.category || 'uncategorized';
-        if (!acc[category]) {
-          acc[category] = [];
-        }
-        acc[category].push(template);
-        return acc;
-      }, {} as Record<string, typeof templateList>);
+      const categorized = templateList.reduce(
+        (acc: Record<string, typeof templateList>, template) => {
+          const category = template.category || "uncategorized";
+          if (!acc[category]) {
+            acc[category] = [];
+          }
+          acc[category].push(template);
+          return acc;
+        },
+        {} as Record<string, typeof templateList>
+      );
 
       // Print templates by category
       for (const [category, categoryTemplates] of Object.entries(categorized)) {
-        console.log(`\n## ${category.charAt(0).toUpperCase() + category.slice(1)}`);
-        categoryTemplates.forEach(template => {
+        console.log(
+          `\n## ${category.charAt(0).toUpperCase() + category.slice(1)}`
+        );
+        categoryTemplates.forEach((template) => {
           console.log(`  - ${template.name}: ${template.description}`);
         });
       }
 
-      console.log("\nUse --template <name> to apply a template to your analysis");
+      console.log(
+        "\nUse --template <name> to apply a template to your analysis"
+      );
       return 0;
     } catch (error) {
       console.error(formatErrorMessage(`Failed to list templates: ${error}`));
@@ -742,10 +1121,16 @@ export async function main(): Promise<number> {
     console.log(formatSpinnerMessage(`Rendering template: ${templateName}...`));
     try {
       // Load templates
-      const { loadAllTemplates, loadUserTemplates, getTemplateByName, processTemplate } = await import("./templates.js");
+      const {
+        loadAllTemplates,
+        loadUserTemplates,
+        getTemplateByName,
+        processTemplate,
+      } = await import("./templates.js");
       await loadAllTemplates();
       await loadUserTemplates(DEFAULT_USER_TEMPLATES_DIR);
-      if (argv.debug) console.log(formatDebugMessage(`Templates loaded for rendering.`));
+      if (argv.debug)
+        console.log(formatDebugMessage(`Templates loaded for rendering.`));
 
       // Find the template
       const template = getTemplateByName(templateName);
@@ -756,7 +1141,9 @@ export async function main(): Promise<number> {
           process.stderr.write(`TEST_TEMPLATE_NOT_FOUND:${templateName}\n`);
         }
 
-        console.error(formatErrorMessage(`Template '${templateName}' not found.`));
+        console.error(
+          formatErrorMessage(`Template '${templateName}' not found.`)
+        );
         return 1;
       }
 
@@ -765,11 +1152,17 @@ export async function main(): Promise<number> {
         console.log(`TEST_TEMPLATE_FOUND:${template.name}`);
       }
 
-      if (argv.debug) console.log(formatDebugMessage(`Found template: ${template.name}`));
+      if (argv.debug)
+        console.log(formatDebugMessage(`Found template: ${template.name}`));
 
       // Process the template (render includes)
       const renderedContent = await processTemplate(template.templateContent);
-      if (argv.debug) console.log(formatDebugMessage(`Template rendered successfully. Length: ${renderedContent.length}`));
+      if (argv.debug)
+        console.log(
+          formatDebugMessage(
+            `Template rendered successfully. Length: ${renderedContent.length}`
+          )
+        );
 
       // === Add this conditional logic ===
       if (argv.pipe) {
@@ -781,18 +1174,26 @@ export async function main(): Promise<number> {
         }
       } else {
         // Original mode: Save to temp file and open in editor
-        const tempFilePath = path.join(os.tmpdir(), `${TEMP_FILE_PREFIX}${templateName}-${Date.now()}${TEMP_FILE_SUFFIX}`);
-        await fs.writeFile(tempFilePath, renderedContent, 'utf8');
+        const tempFilePath = path.join(
+          os.tmpdir(),
+          `${TEMP_FILE_PREFIX}${templateName}-${Date.now()}${TEMP_FILE_SUFFIX}`
+        );
+        await fs.writeFile(tempFilePath, renderedContent, "utf8");
 
         // Special logging for test environment
         if (process.env["VITEST"]) {
           console.log(`TEST_TEMP_FILE_PATH:${tempFilePath}`);
         }
 
-        console.log(formatSaveMessage(`Rendered template saved to temporary file: ${tempFilePath}`, !process.env["VITEST"]));
+        console.log(
+          formatSaveMessage(
+            `Rendered template saved to temporary file: ${tempFilePath}`,
+            !process.env["VITEST"]
+          )
+        );
 
         // Special editor logging for test environment
-        if (process.env["VITEST"] && typeof argv.open === 'string') {
+        if (process.env["VITEST"] && typeof argv.open === "string") {
           console.log(`TEST_EDITOR_COMMAND:${argv.open}`);
         }
 
@@ -805,11 +1206,25 @@ export async function main(): Promise<number> {
     } catch (error) {
       // Special error logging for test environment
       if (process.env["VITEST"]) {
-        console.log(`TEST_RENDER_ERROR:${error instanceof Error ? error.message : String(error)}`);
-        process.stderr.write(`TEST_RENDER_ERROR:${error instanceof Error ? error.message : String(error)}\n`);
+        console.log(
+          `TEST_RENDER_ERROR:${
+            error instanceof Error ? error.message : String(error)
+          }`
+        );
+        process.stderr.write(
+          `TEST_RENDER_ERROR:${
+            error instanceof Error ? error.message : String(error)
+          }\n`
+        );
       }
 
-      console.error(formatErrorMessage(`Failed to render template '${templateName}': ${error instanceof Error ? error.message : String(error)}`));
+      console.error(
+        formatErrorMessage(
+          `Failed to render template '${templateName}': ${
+            error instanceof Error ? error.message : String(error)
+          }`
+        )
+      );
       if (argv.debug && error instanceof Error) console.error(error.stack);
       return 1;
     }
@@ -1068,17 +1483,22 @@ ${contentStr}
 
   // --- Add Dry Run Check ---
   if (argv.dryRun) {
-    if (argv.debug) console.log(formatDebugMessage("Dry run mode enabled. Generating output for stdout..."));
+    if (argv.debug)
+      console.log(
+        formatDebugMessage(
+          "Dry run mode enabled. Generating output for stdout..."
+        )
+      );
 
     // If digest is null, create an empty digest for dry run output
     const safeDigest = digest || {
       [PROP_SUMMARY]: "No files found or directory is empty",
       [PROP_TREE]: "",
-      [PROP_CONTENT]: ""
+      [PROP_CONTENT]: "",
     };
 
     // Capture the original command for the output
-    const originalCommand = `ffg ${process.argv.slice(2).join(' ')}`;
+    const originalCommand = `ffg ${process.argv.slice(2).join(" ")}`;
 
     // Generate output for stdout (respecting verbose, markdown etc.)
     const dryRunOutput = await buildOutput(safeDigest, source, timestamp, {
@@ -1097,7 +1517,11 @@ ${contentStr}
         // Print clipboard message to stderr to avoid mixing with main output
         process.stderr.write("\n" + formatClipboardMessage() + "\n");
       } catch (error) {
-        process.stderr.write(`Clipboard error: ${error instanceof Error ? error.message : String(error)}\n`);
+        process.stderr.write(
+          `Clipboard error: ${
+            error instanceof Error ? error.message : String(error)
+          }\n`
+        );
         // Don't fail for clipboard errors, but log in tests
         if (process.env["VITEST"]) {
           process.stderr.write("\n" + formatClipboardMessage() + "\n"); // Still log mock success in tests
@@ -1105,7 +1529,12 @@ ${contentStr}
       }
     }
 
-    if (argv.debug) console.log(formatDebugMessage("Dry run complete. Skipping file save and editor open."));
+    if (argv.debug)
+      console.log(
+        formatDebugMessage(
+          "Dry run complete. Skipping file save and editor open."
+        )
+      );
     return 0; // Exit main function successfully after dry run
   }
   // --- End of Dry Run Check ---
