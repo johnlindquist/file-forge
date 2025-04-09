@@ -362,9 +362,11 @@ export async function runCli(configData: FfgConfig | null) {
 
   // Ensure array types are always arrays, even if empty
   for (const key of ['include', 'exclude', 'extension', 'find', 'require']) {
-    // Cast parsedArgs to any for dynamic access
-    if (!Array.isArray((parsedArgs as any)[key])) {
-      (parsedArgs as any)[key] = [];
+    // Use bracket notation with a type assertion for dynamic access
+    const typedKey = key as keyof typeof parsedArgs;
+    if (!Array.isArray(parsedArgs[typedKey])) {
+      // Assert that the property exists and can be assigned an array
+      (parsedArgs as Record<keyof typeof parsedArgs, unknown>)[typedKey] = [];
     }
   }
 

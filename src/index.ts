@@ -456,10 +456,10 @@ interface ExtendedIngestFlags extends IngestFlags {
 }
 
 // ---> ADDED: Function to get last CLI args for testing <---\
-export function getLastCliArgsForTest(): any | null {
+export function getLastCliArgsForTest(): ExtendedIngestFlags | null {
   const args = lastCliArgsForTest;
   lastCliArgsForTest = null; // Clear after retrieval
-  return args;
+  return args as ExtendedIngestFlags | null; // Cast to the specific type
 }
 // ---> END ADDED <---
 

@@ -166,4 +166,85 @@ describe("Config Reading & Merging Tests", () => {
             "value"
         ]);
     });
+
+    it("should handle an empty config file gracefully", async () => {
+        // Create an empty config file
+        await fs.writeFile(join(testDir, "ffg.config.jsonc"), "{}");
+
+        // Load config (should be an empty object or null depending on parser leniency)
+        const configData = loadFfgConfig(testDir);
+
+        // Run CLI with some basic flags (these should not be overridden)
+        const { flags, exitCode } = await runDirectCLI([
+            "--path", "some/path",
+            "--verbose" // Provide a flag to check
+        ], configData); // Pass potentially empty config
+
+        expect(exitCode).toBe(0);
+        expect(flags).toBeDefined();
+        // Assert that the CLI flag is used, and no defaults from a non-existent defaultCommand are applied
+        expect(flags?.verbose).toBe(true);
+        expect(flags?.path).toBe("some/path");
+        // Check that arrays are empty by default when no config applies
+        expect(flags?.include).toEqual([]);
+        expect(flags?.exclude).toEqual([]);
+    });
+
+    it("should fallback to default/CLI args when --use specifies a non-existent command", async () => {
+        // Copy fixture config that has named commands but NOT the one we'll use
+        await fs.copyFile(
+            join(fixturesDir, "with-named", "ffg.config.jsonc"), // Has 'docs-only'
+            join(testDir, "ffg.config.jsonc")
+        );
+
+        // Load config
+        const configData = loadFfgConfig(testDir);
+
+        // Run CLI using a non-existent named command + a CLI flag
+        const { flags, exitCode } = await runDirectCLI([
+            "--use", "non-existent-command",
+            "--markdown=true" // Provide a CLI flag
+        ], configData);
+
+        expect(exitCode).toBe(0);
+        expect(flags).toBeDefined();
+        // Assertions: Since 'non-existent-command' doesn't exist, it should behave as if no config was applied.
+        // The --markdown flag provided via CLI should be respected.
+        expect(flags?.markdown).toBe(true);
+        // Other flags should have their default yargs values or be absent/empty
+        expect(flags?.exclude).toEqual([]);
+        expect(flags?.verbose).toBeFalsy();
+    });
+
+    it("should prioritize FFG_TEST_CONFIG env var over physical config file", async () => {
+        // Create a physical config file with some defaults
+        await fs.writeFile(join(testDir, "ffg.config.jsonc"), JSON.stringify({
+            defaultCommand: { verbose: false, include: ["physical_config"] }
+        }));
+
+        // Define config data for the environment variable
+        const envConfigData = {
+            defaultCommand: { verbose: true, include: ["env_config"] }
+        };
+
+        // Set the environment variable
+        process.env.FFG_TEST_CONFIG = JSON.stringify(envConfigData);
+
+        try {
+            // Load config (should load from env var due to logic in loadFfgConfig)
+            const configData = loadFfgConfig(testDir);
+
+            // Run CLI with no args (should use defaults from env var config)
+            const { flags, exitCode } = await runDirectCLI([], configData);
+
+            expect(exitCode).toBe(0);
+            expect(flags).toBeDefined();
+            // Assertions should match the env var config, not the physical file config
+            expect(flags?.verbose).toBe(true); // From env_config
+            expect(flags?.include).toEqual(["env_config"]); // From env_config
+        } finally {
+            // Clean up the environment variable
+            delete process.env.FFG_TEST_CONFIG;
+        }
+    });
 }); 

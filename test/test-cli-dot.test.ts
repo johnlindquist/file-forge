@@ -73,27 +73,25 @@ describe("CLI: ingest current directory with '.'", () => {
   it("should produce consistent results between direct and process execution", async () => {
     const fixturesPath = resolve(__dirname, "fixtures/sample-project");
 
-    // Run both implementations in parallel
-    const [directResult, processResult] = await Promise.all([
-      // Direct execution
-      runDirectCLI([
-        "--path",
-        fixturesPath,
-        "--pipe",
-        "--no-skip-artifacts",
-        "--ignore",
-        "false"
-      ]),
+    // Run both implementations sequentially
+    // Direct execution first
+    const directResult = await runDirectCLI([
+      "--path",
+      fixturesPath,
+      "--pipe",
+      "--no-skip-artifacts",
+      "--ignore",
+      "false"
+    ]);
 
-      // Process execution
-      runCLI([
-        "--path",
-        fixturesPath,
-        "--pipe",
-        "--no-skip-artifacts",
-        "--ignore",
-        "false"
-      ])
+    // Process execution second
+    const processResult = await runCLI([
+      "--path",
+      fixturesPath,
+      "--pipe",
+      "--no-skip-artifacts",
+      "--ignore",
+      "false"
     ]);
 
     // Both should succeed
@@ -117,14 +115,12 @@ describe("CLI: ingest current directory with '.'", () => {
       const processFilename = processSavedMatch[1].split("/").pop()!;
       const processFullPath = resolve(searchesDir, "searches", processFilename);
 
-      // Wait for both files to exist using our optimized waitForFile
-      const [directFileExists, processFileExists] = await Promise.all([
-        waitForFile(directFullPath, 30000, 50), // Increased timeout for direct run
-        waitForFile(processFullPath, 15000, 50)
-      ]);
+      // Wait for both files sequentially as well
+      const directFileExists = await waitForFile(directFullPath, 30000, 50); // Reduced timeout back to 30s
+      const processFileExists = await waitForFile(processFullPath, 15000, 50);
 
       expect(directFileExists).toBe(true);
       expect(processFileExists).toBe(true);
     }
-  }, 45000); // Increased timeout from 25000 to 45000
+  }); // Removed explicit test timeout
 });
