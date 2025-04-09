@@ -2,11 +2,14 @@ import { hideBin } from "yargs/helpers";
 import yargs from "yargs";
 import { APP_COMMAND, APP_DESCRIPTION } from "./constants.js";
 import { getVersion } from "./version.js";
+import { FfgConfig } from "./types.js";
+import { formatDebugMessage } from "./formatter.js";
 
 const DEFAULT_MAX_SIZE = 10 * 1024 * 1024; // 10MB
 
-export async function runCli() {
-  const argv = await yargs(hideBin(process.argv))
+export async function runCli(configData: FfgConfig | null) {
+  // --- Define yargs options --- Start
+  const yargsInstanceWithOptions = yargs(hideBin(process.argv))
     .scriptName(APP_COMMAND)
     .usage(`${APP_COMMAND} [options] <path|repo>`)
     .positional("path", {
@@ -27,26 +30,31 @@ export async function runCli() {
     .option("include", {
       type: "array",
       describe: "Glob patterns for files/directories to include",
+      default: [], // Initialize as empty array for potential merging
     })
     .option("exclude", {
       alias: "e",
       type: "array",
       describe: "Glob patterns for files/directories to exclude",
+      default: [], // Initialize as empty array for potential merging
     })
     .option("extension", {
       alias: "x",
       type: "array",
       describe: "File extensions to include (e.g., .ts, .js)",
+      default: [],
     })
     .option("find", {
       alias: "f",
       type: "array",
       describe: "Search for files containing ANY of the provided terms",
+      default: [],
     })
     .option("require", {
       alias: "r",
       type: "array",
       describe: "Require files to contain ALL of the provided terms",
+      default: [],
     })
     .option("branch", {
       alias: "b",
@@ -67,10 +75,12 @@ export async function runCli() {
     .option("pipe", {
       alias: "p",
       type: "boolean",
+      default: false,
       describe: "Pipe output to stdout instead of opening in an editor",
     })
     .option("debug", {
       type: "boolean",
+      default: false,
       describe: "Enable debug logging for troubleshooting",
     })
     .option("bulk", {
@@ -92,6 +102,7 @@ export async function runCli() {
     .option("clipboard", {
       alias: "y",
       type: "boolean",
+      default: false,
       describe: "Copy the analysis result to the clipboard",
     })
     .option("no-editor", {
@@ -118,6 +129,7 @@ export async function runCli() {
     })
     .option("verbose", {
       type: "boolean",
+      default: false,
       describe: "Include detailed file contents in the output",
     })
     .option("graph", {
@@ -141,6 +153,7 @@ export async function runCli() {
     })
     .option("list-templates", {
       type: "boolean",
+      default: false,
       describe: "List all available prompt templates",
     })
     .option("create-template", {
@@ -176,6 +189,20 @@ export async function runCli() {
       default: false,
       describe: "Perform analysis and print output to stdout without saving to file or opening editor."
     })
+    .option("use", {
+      alias: "config-name",
+      type: "string",
+      describe: "Use a named command defined in ffg.config.jsonc"
+    })
+    .option("save", {
+      type: "boolean",
+      default: false,
+      describe: "Save the current flags as the default command in ffg.config.jsonc"
+    })
+    .option("save-as", {
+      type: "string",
+      describe: "Save the current flags as a named command in ffg.config.jsonc (e.g., --save-as my-query)"
+    })
     .example("$0 --path /path/to/project", "Analyze a local project directory")
     .example(
       "$0 https://github.com/owner/repo --branch develop",
@@ -206,22 +233,87 @@ export async function runCli() {
       "Render the 'worktree' template and open it in the editor"
     )
     .help()
-    .alias("help", "h")
+    .alias("help", "h");
+  // --- Define yargs options --- End
+
+  // Minimal parse just to check for config-related flags and user input presence
+  const initialArgs = yargs(hideBin(process.argv))
+    .option('use', { type: 'string' })
+    .help(false) // Prevent this minimal instance from handling --help
+    .version(false) // Prevent this minimal instance from handling --version
     .parseSync();
 
-  // Map positional arguments to the include patterns if not already specified
-  if (argv._ && argv._.length > 0 && !argv.include) {
-    argv["include"] = argv._.map(String);
+  let configToApply = {};
+  let appliedConfigType = 'none'; // 'none', 'default', 'named'
+
+  // Determine which config settings to apply as defaults
+  if (configData) {
+    // 1. Check for --use flag
+    if (initialArgs.use && configData.commands && configData.commands[initialArgs.use]) {
+      const commandName = initialArgs.use as string;
+      configToApply = { ...configData.commands[commandName] };
+      appliedConfigType = 'named';
+      if (initialArgs['debug']) console.log(formatDebugMessage(`Applying config from named command: ${commandName}`));
+    }
+    // 2. If --use was NOT provided, apply defaultCommand if it exists as base defaults
+    else if (!initialArgs.use && configData.defaultCommand) {
+      configToApply = { ...configData.defaultCommand };
+      appliedConfigType = 'default';
+      if (initialArgs['debug']) console.log(formatDebugMessage("Applying config from defaultCommand as base defaults"));
+    }
   }
 
-  // In test mode with graph flag, bypass standard argument processing
+  // Apply the determined config as defaults BEFORE the final parse
+  // Yargs will handle precedence: command line > config defaults > yargs option default
+  // Note: yargs merges defaults shallowly. For deep merge, other methods or libraries might be needed,
+  // but for CLI flags, shallow merging + command line override is usually sufficient.
+  // Arrays from defaults are NOT automatically merged by yargs' .default().
+  // We need a custom approach if we want CLI array flags to ADD to config array flags.
+
+  // Apply config defaults
+  const yargsInstanceWithDefaults = yargsInstanceWithOptions.default(configToApply);
+
+  // Parse the actual command line arguments ONCE
+  let argv = await yargsInstanceWithDefaults.parse();
+
+  // --- Manual Array Merging --- Start
+  // Merge arrays if a config was applied (default or named)
+  if (appliedConfigType !== 'none') {
+    // Keep track of the actual user input for arrays before defaults were applied
+    const initialArrayArgs: { [key: string]: string[] } = {};
+    for (const key of ['include', 'exclude', 'extension', 'find', 'require']) {
+      // Check initialArgs directly to see if user provided the flag
+      if (initialArgs[key] !== undefined) {
+        // Ensure it's always an array, even if a single string was passed via CLI
+        initialArrayArgs[key] = Array.isArray(initialArgs[key]) ? initialArgs[key] : [initialArgs[key] as string];
+      }
+    }
+
+    for (const key of ['include', 'exclude', 'extension', 'find', 'require']) {
+      const configValue = configToApply[key as keyof typeof configToApply];
+      const userProvidedValue = initialArrayArgs[key]; // User input BEFORE defaults
+
+      // Only merge if user actually provided the flag AND the config also has it (as an array)
+      if (userProvidedValue && Array.isArray(configValue)) {
+        const mergedArray = [...new Set([...configValue, ...userProvidedValue])];
+        argv[key] = mergedArray; // Update the final argv
+        if (initialArgs['debug']) console.log(formatDebugMessage(`Manually merged array flag --${key}: ${JSON.stringify(mergedArray)} (Config: ${JSON.stringify(configValue)}, User: ${JSON.stringify(userProvidedValue)})`));
+      }
+      // If user did NOT provide the flag, argv[key] already holds the config value via .default(), so do nothing.
+      // If user provided the flag but config did NOT have it, argv[key] already holds the user value via parsing, so do nothing.
+    }
+  }
+  // --- Manual Array Merging --- End
+
+  // --- Original Logic - Slightly Modified --- Start
+  // In test mode with graph flag, bypass standard argument processing (Remains the same)
   if (process.env["VITEST"] && argv.graph) {
     console.log(
       "[DEBUG] Test mode with graph flag detected, bypassing standard argument processing"
     );
     return {
       ...argv,
-      _: [],
+      _: [], // Ensure _ is empty here
       skipArtifacts: true,
       pipe: true,
       noColor: true,
@@ -229,24 +321,63 @@ export async function runCli() {
     };
   }
 
-  // Map --list-templates to listTemplates for consistency with other flags
+  // Map --list-templates to listTemplates for consistency (Remains the same)
   if (argv["list-templates"]) {
-    // Create a new object with all properties from argv except for "list-templates"
     const result = { ...argv, listTemplates: argv["list-templates"] };
-    // TypeScript doesn't allow us to delete properties from the original argv
-    // So we'll return a new object without the "list-templates" property
     return result;
   }
 
   // Convert kebab-case options to camelCase
   const parsedArgs = {
     ...argv,
-    noTokenCount: argv["no-token-count"],
+    // Remove explicit boolean fallbacks - rely on yargs .default() and configToApply
+    // pipe: argv.pipe ?? false, // Removed
+    // debug: argv.debug ?? false, // Removed
+    // bulk: argv.bulk ?? false, // Removed
+    // ignore: argv.ignore ?? true, // Removed
+    // skipArtifacts: argv.skipArtifacts ?? true, // Removed
+    // clipboard: argv.clipboard ?? false, // Removed
+    // noEditor: argv["no-editor"] ?? false, // Removed
+    // useRegularGit: argv["use-regular-git"] ?? false, // Removed
+    // config: argv.config ?? false, // Removed
+    // verbose: argv.verbose ?? false, // Removed
+    // svg: argv.svg ?? false, // Removed
+    // markdown: argv.markdown ?? false, // Removed
+    // noTokenCount: argv["no-token-count"] ?? false, // Removed
+    // whitespace: argv.whitespace ?? false, // Removed
+    // dryRun: argv["dry-run"] ?? false, // Removed
+    // Map kebab-case aliases correctly
     createTemplate: argv["create-template"],
     editTemplate: argv["edit-template"],
     renderTemplate: argv["render-template"],
+    useConfigName: argv["config-name"],
+    use: argv["use"],
+    // Ensure these aliases are mapped if they exist
+    noTokenCount: argv["no-token-count"],
     dryRun: argv["dry-run"],
+    noEditor: argv["no-editor"],
+    useRegularGit: argv["use-regular-git"],
   };
+
+  // If 'path' wasn't provided as an option, check the first positional arg
+  if (!parsedArgs.path && argv._ && argv._.length > 0) {
+    // Check if the first positional arg doesn't look like another flag
+    const firstPositional = String(argv._[0]);
+    if (!firstPositional.startsWith('-')) {
+      parsedArgs.path = firstPositional;
+      if (initialArgs['debug']) console.log(formatDebugMessage(`Using first positional argument as path: ${parsedArgs.path}`));
+    }
+  }
+
+  // Ensure array types are always arrays, even if empty
+  for (const key of ['include', 'exclude', 'extension', 'find', 'require']) {
+    // Use bracket notation with a type assertion for dynamic access
+    const typedKey = key as keyof typeof parsedArgs;
+    if (!Array.isArray(parsedArgs[typedKey])) {
+      // Assert that the property exists and can be assigned an array
+      (parsedArgs as Record<keyof typeof parsedArgs, unknown>)[typedKey] = [];
+    }
+  }
 
   return parsedArgs;
 }

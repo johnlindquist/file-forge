@@ -192,6 +192,7 @@
     "globby": "^14.1.0",
     "gray-matter": "^4.0.3",
     "ignore": "^7.0.3",
+    "jsonc-parser": "^3.3.1",
     "liquidjs": "^10.21.0",
     "madge": "^8.0.0",
     "micromatch": "^4.0.8",

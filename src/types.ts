@@ -39,6 +39,9 @@ export type IngestFlags = {
   noTokenCount?: boolean;
   whitespace?: boolean | undefined;
   dryRun?: boolean | undefined;
+  save?: boolean | undefined;
+  saveAs?: string | undefined;
+  use?: string | undefined;
 };
 
 export type ScanStats = {
@@ -68,3 +71,23 @@ export interface GitResetOptions {
   source?: string | undefined;
   repoPath?: string | undefined;
 }
+
+// New type for a command definition within the config file
+export type FfgCommand = Partial<IngestFlags>;
+
+// New type for the overall ffg.config.jsonc structure
+export type FfgConfig = {
+  defaultCommand?: FfgCommand;
+  commands?: {
+    [commandName: string]: FfgCommand;
+  };
+};
+
+
+export interface ErrnoException extends Error {
+  errno?: number;
+  code?: string;
+  path?: string;
+  syscall?: string;
+  stack?: string;
+} 

@@ -22,6 +22,7 @@
   - **Bulk Mode**: Append AI processing instructions with `--bulk`
   - **Debug/Verbose**: Enable additional logging with `--debug` or `--verbose`
   - **AI Templates**: Apply prompt templates for AI processing with `--template`
+- **Configuration File**: Define default options and reusable named command sets in `ffg.config.jsonc`.
 
 ## Installation
 
@@ -148,6 +149,77 @@ ffg --graph src/index.js
   # Combine with other options
   ffg src --template test --include "*.js" --exclude "*.test.js"
   ```
+
+## Configuration File (`ffg.config.jsonc`)
+
+File Forge supports a configuration file named `ffg.config.jsonc` (or `ffg.config.json`) in the root of your project (the directory where you run `ffg`). This allows you to define default options and create reusable, named command configurations.
+
+**Features:**
+
+-   **Default Command:** Specify a `defaultCommand` object whose flags will be applied automatically whenever `ffg` is run without the `--use` flag.
+-   **Named Commands:** Define multiple named command configurations under the `commands` object. Invoke a specific named command using the `--use <command-name>` flag.
+-   **JSONC Support:** Use comments in your `ffg.config.jsonc` file for better documentation.
+-   **Precedence:** Command-line flags always take precedence over configuration file settings. If using `--use <name>`, the named command's settings override `defaultCommand` settings.
+-   **Array Merging:** For array flags like `--include`, `--exclude`, `--find`, `--require`, and `--extension`, values provided on the command line are *merged* with (added to) the values defined in the applied configuration (either `defaultCommand` or the named command used with `--use`).
+-   **Saving Commands (`--save` / `--save-as`):** You can easily save the current set of command-line flags to your `ffg.config.jsonc` file:
+    -   `--save`: Saves the current flags (excluding transient flags like `--pipe`, `--debug`, etc.) as the new `defaultCommand`, overwriting any existing default.
+    -   `--save-as <name>`: Saves the current flags under a new named command (or overwrites an existing one with the same name) in the `commands` section.
+
+**Example `ffg.config.jsonc`:**
+
+```jsonc
+{
+  // Default settings applied when no --use flag is given
+  "defaultCommand": {
+    "exclude": ["node_modules/**", "dist/**", "*.log"],
+    "ignore": true, // Respect .gitignore by default
+    "skipArtifacts": true
+  },
+  // Reusable named command configurations
+  "commands": {
+    "ts-analysis": {
+      "include": ["src/**/*.ts"],
+      "exclude": ["**/*.test.ts", "**/*.spec.ts"], // Merged with defaultCommand exclude on use
+      "require": ["import", "export"],
+      "verbose": true
+    },
+    "docs-only": {
+      "include": ["**/*.md", "docs/**"],
+      "markdown": true
+    },
+    "find-todos": {
+      // Inherits defaults from defaultCommand if not overridden
+      "find": ["TODO", "FIXME"],
+      "include": ["src/**", "scripts/**"]
+    }
+  }
+}
+```
+
+**Usage with Config:**
+
+```bash
+# Uses defaultCommand settings (exclude node_modules, etc.)
+ffg .
+
+# Uses the 'ts-analysis' named command settings
+ffg --use ts-analysis
+
+# Uses 'ts-analysis' but overrides verbose and adds another include pattern
+ffg --use ts-analysis --verbose=false --include "tests/**/*.ts"
+# Resulting flags: include=["src/**/*.ts", "tests/**/*.ts"], exclude=[...], require=[...], verbose=false
+
+# Uses 'find-todos' command
+ffg --use find-todos
+
+# Save current flags as the new default command
+ffg . --include "**/*.ts" --exclude "node_modules/**" --verbose --save
+# This will update ffg.config.jsonc's "defaultCommand"
+
+# Save current flags as a named command 'test-setup'
+ffg . --require "test" --exclude "dist/**" --save-as test-setup
+# This will add or overwrite "test-setup" in ffg.config.jsonc's "commands"
+```
 
 ## AI Prompt Templates
 
