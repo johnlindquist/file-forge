@@ -1,7 +1,7 @@
 **Step 2: Add or Update Tests**
 
-*   **Goal:** Ensure the changes made for "{{TASK_DESCRIPTION}}" are covered by automated tests to prevent regressions and verify behavior, including edge cases.
-*   **Action:** Add new tests or update existing ones in the relevant test file(s) (e.g., `test/feature.test.ts`, `src/auth.spec.js`). **Ensure you show complete test blocks (`describe` or `it`).**
+*   **Goal:** Ensure the code changes from the previous step are covered by automated tests. This includes adding new tests or updating existing ones to reflect the new/changed behavior.
+*   **Action:** Add new tests or update existing ones in the relevant test file(s) (e.g., `test/feature.test.ts`, `src/auth.spec.js`). **Ensure you show complete test blocks (`describe` or `it`) including any necessary setup/mocking changes.**
 
     *Example for file `test/auth.test.ts`:*
     ```typescript
@@ -23,10 +23,10 @@
     });
 
     // === AFTER CHANGES in test/auth.test.ts ===
-    // Replace or add complete test blocks
+    // Replace or add complete test blocks, including updated mocks/setup
 
     import { authenticate } from '../src/auth';
-    // Mock the new dependency if needed
+    // Mock the new dependency if needed by the code change
     // import { isAccountLocked } from '../src/accountStatus';
     // jest.mock('../src/accountStatus');
     // const mockedIsAccountLocked = isAccountLocked as jest.Mock;
@@ -42,40 +42,55 @@
         expect(authenticate('admin', 'password123')).toBe(true);
       });
 
+      // (Existing test potentially updated if behavior changed)
       it('should return false for invalid password', () => {
         expect(authenticate('admin', 'wrongpassword')).toBe(false);
       });
 
-      // New test: Added input validation checks
+      // New test: Added based on code changes in previous step
       it('should return false if username or password is empty', () => {
         expect(authenticate('', 'password123')).toBe(false);
         expect(authenticate('admin', '')).toBe(false);
         expect(authenticate('', '')).toBe(false);
       });
 
-      // New test: Added check for locked accounts
+      // New test: Added based on code changes in previous step
       it('should return false for valid credentials if account is locked', () => {
-        // Setup mock for locked account scenario
+        // Setup mock for locked account scenario for this test
         // mockedIsAccountLocked.mockReturnValue(true);
         expect(authenticate('admin', 'password123')).toBe(false);
       });
     });
     ```
-*   **Verification (Mandatory Before Commit):**
-    1.  **Lint & Type Check:** Run linters and type checkers. Fix all reported issues.
+*   **Context & Impact:** Tests verify code logic. Changes here might impact mock setup files (`jest.setup.js`), test utilities (`test/utils.ts`), or CI configuration if test commands change.
+    *   *Agent Note: List any specific test setup/utility files potentially affected by these test changes.*
+    *   **Files Potentially Impacted by *this step's* test changes:**
+        *   `[Test Util File Path]` - Reason: [e.g., Modified shared test helper]
+        *   `[Mock Setup File Path]` - Reason: [e.g., Added new global mock]
+        *   *(Add more as needed)*
+
+*   **Verification (Mandatory Before Commit):** **DO NOT COMMIT until all verification steps pass.**
+    1.  **Lint & Type Check:** Run linters and type checkers on the *test files* you changed. Fix all reported issues.
         ```bash
-        # Adapt to your project's scripts
-        pnpm lint && pnpm build:check
+        # Adapt to your project's scripts, potentially targeting test files
+        pnpm lint <path/to/test/files> && pnpm build:check
         ```
-    2.  **Run Tests:** Execute the *full* test suite again. Ensure your new/updated tests pass and **no existing tests have regressed**. Analyze and fix any failures.
+    2.  **Run Full Test Suite:** Execute the *entire* test suite. Ensure your new/updated tests PASS and **NO existing tests have regressed (broken)**. **If tests fail:**
+        *   Analyze the output: Is it your new test failing, or an old one?
+        *   If a new test fails, debug the test logic and the code it's testing (using techniques from the previous step).
+        *   If an *existing* test fails (regression), investigate why the code change from Step 1 broke it. You might need to adjust the code from Step 1 (amend the previous commit: `git add <file>; git commit --amend --no-edit`) or adjust the older test if the *new* behavior is correct.
+        *   **Do not proceed if any tests are unexpectedly failing.**
         ```bash
         # Adapt to your project's scripts
         pnpm test
         ```
-*   **Commit (Only After Successful Verification):** Stage and commit *only* the changes related to tests.
+
+*   **Commit (Only After Successful Verification):** Stage and commit *only* the changes related to tests (and potentially amended code changes if regressions were fixed).
     ```bash
-    git add <path/to/test/files> # e.g., git add test/auth.test.ts
-    git commit -m "test: Add tests for {{TASK_DESCRIPTION}}" -m "Added tests for input validation and locked account scenarios"
+    # Add test files and any amended code files
+    git add <path/to/test/files> [<path/to/amended/code/files>]
+    # Use a clear, structured commit message
+    git commit -m "test: Add/update tests for {{TASK_DESCRIPTION}} (Step 2)" -m "Description: [Specific tests added/updated, e.g., Covered input validation and locked account scenarios for authenticate]" -m "Verification: Passed lint, types, and full test suite."
     ```
 
 --- 

@@ -1,13 +1,13 @@
 ---
 name: worktree
 category: generation
-description: Plan work assuming user is already in a Git worktree for the task, with commits per step and PR creation.
+description: Plan work assuming user is already in a Git worktree for the task, with MANDATORY commits per step and PR creation.
 variables:
   - TASK_DESCRIPTION
   - BRANCH_NAME # Still useful for push/PR commands, even if branch exists
 ---
 <executive_summary>
-Generate a step-by-step guide for implementing a task **assuming you are already working inside the relevant Git worktree and on the correct feature branch.** This guide covers code implementation, testing (with commits per step), pushing the branch, and creating a Pull Request.
+Generate a step-by-step guide for implementing a task **assuming you are already working inside the relevant Git worktree and on the correct feature branch.** This guide enforces **strict commit-per-step verification** for code and test changes, pushing the branch, and creating a Pull Request.
 </executive_summary>
 
 <instructions>
@@ -20,6 +20,7 @@ Generate a step-by-step guide for implementing a task **assuming you are already
 {% include '_step_add_tests.md' %}
 {% include '_step_push_branch.md' %}
 {% include '_step_create_pr.md' %}
+{% include '_step_post_mortem.md' %}
 {% comment %} No '_step_return_to_main.md' needed as the main checkout is separate {% endcomment %}
 {% include '_footer.md' %}
 </instructions>
