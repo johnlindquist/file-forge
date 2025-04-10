@@ -1,10 +1,11 @@
 import { describe, it, expect, afterEach, beforeEach } from "vitest";
 import { runDirectCLI } from "../utils/directTestRunner.js";
 import { promises as fs } from "node:fs";
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, rmdirSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { loadFfgConfig } from "../src/utils.js";
+import { execSync } from 'node:child_process';
 
 const fixturesDir = join(__dirname, "fixtures/config-save");
 
@@ -26,8 +27,15 @@ describe("Config Reading & Merging Tests", () => {
             process.chdir(originalCwd);
         }
         // Cleanup
-        if (testDir) {
-            await fs.rm(testDir, { recursive: true, force: true });
+        if (testDir && existsSync(testDir)) { // Check existence before removing
+            try {
+                // Use rmdirSync for potentially faster cleanup on simple structures
+                rmdirSync(testDir, { recursive: true });
+                // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            } catch (_e) {
+                // Fallback for complex cases or permission issues
+                await fs.rm(testDir, { recursive: true, force: true });
+            }
             testDir = ""; // Reset for safety
         }
     });
@@ -246,5 +254,122 @@ describe("Config Reading & Merging Tests", () => {
             // Clean up the environment variable
             delete process.env.FFG_TEST_CONFIG;
         }
+    });
+});
+
+describe("ffg --use flag on local directories", () => {
+    let testDir = "";
+    let originalCwd = "";
+
+    beforeEach(async () => {
+        originalCwd = process.cwd();
+        testDir = mkdtempSync(join(tmpdir(), "ffg-use-local-test-"));
+        process.chdir(testDir);
+        // Create a dummy src directory and file for include testing
+        await fs.mkdir(join(testDir, "src"));
+        await fs.writeFile(join(testDir, "src", "local.ts"), "console.log('local');");
+        await fs.writeFile(join(testDir, "other.js"), "console.log('other');");
+    });
+
+    afterEach(async () => {
+        if (originalCwd && process.cwd() !== originalCwd) {
+            process.chdir(originalCwd);
+        }
+        if (testDir && existsSync(testDir)) { // Check existence before removing
+            try {
+                // Use rmdirSync for potentially faster cleanup on simple structures
+                rmdirSync(testDir, { recursive: true });
+                // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            } catch (_e) {
+                // Fallback for complex cases or permission issues
+                await fs.rm(testDir, { recursive: true, force: true });
+            }
+            testDir = "";
+        }
+    });
+
+    it("should run analysis on CWD using named command without Git errors (non-Git dir)", async () => {
+        // Setup config file
+        const config = {
+            commands: {
+                localSrc: { include: ["src"], verbose: true }
+            }
+        };
+        await fs.writeFile(join(testDir, "ffg.config.jsonc"), JSON.stringify(config));
+        const configData = loadFfgConfig(testDir);
+
+        // Run ffg --use localSrc (no path specified, should use CWD)
+        // Use --pipe to check stdout easily, --no-token-count to simplify output
+        const { stdout, stderr, exitCode, flags } = await runDirectCLI(
+            ["--use", "localSrc", "--pipe", "--no-token-count", "--debug"],
+            configData
+        );
+
+        expect(exitCode).toBe(0);
+        // Crucially, no Git errors should appear in stderr
+        expect(stderr).not.toContain("No such remote");
+        expect(stderr).not.toContain("Failed to get Git information");
+        expect(stdout).not.toContain("Failed to get Git information"); // Check stdout too
+
+        // Verify logging shows the command being used
+        expect(stdout).toContain("Applying config from named command: localSrc");
+
+        // Verify flags were applied (verbose: true means <files> tag should be present)
+        expect(flags?.include).toEqual(["src"]);
+        expect(flags?.verbose).toBe(true);
+        expect(stdout).toContain("<files>");
+        expect(stdout).toContain('src/local.ts'); // Check included file is present
+
+        // Verify files outside 'src' were excluded by the include rule
+        expect(stdout).not.toContain('other.js');
+
+        // Verify no <git> block is present in the XML output
+        expect(stdout).not.toContain("<git>");
+    });
+
+    it("should run analysis on CWD using named command without Git errors (Git dir, no remote)", async () => {
+        // Initialize Git repo but don't add a remote
+        execSync("git init", { cwd: testDir });
+        execSync("git add .", { cwd: testDir });
+        try { // Add try/catch for commit resilience
+            execSync('git -c user.name="Test" -c user.email="test@example.com" commit -m "Initial commit for local test" --allow-empty', { cwd: testDir });
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        } catch (_e) {
+            console.warn("Initial commit might have failed (e.g., nothing to commit), continuing test...");
+        }
+
+        // Setup config file
+        const config = {
+            commands: {
+                localGit: { exclude: ["*.js"], markdown: true } // Different flags
+            }
+        };
+        await fs.writeFile(join(testDir, "ffg.config.jsonc"), JSON.stringify(config));
+        const configData = loadFfgConfig(testDir);
+
+        // Run ffg --use localGit
+        const { stdout, stderr, exitCode, flags } = await runDirectCLI(
+            ["--use", "localGit", "--pipe", "--no-token-count", "--debug"],
+            configData
+        );
+
+        expect(exitCode).toBe(0);
+        // No "No such remote 'origin'" error expected because getGitInfo is skipped
+        expect(stderr).not.toContain("No such remote");
+        expect(stdout).not.toContain("No such remote"); // Check stdout too
+        expect(stderr).not.toContain("Failed to get Git information");
+        expect(stdout).not.toContain("Failed to get Git information"); // Check stdout too
+
+        // Verify logging shows the command being used
+        expect(stdout).toContain("Applying config from named command: localGit");
+
+        // Verify flags were applied
+        expect(flags?.exclude).toEqual(["*.js"]);
+        expect(flags?.markdown).toBe(true);
+        expect(stdout).toContain("## Summary"); // Markdown output
+
+        // Verify *.js files were excluded
+        expect(stdout).not.toContain('other.js');
+        expect(stdout).toContain('src/local.ts'); // .ts file should still be there
     });
 }); 

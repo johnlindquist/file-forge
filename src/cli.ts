@@ -189,11 +189,6 @@ export async function runCli(configData: FfgConfig | null) {
       default: false,
       describe: "Perform analysis and print output to stdout without saving to file or opening editor."
     })
-    .option("allow-large", {
-      type: "boolean",
-      default: false,
-      describe: "Allow processing potentially very large projects exceeding the default token limit (approx. 200k tokens)."
-    })
     .option("use", {
       alias: "config-name",
       type: "string",
@@ -258,13 +253,19 @@ export async function runCli(configData: FfgConfig | null) {
       const commandName = initialArgs.use as string;
       configToApply = { ...configData.commands[commandName] };
       appliedConfigType = 'named';
-      if (initialArgs['debug']) console.log(formatDebugMessage(`Applying config from named command: ${commandName}`));
+      if (initialArgs['debug']) {
+        console.log(formatDebugMessage(`Applying config from named command: ${commandName}`));
+        console.log(formatDebugMessage(`Named command flags: ${JSON.stringify(configToApply, null, 2)}`));
+      }
     }
     // 2. If --use was NOT provided, apply defaultCommand if it exists as base defaults
     else if (!initialArgs.use && configData.defaultCommand) {
       configToApply = { ...configData.defaultCommand };
       appliedConfigType = 'default';
-      if (initialArgs['debug']) console.log(formatDebugMessage("Applying config from defaultCommand as base defaults"));
+      if (initialArgs['debug']) {
+        console.log(formatDebugMessage("Applying config from defaultCommand as base defaults"));
+        console.log(formatDebugMessage(`Default command flags: ${JSON.stringify(configToApply, null, 2)}`));
+      }
     }
   }
 
@@ -362,7 +363,6 @@ export async function runCli(configData: FfgConfig | null) {
     dryRun: argv["dry-run"],
     noEditor: argv["no-editor"],
     useRegularGit: argv["use-regular-git"],
-    allowLarge: argv["allow-large"],
   };
 
   // If 'path' wasn't provided as an option, check the first positional arg
@@ -383,6 +383,13 @@ export async function runCli(configData: FfgConfig | null) {
       // Assert that the property exists and can be assigned an array
       (parsedArgs as Record<keyof typeof parsedArgs, unknown>)[typedKey] = [];
     }
+  }
+
+  // Add final debug logging after all merging is done
+  if (argv.debug) {
+    console.log(formatDebugMessage(`Final merged configuration type: ${appliedConfigType}`));
+    console.log(formatDebugMessage("Final merged argv after config and CLI processing:"));
+    console.log(formatDebugMessage(JSON.stringify(argv, null, 2)));
   }
 
   return parsedArgs;
