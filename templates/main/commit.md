@@ -1,12 +1,12 @@
 ---
 name: commit
 category: generation
-description: Plan work on current branch with commits per step, no PR creation.
+description: Plan work on current branch with MANDATORY commits per step (code & tests), no PR creation.
 variables:
   - TASK_DESCRIPTION
 ---
 <executive_summary>
-Generate a guide assuming work on the current branch, with commits after code and test steps, ending before push/PR creation.
+Generate a guide assuming work on the current branch, enforcing **strict commit-per-step verification** for code and test changes. Ends before push/PR creation.
 </executive_summary>
 
 <instructions>
