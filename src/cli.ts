@@ -189,6 +189,11 @@ export async function runCli(configData: FfgConfig | null) {
       default: false,
       describe: "Perform analysis and print output to stdout without saving to file or opening editor."
     })
+    .option("allow-large", {
+      type: "boolean",
+      default: false,
+      describe: "Allow processing potentially very large projects exceeding the default token limit (approx. 200k tokens)."
+    })
     .option("use", {
       alias: "config-name",
       type: "string",
@@ -357,6 +362,7 @@ export async function runCli(configData: FfgConfig | null) {
     dryRun: argv["dry-run"],
     noEditor: argv["no-editor"],
     useRegularGit: argv["use-regular-git"],
+    allowLarge: argv["allow-large"],
   };
 
   // If 'path' wasn't provided as an option, check the first positional arg

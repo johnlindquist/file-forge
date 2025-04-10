@@ -42,6 +42,7 @@ export type IngestFlags = {
   save?: boolean | undefined;
   saveAs?: string | undefined;
   use?: string | undefined;
+  allowLarge?: boolean | undefined;
 };
 
 export type ScanStats = {

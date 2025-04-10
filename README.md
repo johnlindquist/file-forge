@@ -22,6 +22,7 @@
   - **Bulk Mode**: Append AI processing instructions with `--bulk`
   - **Debug/Verbose**: Enable additional logging with `--debug` or `--verbose`
   - **AI Templates**: Apply prompt templates for AI processing with `--template`
+- **Token Limit:** Prevents processing excessively large projects (over ~200k tokens) by default. Use `--allow-large` to override this check for very large codebases.
 - **Configuration File**: Define default options and reusable named command sets in `ffg.config.jsonc`.
 
 ## Installation
@@ -119,6 +120,10 @@ ffg --graph src/index.js
   ffg src --dry-run
   # Alias
   ffg src -D
+  ```
+- **Allow large projects (override token limit):**
+  ```bash
+  ffg /path/to/very/large/project --allow-large
   ```
 - **Bulk Analysis Mode:**
   ```bash

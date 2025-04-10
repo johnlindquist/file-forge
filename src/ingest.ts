@@ -17,6 +17,8 @@ import {
   DigestResult,
   PERMANENT_IGNORE_PATTERNS,
   PERMANENT_IGNORE_DIRS,
+  APPROX_CHARS_PER_TOKEN,
+  DEFAULT_MAX_TOKEN_ESTIMATE,
 } from "./constants.js";
 import { existsSync as fsExistsSync, lstatSync as fsLstatSync } from "fs";
 
@@ -26,6 +28,14 @@ const toPosixPath = (p: string): string => p.replace(/\\/g, "/");
 /** Constants for ingest */
 const DEFAULT_MAX_SIZE = 10 * 1024; // 10MB in KB
 const DIR_MAX_DEPTH = 20;
+
+// Define a custom error class for clarity
+class TokenLimitExceededError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "TokenLimitExceededError";
+  }
+}
 const DIR_MAX_FILES = 10000;
 const DIR_MAX_TOTAL_SIZE = 500 * 1024 * 1024; // 500 MB
 const ARTIFACT_FILES = [
@@ -147,8 +157,8 @@ export async function ingestDirectory(
   flags: IngestFlags
 ): Promise<DigestResult> {
   if (flags.debug) {
-    console.log("[DEBUG] Starting ingestDirectory with basePath:", basePath);
-    console.log("[DEBUG] Flags:", JSON.stringify(flags, null, 2));
+    console.log("[DEBUG] ingestDirectory: Starting ingest for", basePath);
+    console.log("[DEBUG] Flags:", flags);
   }
 
   if (flags.branch || flags.commit) {
@@ -156,24 +166,13 @@ export async function ingestDirectory(
   }
 
   const absoluteIncludes = (flags.include || []).filter((p) => path.isAbsolute(p));
-  const relativeIncludes = (flags.include || []).filter((p) => !path.isAbsolute(p));
-  const externalPaths = new Set(absoluteIncludes); // Identify external paths upfront
-
-  if (flags.debug) {
-    console.log("[DEBUG] Absolute includes:", absoluteIncludes);
-    console.log("[DEBUG] Relative includes:", relativeIncludes);
-    console.log("[DEBUG] External paths identified:", Array.from(externalPaths));
-  }
+  const externalPaths = new Set(absoluteIncludes);
 
   try {
-    // Process internal structure first, passing externalPaths to skip during content gathering
+    // Process internal structure first
     const { files: internalFiles, tree } = await processFiles(basePath, flags, externalPaths);
 
-    if (flags.debug) {
-      console.log(`[DEBUG] Processed ${internalFiles.length} internal files (after skipping external).`);
-    }
-
-    // Now process ONLY the external files to get their content with absolute paths
+    // Process external files
     const externalFiles: FileContent[] = [];
     for (const absPath of absoluteIncludes) {
       try {
@@ -197,42 +196,44 @@ export async function ingestDirectory(
         if (flags.debug) console.error(`[DEBUG] Error processing external file ${absPath}:`, error);
       }
     }
-    if (flags.debug) {
-      console.log(`[DEBUG] Processed ${externalFiles.length} external files for content.`);
-    }
 
-    // Combine the two lists. Duplicates are prevented because internalFiles
-    // should not contain any files that were in externalPaths.
     const uniqueFiles = [...externalFiles, ...internalFiles];
-
-    if (flags.debug) {
-      console.log("[DEBUG] Final unique files count:", uniqueFiles.length);
-      console.log("[DEBUG] Final unique file paths:", uniqueFiles.map(f => f.path));
-    }
 
     // Build summary and content string from uniqueFiles...
     const maxSize = flags.maxSize ?? DEFAULT_MAX_SIZE;
     const stats = { totalFiles: uniqueFiles.length };
     let summary = `Analyzing: ${basePath}
-Max file size: ${maxSize}KB${flags.branch ? `\nBranch: ${flags.branch}` : ""}${flags.commit ? `\nCommit: ${flags.commit}` : ""}
-Skipping build artifacts and generated files
-Files analyzed: ${stats.totalFiles}`;
+  Max file size: ${maxSize / 1024}KB${flags.branch ? `\nBranch: ${flags.branch}` : ""}${flags.commit ? `\nCommit: ${flags.commit}` : ""}
+  ${flags.skipArtifacts ? 'Skipping build artifacts and generated files\n' : ''}Files analyzed: ${stats.totalFiles}`;
 
-    if (absoluteIncludes.length > 0) { // Report based on initially identified external files
+    if (absoluteIncludes.length > 0) {
       summary += `\nIncluding external files:\n${absoluteIncludes.join("\n")}`;
     }
 
     const fileContents = uniqueFiles
       .map((f) => f.content)
-      .join("\n");
+      .join("\n\n"); // Use double newline for better separation
 
     return {
       [PROP_SUMMARY]: summary,
       [PROP_TREE]: tree,
       [PROP_CONTENT]: fileContents,
     };
-
   } catch (error) {
+    // Handle token limit exceeded error
+    if (error instanceof TokenLimitExceededError) {
+      console.error(`\n❌ Error: Project exceeds the estimated token limit.`);
+      console.error(`   ${error.message}`);
+      console.error(`   Use the --allow-large flag to process this project anyway.`);
+      // Exit gracefully in a way tests can catch
+      if (process.env['VITEST'] || process.env['TEST_MODE']) {
+        throw new Error(`EXIT_CODE:1: ${error.message}`); // Throw error that test runner can catch
+      } else {
+        process.exit(1); // Exit normally for CLI usage
+      }
+    }
+
+    // Re-throw other errors
     if (flags.debug) console.error("[DEBUG] Error in ingestDirectory:", error);
     throw error;
   }
@@ -662,107 +663,148 @@ export async function gatherFiles(
   const ignoredFiles = new Set<string>();
   const binaryFiles = new Set<string>();
   const svgFiles = new Set<string>();
+  let estimatedTokenCount = 0; // Initialize token counter
+  const tokenLimit = DEFAULT_MAX_TOKEN_ESTIMATE; // Use constant
 
-  async function processNode(node: TreeNode) {
-    if (node.type === "file") {
+  async function processNode(currentNode: TreeNode) { // Changed param name for clarity
+    // --- Token Limit Check --- START
+    // Check *before* processing the node's content or children
+    if (!options.allowLarge && estimatedTokenCount > tokenLimit) {
+      // If limit is already exceeded, stop processing further down this branch
+      return;
+    }
+    // --- Token Limit Check --- END
+
+    if (currentNode.type === "file") {
       // Skip content generation if it's an external file (path matches absolute include)
-      if (externalPaths.has(node.path)) {
+      if (externalPaths.has(currentNode.path)) {
         if (options.debug) {
-          console.log(`[DEBUG] gatherFiles: Skipping content generation for external file: ${node.path}`);
+          console.log(`[DEBUG] gatherFiles: Skipping content generation for external file: ${currentNode.path}`);
         }
         // Still process flags for the tree view
         try {
-          const buffer = await fs.readFile(node.path);
-          node.isBinary = isBinaryFile(buffer, node.path);
-          if (node.name.toLowerCase().endsWith('.svg')) {
-            node.isSvgIncluded = !!options.svg;
-            if (!node.isSvgIncluded) svgFiles.add(node.path);
+          const buffer = await fs.readFile(currentNode.path);
+          currentNode.isBinary = isBinaryFile(buffer, currentNode.path);
+          if (currentNode.name.toLowerCase().endsWith('.svg')) {
+            currentNode.isSvgIncluded = !!options.svg;
+            if (!currentNode.isSvgIncluded) svgFiles.add(currentNode.path);
           }
-          if (node.isBinary) binaryFiles.add(node.path);
+          if (currentNode.isBinary) binaryFiles.add(currentNode.path);
 
           const maxSize = options.maxSize ?? DEFAULT_MAX_SIZE;
-          if (node.isBinary && node.size <= maxSize) {
-            node.tooLarge = false; // Override tooLarge if binary & within size
+          if (currentNode.isBinary && currentNode.size <= maxSize) {
+            currentNode.tooLarge = false; // Override tooLarge if binary & within size
           }
         } catch (error) {
-          if (options.debug) console.log(`[DEBUG] gatherFiles: Error stat-ing external file ${node.path} for flags:`, error);
-          ignoredFiles.add(node.path);
+          if (options.debug) console.log(`[DEBUG] gatherFiles: Error stat-ing external file ${currentNode.path} for flags:`, error);
+          ignoredFiles.add(currentNode.path);
         }
         return; // Skip content retrieval
       }
 
       // Handle SVG exclusion for internal files
-      if (node.name.toLowerCase().endsWith('.svg')) {
+      if (currentNode.name.toLowerCase().endsWith('.svg')) {
         if (!options.svg) {
           if (options.debug) {
-            console.log("[DEBUG] SVG file excluded (internal):", node.path);
+            console.log("[DEBUG] SVG file excluded (internal):", currentNode.path);
           }
-          svgFiles.add(node.path);
-          node.isSvgIncluded = false;
+          svgFiles.add(currentNode.path);
+          currentNode.isSvgIncluded = false;
           // We still need to check if it's binary for the tree view, but skip content
           try {
-            const buffer = await fs.readFile(node.path);
-            node.isBinary = isBinaryFile(buffer, node.path);
-            if (node.isBinary) binaryFiles.add(node.path);
+            const buffer = await fs.readFile(currentNode.path);
+            currentNode.isBinary = isBinaryFile(buffer, currentNode.path);
+            if (currentNode.isBinary) binaryFiles.add(currentNode.path);
             const maxSize = options.maxSize ?? DEFAULT_MAX_SIZE;
-            if (node.isBinary && node.size <= maxSize) node.tooLarge = false;
+            if (currentNode.isBinary && currentNode.size <= maxSize) currentNode.tooLarge = false;
           } catch (error) {
-            if (options.debug) console.log(`[DEBUG] gatherFiles: Error stat-ing internal SVG ${node.path} for flags:`, error);
-            ignoredFiles.add(node.path);
+            if (options.debug) console.log(`[DEBUG] gatherFiles: Error stat-ing internal SVG ${currentNode.path} for flags:`, error);
+            ignoredFiles.add(currentNode.path);
           }
           return; // Skip content if SVG is excluded
         } else {
-          node.isSvgIncluded = true; // Mark included if flag is set
+          currentNode.isSvgIncluded = true; // Mark included if flag is set
         }
       }
 
       // Process internal file content
       try {
-        const buffer = await fs.readFile(node.path);
-        const isBinary = isBinaryFile(buffer, node.path);
-        node.isBinary = isBinary;
+        const buffer = await fs.readFile(currentNode.path);
+        const isBinary = isBinaryFile(buffer, currentNode.path);
+        currentNode.isBinary = isBinary;
 
         const maxSize = options.maxSize ?? DEFAULT_MAX_SIZE;
-        if (isBinary && node.size <= maxSize) {
-          node.tooLarge = false;
+        if (isBinary && currentNode.size <= maxSize) {
+          currentNode.tooLarge = false;
         }
 
         if (isBinary) {
           if (options.debug) {
-            console.log("[DEBUG] Binary file detected (internal):", node.path);
+            console.log("[DEBUG] Binary file detected (internal):", currentNode.path);
           }
-          binaryFiles.add(node.path);
+          binaryFiles.add(currentNode.path);
           return; // Skip content for binary files
         }
 
-        node.isBinary = false;
+        currentNode.isBinary = false;
 
         // Use RELATIVE path for display for internal files
-        const relativePath = relative(basePath, node.path);
+        const relativePath = relative(basePath, currentNode.path);
         const content = await getFileContent(
-          node.path,
+          currentNode.path,
           maxSize,
           relativePath, // Correct display path for internal files
           { skipHeader: false }
         );
         if (content === null) {
           if (options.debug) {
-            console.log("[DEBUG] File ignored by getFileContent (internal):", node.path);
+            console.log("[DEBUG] File ignored by getFileContent (internal):", currentNode.path);
           }
-          ignoredFiles.add(node.path);
+          ignoredFiles.add(currentNode.path);
           return;
         }
-        files.push({ path: node.path, content: content, size: node.size });
-      } catch (error) {
+
+        // --- Token Estimation and Limit Check --- START
+        // Estimate tokens for this file's content
+        const fileTokenEstimate = Math.ceil(content.length / APPROX_CHARS_PER_TOKEN);
+        estimatedTokenCount += fileTokenEstimate;
+
         if (options.debug) {
-          console.log("[DEBUG] Error processing internal file:", node.path, error);
+          console.log(`[DEBUG] gatherFiles: Processed ${relativePath}, Size: ${content.length}, Tokens: ~${fileTokenEstimate}, Total Tokens: ~${estimatedTokenCount}`);
         }
-        ignoredFiles.add(node.path);
+
+        // Check if the limit is exceeded *after* adding this file's tokens
+        if (!options.allowLarge && estimatedTokenCount > tokenLimit) {
+          if (options.debug) {
+            console.log(`[DEBUG] gatherFiles: Token limit exceeded (${estimatedTokenCount} > ${tokenLimit}) while processing ${relativePath}. Aborting.`);
+          }
+          // Throw specific error to be caught upstream
+          throw new TokenLimitExceededError(
+            `Estimated token count (~${estimatedTokenCount}) exceeds the limit of ${tokenLimit}.`
+          );
+        }
+        // --- Token Estimation and Limit Check --- END
+
+        files.push({ path: currentNode.path, content: content, size: currentNode.size });
+      } catch (error) {
+        // If it's the token limit error, re-throw it
+        if (error instanceof TokenLimitExceededError) {
+          throw error;
+        }
+        // Handle other file processing errors
+        if (options.debug) {
+          console.log("[DEBUG] Error processing internal file:", currentNode.path, error);
+        }
+        ignoredFiles.add(currentNode.path);
       }
-    } else if (node.type === "directory" && node.children) {
+    } else if (currentNode.type === "directory" && currentNode.children) {
       // Ensure children are sorted before processing for consistent output
-      sortTree(node); // Sort children here if not done in scanDirectory
-      for (const child of node.children) {
+      sortTree(currentNode); // Sort children here if not done in scanDirectory
+      for (const child of currentNode.children) {
+        // Propagate the check: if the limit was exceeded in a previous sibling, this won't run
+        if (!options.allowLarge && estimatedTokenCount > tokenLimit) {
+          break; // Stop processing children of this directory if limit exceeded
+        }
         await processNode(child);
       }
     }
@@ -771,6 +813,7 @@ export async function gatherFiles(
   await processNode(node);
 
   if (options.debug) {
+    console.log(`[DEBUG] gatherFiles: Final estimated token count: ~${estimatedTokenCount}`);
     console.log("[DEBUG] gatherFiles: Internal files content gathered:", files.length);
     console.log("[DEBUG] gatherFiles: Binary files marked:", binaryFiles.size);
     console.log("[DEBUG] gatherFiles: SVG files marked:", svgFiles.size);
