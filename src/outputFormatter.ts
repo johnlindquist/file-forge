@@ -14,6 +14,7 @@ interface OutputOptions {
   markdown?: boolean | undefined;
   command?: string | undefined;
   whitespace?: boolean | undefined;
+  isRepoAnalysis?: boolean | undefined;
   [key: string]: unknown;
 }
 
@@ -120,5 +121,6 @@ export async function buildOutput(
     verbose: options.verbose || options.debug || !options.pipe || options.clipboard,
     command: options.command,
     whitespace: options.whitespace,
+    isRepoAnalysis: options.isRepoAnalysis,
   });
 }

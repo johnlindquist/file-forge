@@ -3,6 +3,8 @@ import { DigestResult, PROP_SUMMARY, PROP_TREE, PROP_CONTENT } from "./constants
 import { getTemplateByName, processTemplate } from "./templates.js";
 import { existsSync } from "node:fs";
 import { execSync } from "node:child_process";
+import { join } from "node:path";
+import { formatDebugMessage } from "./formatter.js";
 
 /** Converts Windows backslashes to POSIX forward slashes */
 const toPosixPath = (p: string) => p.replace(/\\/g, "/");
@@ -14,6 +16,7 @@ interface XMLOutputOptions {
     verbose?: boolean | undefined;
     command?: string | undefined;
     whitespace?: boolean | undefined;
+    isRepoAnalysis?: boolean | undefined;
 }
 
 /**
@@ -33,28 +36,35 @@ function escapeXML(str: string): string {
  */
 function getGitInfo(source: string): Record<string, string> {
     const gitInfo: Record<string, string> = {};
+    const gitDirPath = join(source, ".git");
+
+    // Only proceed if source appears to be a git repository
+    if (!existsSync(gitDirPath)) {
+        if (process.env['DEBUG']) {
+            console.log(formatDebugMessage(`No .git directory found in ${source}, skipping Git info.`));
+        }
+        return gitInfo;
+    }
 
     try {
-        // Check if .git directory exists
-        if (!existsSync(`${source}/.git`)) {
-            return gitInfo;
+        // Use --quiet to reduce stderr noise and || true to prevent non-zero exit codes from throwing
+        gitInfo['branch'] = execSync('git rev-parse --abbrev-ref HEAD 2>/dev/null || true', { cwd: source }).toString().trim();
+        gitInfo['remote'] = execSync('git remote get-url origin 2>/dev/null || true', { cwd: source }).toString().trim();
+        gitInfo['commit'] = execSync('git rev-parse HEAD 2>/dev/null || true', { cwd: source }).toString().trim();
+        gitInfo['commitDate'] = execSync('git log -1 --format=%cd 2>/dev/null || true', { cwd: source }).toString().trim();
+
+        // Clean up empty strings if commands failed silently
+        for (const key in gitInfo) {
+            if (!gitInfo[key]) {
+                delete gitInfo[key];
+            }
         }
-
-        // Get current branch
-        gitInfo['branch'] = execSync('git rev-parse --abbrev-ref HEAD', { cwd: source }).toString().trim();
-
-        // Get remote URL
-        gitInfo['remote'] = execSync('git remote get-url origin', { cwd: source }).toString().trim();
-
-        // Get current commit hash
-        gitInfo['commit'] = execSync('git rev-parse HEAD', { cwd: source }).toString().trim();
-
-        // Get commit date
-        gitInfo['commitDate'] = execSync('git log -1 --format=%cd', { cwd: source }).toString().trim();
-
     } catch (error) {
-        // If any Git command fails, return empty info
-        console.warn('Failed to get Git information:', error);
+        // Log error only in debug mode
+        if (process.env['DEBUG']) {
+            console.log(formatDebugMessage(`Failed to get Git information for ${source}: ${error instanceof Error ? error.message : String(error)}`));
+        }
+        // Return whatever info was successfully gathered, or empty object
     }
 
     return gitInfo;
@@ -88,15 +98,17 @@ export async function buildXMLOutput(
         xml += `${childIndent}<command>${escapeXML(options.command)}</command>\n`;
     }
 
-    // Add Git information if available
-    const gitInfo = getGitInfo(source);
-    if (Object.keys(gitInfo).length > 0) {
-        xml += `${childIndent}<git>\n`;
-        if (gitInfo['branch']) xml += `${contentIndent}<branch>${escapeXML(gitInfo['branch'])}</branch>\n`;
-        if (gitInfo['remote']) xml += `${contentIndent}<remote>${escapeXML(gitInfo['remote'])}</remote>\n`;
-        if (gitInfo['commit']) xml += `${contentIndent}<commit>${escapeXML(gitInfo['commit'])}</commit>\n`;
-        if (gitInfo['commitDate']) xml += `${contentIndent}<commitDate>${escapeXML(gitInfo['commitDate'])}</commitDate>\n`;
-        xml += `${childIndent}</git>\n`;
+    // Add Git information ONLY if it was a repo analysis or explicitly requested
+    if (options.isRepoAnalysis) {
+        const gitInfo = getGitInfo(source);
+        if (Object.keys(gitInfo).length > 0) {
+            xml += `${childIndent}<git>\n`;
+            if (gitInfo['branch']) xml += `${contentIndent}<branch>${escapeXML(gitInfo['branch'])}</branch>\n`;
+            if (gitInfo['remote']) xml += `${contentIndent}<remote>${escapeXML(gitInfo['remote'])}</remote>\n`;
+            if (gitInfo['commit']) xml += `${contentIndent}<commit>${escapeXML(gitInfo['commit'])}</commit>\n`;
+            if (gitInfo['commitDate']) xml += `${contentIndent}<commitDate>${escapeXML(gitInfo['commitDate'])}</commitDate>\n`;
+            xml += `${childIndent}</git>\n`;
+        }
     }
 
     xml += `${indent}</project>\n`;
