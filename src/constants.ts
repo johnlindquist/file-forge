@@ -56,3 +56,7 @@ export const PERMANENT_IGNORE_DIRS = [
 
 /** Glob patterns for permanently ignored directories */
 export const PERMANENT_IGNORE_PATTERNS = PERMANENT_IGNORE_DIRS.map(dir => `**/${dir}/**`);
+
+// Token limit constants
+export const APPROX_CHARS_PER_TOKEN = 4;
+export const DEFAULT_MAX_TOKEN_ESTIMATE = 200000; // Approx. 200k tokens
