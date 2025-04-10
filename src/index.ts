@@ -147,18 +147,26 @@ export async function handleOutput(
     [PROP_CONTENT]: ""
   };
 
+  // Determine if the analysis originated from a repo flag
+  const wasRepoAnalysis = !!argv.repo;
+  if (argv.debug) {
+    console.log(formatDebugMessage(`Analysis source type: ${wasRepoAnalysis ? 'Repository' : 'Local Path'}`));
+  }
+
   // For file output, always include everything
   const fileOutput = await buildOutput(safeDigest, source, timestamp, {
     ...argv,
     verbose: true, // Always include file contents in file output
     pipe: false, // Never pipe for file output to ensure XML wrapping works
     command: originalCommand, // Include the original command
+    isRepoAnalysis: wasRepoAnalysis, // Pass the flag to control Git info inclusion
   });
 
   // For console output, respect the verbose flag and preserve the name property
   const consoleOutput = await buildOutput(safeDigest, source, timestamp, {
     ...argv,
     command: originalCommand, // Include the original command
+    isRepoAnalysis: wasRepoAnalysis, // Pass the flag to control Git info inclusion
   });
 
   // Only count tokens if not disabled

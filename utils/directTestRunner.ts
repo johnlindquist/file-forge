@@ -114,6 +114,10 @@ export async function runDirectCLI(args: string[], configData: FfgConfig | null 
         const exitCodeMatch = errorObj.message?.match?.(/EXIT_CODE:(\d+)/);
         if (exitCodeMatch) {
             exitCode = parseInt(exitCodeMatch[1], 10);
+        } else if (errorObj.message?.includes?.('Project exceeds the estimated token limit.')) {
+            // Special handling for token limit errors
+            exitCode = 1;
+            stderrOutput += errorObj.message || 'Error: Project exceeds the estimated token limit.';
         } else {
             // For other errors, assume failure
             stderrOutput += String(error);
