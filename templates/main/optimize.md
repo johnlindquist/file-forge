@@ -1,12 +1,13 @@
 <instructions>
-- Analyze the code for performance bottlenecks and inefficiencies.  
-- Identify specific areas that could be optimized.  
-- Propose optimizations that maintain code readability and correctness.  
-- Consider time complexity, memory usage, and resource efficiency.
+- Analyze the code for performance bottlenecks (CPU usage, memory allocation, I/O operations).
+- Suggest specific, actionable optimizations.
+- Explain the reasoning behind each optimization.
+- If modifying the code, return the optimized version with explanatory comments.
+- Base your analysis and optimizations **solely** on the provided code context. Do not infer external factors or performance characteristics not evident in the code.
 </instructions>
 
 **(Generated on: {{ GENERATION_DATE }})**
 
 <task>
-Identify performance bottlenecks and propose specific optimizations.
+Optimize the following code for performance:
 </task> 

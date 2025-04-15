@@ -71,7 +71,7 @@
 
 *   **Verification (Mandatory Before Commit):** **DO NOT COMMIT until all verification steps pass.**
     1.  **Lint & Type Check:** Run linters and type checkers on the *test files* you changed. Fix all reported issues.
-        ```bash
+        ```bash # Adapt command if needed
         # Adapt to your project's scripts, potentially targeting test files
         pnpm lint <path/to/test/files> && pnpm build:check
         ```
@@ -80,17 +80,17 @@
         *   If a new test fails, debug the test logic and the code it's testing (using techniques from the previous step).
         *   If an *existing* test fails (regression), investigate why the code change from Step 1 broke it. You might need to adjust the code from Step 1 (amend the previous commit: `git add <file>; git commit --amend --no-edit`) or adjust the older test if the *new* behavior is correct.
         *   **Do not proceed if any tests are unexpectedly failing.**
-        ```bash
-        # Adapt to your project's scripts
+        ```bash # Adapt command if needed
         pnpm test
         ```
 
 *   **Commit (Only After Successful Verification):** Stage and commit *only* the changes related to tests (and potentially amended code changes if regressions were fixed).
     ```bash
-    # Add test files and any amended code files
+    # 1. Add test files and any amended code files from Step 1 regressions
     git add <path/to/test/files> [<path/to/amended/code/files>]
-    # Use a clear, structured commit message
-    git commit -m "test: Add/update tests for {{TASK_DESCRIPTION}} (Step 2)" -m "Description: [Specific tests added/updated, e.g., Covered input validation and locked account scenarios for authenticate]" -m "Verification: Passed lint, types, and full test suite."
+    # 2. Use a clear, structured commit message
+    #    Example: git commit -m "test: Add tests for login validation (Step 2)" -m "Description: Added tests covering empty inputs and locked accounts for authenticate function." -m "Verification: Passed lint, types, and full test suite." | cat
+    git commit -m "test: Add/update tests for {{TASK_DESCRIPTION}} (Step 2)" -m "Description: [Specific tests added/updated]" -m "Verification: Passed lint, types, and full test suite." | cat
     ```
 
 --- 

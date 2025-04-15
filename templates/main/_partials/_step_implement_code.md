@@ -57,18 +57,18 @@
     ```
     *Self-Correction Prompt: Did you consider how this change interacts with the test environment's mocking (e.g., for `isAccountLocked`, network requests, `process.exit`)? Ensure mocks are updated if necessary.*
 
-*   **Impact Analysis (Crucial!):** Carefully consider how these changes might affect other parts of the project. Updates here might require changes in tests, consuming components, type definitions, or documentation.
+*   **Impact Analysis (Mandatory!):** Carefully consider how these changes might affect *other* parts of the project *beyond the files directly edited*. Updates here might require changes in tests, consuming components, type definitions, or documentation.
     *   *Agent Note: Based on the `TASK_DESCRIPTION` and your knowledge of the codebase, list specific files/modules likely impacted by *these specific code changes* and briefly explain *why*. Be explicit.*
     *   **Files Potentially Impacted by *this step's* changes:**
         *   `[File Path 1]` - Reason: [e.g., Imports the modified function, uses the affected type, handles related UI]
         *   `[File Path 2]` - Reason: [e.g., Contains tests for this code, needs updated mocks]
         *   *(Add more as needed)*
-    *   **Action Required:** Review the listed files. Subsequent steps will likely involve updating them, especially tests. Keep this impact in mind.
+    *   **Action Required:** Acknowledge this analysis. Subsequent steps will involve updating tests and potentially other impacted files.
 
 *   **Verification (Mandatory Before Commit):** **DO NOT COMMIT until all verification steps pass.**
     1.  **Lint & Type Check:** Run linters and type checkers. Fix *all* reported issues.
         ```bash
-        # Adapt to your project's scripts
+        # Adapt to your project's scripts (e.g., pnpm lint, pnpm build:check)
         pnpm lint && pnpm build:check
         ```
     2.  **Run Relevant Tests:** Execute the test suite(s) most relevant to the changes made. Analyze and fix any failures meticulously. **If tests fail:**
@@ -78,17 +78,18 @@
         *   If a test *should* fail because the code's behavior changed correctly, update the test in the *next* step. For now, focus on fixing unexpected failures.
         *   **Do not proceed if tests related to this code are unexpectedly failing.**
         ```bash
-        # Adapt to run specific tests if possible, or the full suite if granular testing isn't easy:
+        # Adapt to run specific tests if possible, or the full suite:
         # pnpm test
         ```
     3.  **(Optional) Manual Check:** If applicable, run the application or specific commands to manually verify the basic functionality behaves as expected *for this specific change*.
 
 *   **Commit (Only After Successful Verification):** Stage and commit *only* the code changes directly related to *this step's* implementation.
     ```bash
-    # Add only the files modified IN THIS STEP
+    # 1. Add only the files modified IN THIS STEP
     git add <path/to/modified/code/files> # e.g., git add src/auth.ts
-    # Use a clear, structured commit message
-    git commit -m "feat/fix/refactor: Implement core logic for {{TASK_DESCRIPTION}} (Step 1)" -m "Description: [Specific changes made, e.g., Added input validation and account lock check in authenticate function]" -m "Verification: Passed lint, types, and relevant tests." -m "(Impact Note: Acknowledged potential impact on listed files - tests to be updated next)"
+    # 2. Use a clear, structured commit message (choose ONE type: feat/fix/refactor/...)
+    #    Example: git commit -m "feat: Implement core logic for {{TASK_DESCRIPTION}} (Step 1)" -m "Description: Added input validation and account lock check in authenticate function." -m "Verification: Passed lint, types, and relevant tests." -m "Impact Analysis: Acknowledged potential impact on test files." | cat
+    git commit -m "<type>: Implement core logic for {{TASK_DESCRIPTION}} (Step 1)" -m "Description: [Specific changes made]" -m "Verification: Passed lint, types, and relevant tests." -m "Impact Analysis: Acknowledged potential impact on listed files." | cat
     ```
 
 --- 
