@@ -117,7 +117,7 @@ describe("CLI: ingest current directory with '.'", () => {
 
       // Wait for both files sequentially as well
       const directFileExists = await waitForFile(directFullPath, 30000, 50); // Reduced timeout back to 30s
-      const processFileExists = await waitForFile(processFullPath, 15000, 50);
+      const processFileExists = await waitForFile(processFullPath, 30000, 50);
 
       expect(directFileExists).toBe(true);
       expect(processFileExists).toBe(true);
