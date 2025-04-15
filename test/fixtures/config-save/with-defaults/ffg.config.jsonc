@@ -1,1 +1,0 @@
-{ "defaultCommand": { "verbose": true, "include": ["src"], "exclude": ["**/*.test.ts"] } }
