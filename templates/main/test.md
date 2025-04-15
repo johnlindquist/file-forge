@@ -5,6 +5,8 @@
 - Consider test organization and maintainability.
 </instructions>
 
+**(Generated on: {{ GENERATION_DATE }})**
+
 <task>
 Create a comprehensive set of unit tests for this code.
 </task> 

@@ -4,6 +4,8 @@
 - Do **not** modify or rewrite the code; only explain it.
 </instructions>
 
+**(Generated on: {{ GENERATION_DATE }})**
+
 <task>
 Provide a clear and concise explanation of what this code does and how it works in plain language.
 </task> 

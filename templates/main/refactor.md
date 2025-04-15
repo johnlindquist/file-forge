@@ -5,6 +5,8 @@
 - Consider code organization, naming, and best practices.
 </instructions>
 
+**(Generated on: {{ GENERATION_DATE }})**
+
 <task>
 Identify areas for improvement and propose specific refactoring changes.
 </task> 

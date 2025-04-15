@@ -5,6 +5,8 @@
 - Consider performance, security, and maintainability.
 </instructions>
 
+**(Generated on: {{ GENERATION_DATE }})**
+
 <task>
 Identify potential issues in the code and propose specific fixes.
 </task> 

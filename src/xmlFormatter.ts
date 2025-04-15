@@ -1,6 +1,6 @@
 // import { format } from "date-fns";
 import { DigestResult, PROP_SUMMARY, PROP_TREE, PROP_CONTENT } from "./constants.js";
-import { getTemplateByName, processTemplate } from "./templates.js";
+import { getTemplateByName, applyTemplate } from "./templates.js";
 import { existsSync } from "node:fs";
 import { execSync } from "node:child_process";
 import { join } from "node:path";
@@ -17,6 +17,7 @@ interface XMLOutputOptions {
     command?: string | undefined;
     whitespace?: boolean | undefined;
     isRepoAnalysis?: boolean | undefined;
+    digestContent?: string | undefined;
 }
 
 /**
@@ -178,13 +179,14 @@ export async function buildXMLOutput(
             xml += `\n`;
 
             try {
-                // Process the template with includes first
-                const processedTemplate = await processTemplate(template.templateContent);
+                // Ensure digestContent is passed and is a string
+                const contentToApply = typeof options.digestContent === 'string' ? options.digestContent : '';
+                const appliedTemplate = await applyTemplate(template.templateContent, contentToApply);
 
-                // Add the processed template content without any wrapper tags
-                xml += processedTemplate;
+                // Add the applied template content without any wrapper tags
+                xml += appliedTemplate;
             } catch (error) {
-                xml += `\n${indent}<e>Error processing template: ${error instanceof Error ? error.message : String(error)}</e>\n`;
+                xml += `\n${indent}<e>Error applying template: ${error instanceof Error ? error.message : String(error)}</e>\n`;
             }
         } else {
             xml += `\n${indent}<e>Template "${escapeXML(options.template)}" not found. Use --list-templates to see available templates.</e>\n`;

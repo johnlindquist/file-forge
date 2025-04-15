@@ -5,6 +5,8 @@
 - Consider time complexity, memory usage, and resource efficiency.
 </instructions>
 
+**(Generated on: {{ GENERATION_DATE }})**
+
 <task>
 Identify performance bottlenecks and propose specific optimizations.
 </task> 

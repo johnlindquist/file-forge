@@ -9,6 +9,8 @@ The file should:
 5. Describe any relevant development workflows or patterns
 </instructions>
 
+**(Generated on: {{ GENERATION_DATE }})**
+
 <example>
 ---
 description: 

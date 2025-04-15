@@ -11,6 +11,7 @@ import { fileURLToPath } from 'node:url';
 import { Liquid } from 'liquidjs';
 import matter from 'gray-matter';
 import { globby } from 'globby';
+import { format } from 'date-fns';
 
 // Helper function to get the directory of the current module
 function getDirname() {
@@ -313,19 +314,24 @@ export async function applyTemplate(templateContent: string, code: string): Prom
       .replace(/-+/g, '-')      // Replace multiple hyphens with single
       .substring(0, 40);        // Limit length
 
+    // Add current date calculation
+    const generationDate = format(new Date(), 'yyyy-MM-dd');
+
     // Create the render context with all variables needed by templates
     const renderContext = {
       code: code,
       TASK_DESCRIPTION: taskDescription,
       BRANCH_NAME: `feature/${branchName}`, // Prefix with feature/ for better Git conventions
-      USER_TASK_HERE: taskDescription // For backward compatibility with older templates
+      USER_TASK_HERE: taskDescription, // For backward compatibility with older templates
+      GENERATION_DATE: generationDate // Add the formatted date here
     };
 
     // Debug logging for troubleshooting
     if (process.env['DEBUG']) {
       console.log(`[DEBUG] Applying template with context:`, JSON.stringify({
         TASK_DESCRIPTION: taskDescription.substring(0, 50) + (taskDescription.length > 50 ? '...' : ''),
-        BRANCH_NAME: `feature/${branchName}`
+        BRANCH_NAME: `feature/${branchName}`,
+        GENERATION_DATE: generationDate // Log the date too
       }));
       console.log(`[DEBUG] Template includes check - Liquid engine root:`, engine.options.root);
     }

@@ -1,5 +1,5 @@
 import { PROP_SUMMARY, PROP_TREE, PROP_CONTENT } from "./constants.js";
-import { getTemplateByName, processTemplate } from "./templates.js";
+import { getTemplateByName, applyTemplate } from "./templates.js";
 import { buildXMLOutput } from "./xmlFormatter.js";
 
 interface OutputOptions {
@@ -79,19 +79,19 @@ export async function buildOutput(
       const template = getTemplateByName(options.template);
       if (template) {
         try {
-          // Process the template to handle includes
-          const processedTemplate = await processTemplate(template.templateContent);
+          // Process the template AND apply context (like date)
+          const appliedTemplate = await applyTemplate(template.templateContent, digest[PROP_CONTENT]);
 
           // Add the processed template with proper formatting
           contentParts.push(
             "## AI Prompt Template",
             `Using template: ${template.name} (${template.description})`,
-            '```\n' + processedTemplate + '\n```'
+            '```\n' + appliedTemplate + '\n```'
           );
         } catch (error) {
           contentParts.push(
             "## Template Error",
-            `Error processing template: ${error instanceof Error ? error.message : String(error)}`
+            `Error applying template: ${error instanceof Error ? error.message : String(error)}`
           );
         }
       } else {
@@ -122,5 +122,6 @@ export async function buildOutput(
     command: options.command,
     whitespace: options.whitespace,
     isRepoAnalysis: options.isRepoAnalysis,
+    digestContent: digest[PROP_CONTENT]
   });
 }
