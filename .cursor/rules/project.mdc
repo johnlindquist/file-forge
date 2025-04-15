@@ -1,0 +1,114 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+Okay, here's a condensed File Forge (`ffg`) cheatsheet for a new developer's desk reference.
+
+---
+
+## File Forge (`ffg`) Developer Cheatsheet
+
+**Purpose:** CLI tool to analyze codebases (local/Git) & generate structured reports (XML/MD) for AI consumption.
+
+---
+
+**Key Commands (`pnpm`)**
+
+*   `pnpm install`: Install dependencies.
+*   `pnpm build`: Compile TypeScript (`src` -> `dist`). **Run before testing.**
+*   `pnpm test`: Run Vitest tests (silent mode).
+*   `pnpm test:verbose`: Run tests with detailed output.
+*   `pnpm lint` / `pnpm lint:fix`: Check / fix ESLint issues.
+*   `pnpm build:check`: Check TypeScript types without building.
+*   `pnpm dev -- <args>`: Run CLI directly from source (`src/index.ts`).
+*   `node dist/index.js -- <args>`: Run compiled CLI.
+*   `ffg -- <args>`: Run globally linked CLI (after `pnpm link --global`).
+
+---
+
+**Core Locations**
+
+*   `src/`: **Main application logic (TypeScript).**
+*   `test/`: Unit/Integration tests (Vitest).
+*   `test/fixtures/`: Sample projects for tests.
+*   `test/helpers/`: Test utilities (`runCLI`, `directTestRunner`).
+*   `templates/main/`: Default AI prompt templates (LiquidJS).
+    *   `_partials/`: Reusable template snippets.
+*   `.github/workflows/`: CI/CD pipelines (PR checks, releases).
+*   `.husky/`: Git hooks (pre-commit, pre-push).
+*   `dist/`: Compiled JavaScript output (from `pnpm build`).
+
+---
+
+**Key `src/` Files**
+
+*   `index.ts`: **Main entry point**, orchestrates the flow.
+*   `cli.ts`: **Parses CLI args (`yargs`)**, merges with project config.
+*   `ingest.ts`: **Core directory scanning logic**, file filtering, content gathering.
+*   `graph.ts`: Dependency graph analysis (`--graph`).
+*   `outputFormatter.ts`: Builds final output string (chooses XML/MD).
+*   `xmlFormatter.ts`: Creates the default XML output structure.
+*   `templates.ts`: Loads, manages, and applies LiquidJS AI templates.
+*   `repo.ts` / `gitUtils.ts`: Handles Git cloning, caching, checkouts.
+*   `utils.ts`: Utilities, incl. `loadFfgConfig` for `ffg.config.jsonc`.
+*   `config.ts`: Manages *user* config (`~/.config/...`) via `conf`.
+
+---
+
+**Basic CLI Usage (`ffg ...`)**
+
+*   `ffg <path_or_repo>`: Analyze a local path or Git URL. Defaults to `.`.
+*   `ffg . --include "**/*.ts" --exclude "node_modules/**"`: Filter files.
+*   `ffg . --find "TODO" --require "import"`: Filter by content.
+*   `ffg . --template <name>`: Apply AI template (e.g., `refactor`, `test`).
+*   `ffg --list-templates`: Show available templates.
+*   `ffg . --pipe`: Output to stdout (default: saves file).
+*   `ffg . --clipboard`: Copy output to clipboard.
+*   `ffg . --markdown`: Output in Markdown (default: XML).
+*   `ffg . --verbose`: Include full file content in output.
+*   `ffg . --open [editor]`: Open result file in editor (default/specified).
+*   `ffg . --use <cmd_name>`: Use named command from `ffg.config.jsonc`.
+*   `ffg --config`: Open user config file.
+*   `ffg --debug`: Enable debug logging.
+*   `ffg --dry-run` / `-D`: Print output to stdout, no side effects.
+
+---
+
+**Configuration Files**
+
+1.  **Project Config (`ffg.config.jsonc`):**
+    *   Location: Project root (where `ffg` is run).
+    *   Purpose: Define default flags (`defaultCommand`) and named, reusable command sets (`commands`).
+    *   Usage: Applied automatically or via `--use <name>`. CLI flags override config. Array flags are merged.
+2.  **User Config (`config.json`):**
+    *   Location: `~/.config/@johnlindquist/file-forge/config.json` (Linux/Mac).
+    *   Purpose: Persistent user settings (e.g., preferred editor for `--open`). Managed by `src/config.ts` (`conf` library).
+
+---
+
+**Testing**
+
+*   **Framework:** Vitest.
+*   **Run:** `pnpm test`. **Run before committing!**
+*   **Speed:** Many tests use `utils/directTestRunner.ts` (`runDirectCLI`) for faster execution than process spawning (`runCLI`).
+
+---
+
+**Git & Workflow**
+
+*   **Branches:** Use `feature/` or `fix/` prefixes. **No direct commits/pushes to `main`**.
+*   **Commits:** **MUST** follow [Conventional Commits](mdc:https:/www.conventionalcommits.org) (`fix:`, `feat:`, etc.) for automated releases via `semantic-release`.
+*   **Hooks (Husky):**
+    *   `pre-commit`: Runs lint, type check. Blocks commits to `main`.
+    *   `pre-push`: Blocks pushes to `main`.
+*   **PRs:** Submit Pull Requests to `main` on GitHub.
+
+---
+
+**Code Quality**
+
+*   **ESLint:** Run `pnpm lint`. Enforced by pre-commit hook. Follow rules in `.eslintrc.json` / `eslint.config.js`.
+*   **TypeScript:** Run `pnpm build:check`. Strict mode enabled (`tsconfig.json`). **Fix all type errors.** Enforced by pre-commit hook.
+
+---
