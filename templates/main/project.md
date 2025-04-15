@@ -2,11 +2,12 @@
 Add a "./cursor/rules/project.mdc" file that follows the same style as the example block below. Make sure to mimic the structure and formatting for consistency.
 
 The file should:
-1. Include a brief description of the project
-2. List and describe key files and their purposes
-3. Outline core features and functionality
-4. Explain main components and their interactions
-5. Describe any relevant development workflows or patterns
+1. Include a brief description of the project.
+2. List and describe key files and their purposes.
+3. Outline core features and functionality.
+4. Explain main components and their interactions.
+5. Describe any relevant development workflows or patterns.
+- Base the description **solely** on the provided project context.
 </instructions>
 
 **(Generated on: {{ GENERATION_DATE }})**
