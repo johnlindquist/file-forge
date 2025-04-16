@@ -3,14 +3,12 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { getRepoPath } from "../src/repo.js";
 import { promises as fs } from "fs";
 import { join } from "path";
-import { tmpdir } from "os";
-import { simpleGit as createGit } from "simple-git";
 import { createHash } from "crypto";
 import envPaths from "env-paths";
-import { mkdirp } from "mkdirp";
+import { mkdirp } from "mkdirp"; 
 import { fileExists } from "../src/utils.js";
 import { APP_SYSTEM_ID } from "../src/constants";
-import { isOnMainBranch } from "./test-helpers";
+import { createTempGitRepo, TempGitRepoResult } from "./helpers/createTempGitRepo.js"; 
 
 // Helper: compute a short MD5 hash from the source URL/path
 function hashSource(source: string): string {
@@ -20,123 +18,93 @@ function hashSource(source: string): string {
 // Determine the cache directory from envPaths
 const cacheDir = envPaths(APP_SYSTEM_ID).cache;
 
-// Only run these tests on main branch
-if (isOnMainBranch()) {
-  describe("getRepoPath cloning behavior", () => {
-    let tempRoot: string;
-    let repo1Path: string;
-    let repo2Path: string;
+describe("getRepoPath cloning behavior", () => {
+  let tempRepo1: TempGitRepoResult | null = null;
+  let tempRepo2: TempGitRepoResult | null = null;
+  let repo1CacheDir: string | null = null;
+  let repo2CacheDir: string | null = null;
 
-    beforeEach(async () => {
-      // Create a temporary root directory for our test repositories
-      tempRoot = join(tmpdir(), "test-repo-clone-" + Date.now());
-      await mkdirp(tempRoot);
+  beforeEach(async () => {
+    [tempRepo1, tempRepo2] = await Promise.all([
+      createTempGitRepo({ files: { "repo1.txt": "Repo 1" } }),
+      createTempGitRepo({ files: { "repo2.txt": "Repo 2" } }),
+    ]);
+  }, 30000);
 
-      // Create both repos in parallel
-      repo1Path = join(tempRoot, "repo1");
-      repo2Path = join(tempRoot, "repo2");
+  afterEach(async () => {
+    const repo1Path = tempRepo1?.repoPath;
+    const repo2Path = tempRepo2?.repoPath;
 
-      await Promise.all([
-        (async () => {
-          // Setup repo1
-          await mkdirp(repo1Path);
-          const git1 = createGit(repo1Path);
-          await git1.init();
-          await git1.addConfig("user.name", "Test User");
-          await git1.addConfig("user.email", "test@example.com");
-          await fs.writeFile(join(repo1Path, "repo1.txt"), "Repo 1");
-          await git1.add("repo1.txt");
-          await git1.commit("Initial commit in repo1");
-        })(),
-        (async () => {
-          // Setup repo2
-          await mkdirp(repo2Path);
-          const git2 = createGit(repo2Path);
-          await git2.init();
-          await git2.addConfig("user.name", "Test User");
-          await git2.addConfig("user.email", "test@example.com");
-          await fs.writeFile(join(repo2Path, "repo2.txt"), "Repo 2");
-          await git2.add("repo2.txt");
-          await git2.commit("Initial commit in repo2");
-        })()
-      ]);
-    });
+    await Promise.all([
+        tempRepo1?.cleanup(),
+        tempRepo2?.cleanup()
+    ]);
 
-    afterEach(async () => {
-      // Calculate cache directories
-      const repo1CacheDir = join(cacheDir, `ingest-${hashSource(repo1Path)}`);
-      const repo2CacheDir = join(cacheDir, `ingest-${hashSource(repo2Path)}`);
+    const cleanupTasks: Promise<void>[] = [];
+    if (repo1Path) {
+      if (!repo1CacheDir) {
+        repo1CacheDir = join(cacheDir, `ingest-${hashSource(repo1Path)}`);
+      }
+      if (repo1CacheDir && await fileExists(repo1CacheDir)) {
+         cleanupTasks.push(fs.rm(repo1CacheDir, { recursive: true, force: true }));
+      }
+    }
+    if (repo2Path) {
+      if (!repo2CacheDir) {
+        repo2CacheDir = join(cacheDir, `ingest-${hashSource(repo2Path)}`);
+       }
+       if (repo2CacheDir && await fileExists(repo2CacheDir)) {
+         cleanupTasks.push(fs.rm(repo2CacheDir, { recursive: true, force: true }));
+       }
+    }
+    await Promise.all(cleanupTasks);
 
-      // Remove temp and cache directories in parallel
-      await Promise.all([
-        // Remove the temporary repositories
-        fs.rm(tempRoot, { recursive: true, force: true }),
-
-        // Also remove the cache directories used by getRepoPath for each repo.
-        (async () => {
-          if (await fileExists(repo1CacheDir)) {
-            await fs.rm(repo1CacheDir, { recursive: true, force: true });
-          }
-        })(),
-
-        (async () => {
-          if (await fileExists(repo2CacheDir)) {
-            await fs.rm(repo2CacheDir, { recursive: true, force: true });
-          }
-        })()
-      ]);
-    });
-
-    it("clones distinct repositories based on their source paths", async () => {
-      // Use simpleGit for cloning
-      const flags = { useRegularGit: false };
-
-      // Ensure directories exist (should already exist from beforeEach)
-      await Promise.all([
-        mkdirp(repo1Path),
-        mkdirp(repo2Path)
-      ]);
-
-      // Call getRepoPath for each repository in parallel
-      const [repo1Cache, repo2Cache] = await Promise.all([
-        getRepoPath(
-          repo1Path,
-          hashSource(repo1Path),
-          flags,
-          /* isLocal */ false
-        ),
-        getRepoPath(
-          repo2Path,
-          hashSource(repo2Path),
-          flags,
-          /* isLocal */ false
-        )
-      ]);
-
-      // Verify that both returned cache directories are defined and distinct
-      expect(repo1Cache).toBeDefined();
-      expect(repo2Cache).toBeDefined();
-      expect(repo1Cache).not.toEqual(repo2Cache);
-
-      // Read file contents in parallel
-      const [repo1FileExists, repo2FileExists, content1, content2] = await Promise.all([
-        fileExists(join(repo1Cache, "repo1.txt")),
-        fileExists(join(repo2Cache, "repo2.txt")),
-        fs.readFile(join(repo1Cache, "repo1.txt"), "utf8"),
-        fs.readFile(join(repo2Cache, "repo2.txt"), "utf8")
-      ]);
-
-      // Verify file existence and content
-      expect(repo1FileExists).toBe(true);
-      expect(repo2FileExists).toBe(true);
-      expect(content1).toBe("Repo 1");
-      expect(content2).toBe("Repo 2");
-    });
+    tempRepo1 = null; 
+    tempRepo2 = null;
+    repo1CacheDir = null;
+    repo2CacheDir = null;
   });
-} else {
-  describe.skip("getRepoPath cloning behavior (skipped: not on main branch)", () => {
-    it("placeholder test", () => {
-      expect(true).toBe(true);
-    });
+
+  it("clones distinct repositories based on their source paths", async () => {
+    expect(tempRepo1?.repoPath).toBeDefined();
+    expect(tempRepo2?.repoPath).toBeDefined();
+    const repo1Path = tempRepo1!.repoPath;
+    const repo2Path = tempRepo2!.repoPath;
+
+    const flags = { useRegularGit: false };
+
+    const [repo1Cache, repo2Cache] = await Promise.all([
+      getRepoPath(
+        repo1Path,
+        hashSource(repo1Path),
+        flags,
+        /* isLocal */ false 
+      ),
+      getRepoPath(
+        repo2Path,
+        hashSource(repo2Path),
+        flags,
+        /* isLocal */ false 
+      )
+    ]);
+
+    repo1CacheDir = repo1Cache;
+    repo2CacheDir = repo2Cache;
+
+    expect(repo1Cache).toBeDefined();
+    expect(repo2Cache).toBeDefined();
+    expect(repo1Cache).not.toEqual(repo2Cache);
+
+    const [repo1FileExists, repo2FileExists, content1, content2] = await Promise.all([
+      fileExists(join(repo1Cache, "repo1.txt")),
+      fileExists(join(repo2Cache, "repo2.txt")),
+      fs.readFile(join(repo1Cache, "repo1.txt"), "utf8"),
+      fs.readFile(join(repo2Cache, "repo2.txt"), "utf8")
+    ]);
+
+    expect(repo1FileExists).toBe(true);
+    expect(repo2FileExists).toBe(true);
+    expect(content1).toBe("Repo 1");
+    expect(content2).toBe("Repo 2");
   });
-}
+});

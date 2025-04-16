@@ -1,82 +1,60 @@
-// test/commit-flag.test.ts
-import { describe, it, expect, beforeEach } from "vitest";
-import { runCLI, isOnMainBranch } from "./test-helpers";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { runDirectCLI } from "../utils/directTestRunner.js";
+import { createTempGitRepo, TempGitRepoResult } from "./helpers/createTempGitRepo.js";
+import { promises as fs } from "node:fs";
 import { resolve } from "node:path";
-import { execSync } from "node:child_process";
-import { writeFileSync, mkdirSync, rmSync } from "node:fs";
 
-// Only run these tests on main branch
-if (isOnMainBranch()) {
-  describe("CLI --commit", () => {
-    const repoPath = resolve(__dirname, "fixtures/branch-fixture");
-    let firstCommitSha: string;
+describe("CLI --commit flag", () => {
+  let tempRepo: TempGitRepoResult;
+  let firstCommitSha: string;
 
-    beforeEach(() => {
-      // Clean up any existing directory
-      rmSync(repoPath, { recursive: true, force: true });
+  beforeEach(async () => {
+    tempRepo = await createTempGitRepo({ initialBranch: 'main' });
+    const { git, repoPath } = tempRepo;
 
-      // Create test directory and files
-      mkdirSync(repoPath, { recursive: true });
-      writeFileSync(resolve(repoPath, "main.js"), "console.log('main')");
+    await fs.writeFile(resolve(repoPath, "main.js"), "console.log('main')");
+    await git.add("main.js");
+    await git.commit("Initial commit");
 
-      // Initialize git repo and create branches
-      execSync("git init", { cwd: repoPath });
-      try {
-        // Attempt to create the "main" branch
-        execSync("git checkout -b main", { cwd: repoPath });
-      } catch {
-        // If the "main" branch already exists in a worktree, check it out instead
-        execSync("git checkout main", { cwd: repoPath });
-      }
-      execSync("git add main.js", { cwd: repoPath });
-      execSync(
-        'git -c user.name="Test" -c user.email="test@example.com" commit -m "Initial commit"',
-        { cwd: repoPath }
-      );
+    firstCommitSha = (await git.revparse(['HEAD'])).trim();
 
-      // Store the first commit SHA
-      firstCommitSha = execSync("git rev-parse HEAD", { cwd: repoPath })
-        .toString()
-        .trim();
+    await fs.rm(resolve(repoPath, "main.js"));
+    await git.rm("main.js");
+    await git.commit("Remove main.js");
 
-      // Remove main.js before creating feature branch
-      rmSync(resolve(repoPath, "main.js"));
-      execSync("git rm main.js", { cwd: repoPath });
-      execSync(
-        'git -c user.name="Test" -c user.email="test@example.com" commit -m "Remove main.js"',
-        { cwd: repoPath }
-      );
+    await git.checkoutLocalBranch("some-feature-branch");
+    await fs.writeFile(resolve(repoPath, "feature.js"), "console.log('feature')");
+    await git.add("feature.js");
+    await git.commit("Feature commit");
 
-      // Create feature branch with its own file
-      execSync("git checkout -b some-feature-branch", { cwd: repoPath });
-      writeFileSync(resolve(repoPath, "feature.js"), "console.log('feature')");
-      execSync("git add feature.js", { cwd: repoPath });
-      execSync(
-        'git -c user.name="Test" -c user.email="test@example.com" commit -m "Feature commit"',
-        { cwd: repoPath }
-      );
-    });
+    // Test setup correction: checkout main *before* test runs
+    // Ensure the test starts from a known branch state if needed,
+    // although the commit checkout should override this. Let's leave it on feature branch.
+    // await git.checkout('main'); // <-- Keep commented out
+  }, 30000); // Timeout for setup
 
-    it("checks out the specified commit SHA after cloning", async () => {
-      const { stdout, exitCode } = await runCLI([
-        "--repo",
-        repoPath,
-        "--commit",
-        firstCommitSha,
-        "--pipe",
-      ]);
-
-      expect(exitCode).toBe(0);
-      expect(stdout).toContain("Checked out commit");
-      expect(stdout).toMatch(new RegExp(`Commit: ${firstCommitSha}`, "i"));
-      expect(stdout).toContain("main.js"); // File from first commit
-      expect(stdout).not.toContain("feature.js"); // File from second commit
-    });
+  afterEach(async () => {
+    if (tempRepo) {
+      await tempRepo.cleanup();
+    }
   });
-} else {
-  describe.skip("CLI --commit (skipped: not on main branch)", () => {
-    it("placeholder test", () => {
-      expect(true).toBe(true);
-    });
+
+  it("checks out the specified commit SHA after cloning", async () => {
+    const { stdout, stderr, exitCode } = await runDirectCLI([
+      "--repo",
+      tempRepo.repoPath, // Use tempRepo.repoPath
+      "--commit",
+      firstCommitSha, // Use the stored SHA
+      "--pipe",
+      "--verbose",
+    ]);
+
+    // Ensure the stderr expectation is completely removed
+
+    // Check stdout for final status message and file content
+    expect(stdout).toContain(`Checked out commit ${firstCommitSha}`); // Check stdout for status
+    expect(stdout).toContain("<file path=\"main.js\">");
+    expect(stdout).not.toContain("<file path=\"feature.js\">");
+    expect(exitCode).toBe(0);
   });
-}
+});
