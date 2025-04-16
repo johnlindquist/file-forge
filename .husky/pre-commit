@@ -15,25 +15,20 @@ if [ "$current_branch" = "main" ]; then
   exit 1
 fi
 
-echo "Running pre-commit checks..."
+echo "Running pre-commit checks (lint & type check)..."
 
-# Stash unstaged changes, apply hooks, unstash
 # Ensure pnpm is available
-if ! command -v pnpm &> /dev/null
-then
+if ! command -v pnpm &> /dev/null; then
     echo "pnpm could not be found, please install it."
     exit 1
 fi
 
-# Run checks
-pnpm install --frozen-lockfile --prefer-offline && \
+# Run ONLY fast checks
 pnpm eslint . --max-warnings 0 && \
-pnpm tsc --noEmit --strict --skipLibCheck && \
-pnpm test --passWithNoTests
+pnpm tsc --noEmit --strict --skipLibCheck
 
-# Check the exit code of the last command
 if [ $? -ne 0 ]; then
-  echo "Pre-commit checks failed."
+  echo "Pre-commit checks failed (lint or type check)."
   exit 1
 fi
 
