@@ -1,7 +1,10 @@
-import { describe, it, expect } from "vitest";
-import { resolve, join } from "node:path";
+import { describe, it, expect, beforeAll } from "vitest";
+import { resolve, join, dirname } from "node:path";
 import { scanDirectory } from "../src/ingest.js";
 import { runCLI } from "../utils/runCLI";
+import { execa } from "execa";
+import { fileURLToPath } from "node:url";
+import { promises as fs } from 'node:fs';
 
 interface TreeNode {
 	name: string;
@@ -74,23 +77,41 @@ describe("CLI flags", () => {
 // (adjust the relative import to wherever your "scanDirectory" is)
 
 describe("exclude logic and .gitignore behavior", () => {
-	const FIXTURES_DIR = join(__dirname, "fixtures", "ignore-test");
+	const __filename = fileURLToPath(import.meta.url);
+	const __dirname = dirname(__filename);
+	const ignoreTestDir = join(__dirname, "fixtures", "ignore-test");
+
+	beforeAll(async () => {
+		const ignoredJsPath = join(ignoreTestDir, "ignored.js");
+		try {
+			// Try to access the file, if it fails (ENOENT), create it.
+			await fs.access(ignoredJsPath);
+		} catch (error: any) {
+			if (error.code === 'ENOENT') {
+				console.log(`[CI FIX] Creating missing ignored.js for test in ${ignoreTestDir}`);
+				await fs.writeFile(ignoredJsPath, '// Empty file created by test setup\n');
+			} else {
+				// Rethrow unexpected errors
+				throw error;
+			}
+		}
+	});
 
 	it("should handle .gitignore behavior with different ignore settings", async () => {
 		// Run the tests in parallel
 		const [defaultResult, ignoreDisabledResult, userExcludeResult] = await Promise.all([
 			// Default behavior - .gitignore respected
-			scanDirectory(FIXTURES_DIR, {
+			scanDirectory(ignoreTestDir, {
 				ignore: true,
 				debug: false,
 			}),
 			// .gitignore disabled behavior
-			scanDirectory(FIXTURES_DIR, {
+			scanDirectory(ignoreTestDir, {
 				ignore: false,
 				debug: false,
 			}),
 			// User-supplied exclude patterns
-			scanDirectory(FIXTURES_DIR, {
+			scanDirectory(ignoreTestDir, {
 				ignore: true,
 				exclude: ["*.md"],
 				debug: false,

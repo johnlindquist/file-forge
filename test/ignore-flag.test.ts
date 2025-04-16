@@ -1,8 +1,35 @@
 // test/ignore-flag.test.ts
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeAll } from "vitest";
+import { execa } from "execa";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
+import { promises as fs } from 'node:fs';
 import { runCLI } from "./test-helpers";
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const cliPath = join(__dirname, "../dist/cli.js");
+const fixturesDir = join(__dirname, "fixtures");
+
 describe("CLI --ignore", () => {
+  const ignoreTestDir = join(fixturesDir, "ignore-test");
+
+  beforeAll(async () => {
+    const ignoredJsPath = join(ignoreTestDir, "ignored.js");
+    try {
+        // Try to access the file, if it fails (ENOENT), create it.
+        await fs.access(ignoredJsPath);
+    } catch (error: any) {
+        if (error.code === 'ENOENT') {
+            console.log(`[CI FIX] Creating missing ignored.js for test in ${ignoreTestDir}`);
+            await fs.writeFile(ignoredJsPath, '// Empty file created by test setup\n');
+        } else {
+            // Rethrow unexpected errors
+            throw error;
+        }
+    }
+  });
+
   it("should test .gitignore behavior with different settings", async () => {
     // Run both tests in parallel
     const [defaultResult, bypassResult] = await Promise.all([
