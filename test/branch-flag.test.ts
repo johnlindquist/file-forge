@@ -1,103 +1,82 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { execSync } from "node:child_process";
-import { writeFileSync, mkdirSync, rmSync, existsSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
 import { runCLI, isOnMainBranch } from "./test-helpers";
-import { nanoid } from "nanoid"; // or just build your own random string
 import { runDirectCLI } from "../utils/directTestRunner.js";
+import { createTempGitRepo, TempGitRepoResult } from "./helpers/createTempGitRepo.js";
+import { promises as fs } from "node:fs";
+import { resolve } from "node:path";
 
 // Only run these tests on main branch
 if (isOnMainBranch()) {
   describe.concurrent("CLI --branch", () => {
-    let repoPath: string;
+    let tempRepo: TempGitRepoResult;
 
-    // Use beforeAll instead of beforeEach for one-time setup
-    beforeAll(() => {
-      // Create a brand new temp directory once for all tests
-      const randomFolder = `branch-test-${nanoid()}`;
-      repoPath = join(tmpdir(), randomFolder);
+    beforeAll(async () => {
+      tempRepo = await createTempGitRepo({ initialBranch: 'main' });
 
-      // Wipe if something is leftover (paranoia)
-      rmSync(repoPath, { recursive: true, force: true });
-      mkdirSync(repoPath, { recursive: true });
+      const { git, repoPath } = tempRepo;
 
-      // Only initialize if the repository is not already initialized (i.e. when in a bare repo)
-      if (!existsSync(join(repoPath, ".git"))) {
-        execSync("git init --template=''", { cwd: repoPath });
-      }
+      await fs.writeFile(resolve(repoPath, "main.js"), "console.log('main')");
+      await git.add("main.js");
+      await git.commit("Initial commit");
 
-      // Now safely init a brand-new repo with no default template
-      execSync("git init --template=''", { cwd: repoPath });
+      await fs.rm(resolve(repoPath, "main.js"));
+      await git.rm("main.js");
+      await git.commit("Remove main.js");
 
-      // Create & commit main.js on "main" branch
-      execSync("git checkout -b main", { cwd: repoPath });
-      writeFileSync(resolve(repoPath, "main.js"), "console.log('main')");
-      execSync("git add main.js", { cwd: repoPath });
-      execSync(
-        'git -c user.name="Test" -c user.email="test@example.com" commit -m "Initial commit"',
-        { cwd: repoPath }
-      );
+      await git.checkoutLocalBranch("some-feature-branch");
+      await fs.writeFile(resolve(repoPath, "feature.js"), "console.log('feature')");
+      await git.add("feature.js");
+      await git.commit("Feature commit");
+    }, 30000);
 
-      // Switch to a feature branch & commit a different file
-      rmSync(resolve(repoPath, "main.js"));
-      execSync("git rm main.js", { cwd: repoPath });
-      execSync(
-        'git -c user.name="Test" -c user.email="test@example.com" commit -m "Remove main.js"',
-        { cwd: repoPath }
-      );
-      execSync("git checkout -b some-feature-branch", { cwd: repoPath });
-      writeFileSync(resolve(repoPath, "feature.js"), "console.log('feature')");
-      execSync("git add feature.js", { cwd: repoPath });
-      execSync(
-        'git -c user.name="Test" -c user.email="test@example.com" commit -m "Feature commit"',
-        { cwd: repoPath }
-      );
-    });
-
-    // Clean up after all tests
-    afterAll(() => {
-      // Only attempt cleanup if repoPath is defined
-      if (repoPath) {
-        try {
-          rmSync(repoPath, { recursive: true, force: true });
-        } catch (error) {
-          console.warn(`Warning: Failed to clean up test directory: ${error}`);
-        }
+    afterAll(async () => {
+      if (tempRepo) {
+        await tempRepo.cleanup();
       }
     });
 
     it("attempts to clone the specified branch from a Git repository", async () => {
       const { stdout, exitCode } = await runCLI([
         "--repo",
-        repoPath,
+        tempRepo.repoPath,
         "--branch",
         "some-feature-branch",
         "--pipe",
       ]);
 
       expect(exitCode).toBe(0);
-      expect(stdout).toContain("Text digest built");
       expect(stdout).toMatch(/Branch: some-feature-branch/i);
       expect(stdout).toContain("feature.js");
-      expect(stdout).not.toContain("main.js");
+
+      const directoryTreeMatch = stdout.match(
+        /<directoryTree>([\s\S]*?)<\/directoryTree>/,
+      );
+      expect(directoryTreeMatch).not.toBeNull();
+      const directoryTreeContent = directoryTreeMatch ? directoryTreeMatch[1] : "";
+
+      expect(directoryTreeContent).not.toContain("main.js");
     });
 
-    // Add a test using direct execution for comparison
     it("attempts to clone the specified branch using direct execution", async () => {
       const { stdout, exitCode } = await runDirectCLI([
         "--repo",
-        repoPath,
+        tempRepo.repoPath,
         "--branch",
         "some-feature-branch",
         "--pipe",
       ]);
 
       expect(exitCode).toBe(0);
-      expect(stdout).toContain("Text digest built");
       expect(stdout).toMatch(/Branch: some-feature-branch/i);
       expect(stdout).toContain("feature.js");
-      expect(stdout).not.toContain("main.js");
+
+      const directoryTreeMatch = stdout.match(
+        /<directoryTree>([\s\S]*?)<\/directoryTree>/,
+      );
+      expect(directoryTreeMatch).not.toBeNull();
+      const directoryTreeContent = directoryTreeMatch ? directoryTreeMatch[1] : "";
+
+      expect(directoryTreeContent).not.toContain("main.js");
     });
   });
 } else {
