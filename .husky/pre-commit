@@ -1,0 +1,41 @@
+#!/bin/sh
+. "$(dirname "$0")/_/husky.sh"
+
+# Check if HEAD is detached (likely during rebase or cherry-pick)
+if ! git symbolic-ref -q HEAD > /dev/null; then
+  echo "Skipping pre-commit hooks on detached HEAD."
+  exit 0
+fi
+
+# Block direct commits to main
+current_branch=$(git symbolic-ref --short HEAD)
+if [ "$current_branch" = "main" ]; then
+  echo "Direct commits to the main branch are not allowed."
+  echo "Please create a feature/fix branch and submit a Pull Request."
+  exit 1
+fi
+
+echo "Running pre-commit checks..."
+
+# Stash unstaged changes, apply hooks, unstash
+# Ensure pnpm is available
+if ! command -v pnpm &> /dev/null
+then
+    echo "pnpm could not be found, please install it."
+    exit 1
+fi
+
+# Run checks
+pnpm install --frozen-lockfile --prefer-offline && \
+pnpm eslint . --max-warnings 0 && \
+pnpm tsc --noEmit --strict --skipLibCheck && \
+pnpm test --passWithNoTests
+
+# Check the exit code of the last command
+if [ $? -ne 0 ]; then
+  echo "Pre-commit checks failed."
+  exit 1
+fi
+
+echo "Pre-commit checks passed."
+exit 0
