@@ -12,10 +12,10 @@ Generate a guide assuming work on the current branch, enforcing **strict commit-
 <instructions>
 {% include '_header.md' %}
 {% include '_step_verify_current_branch.md' %}
-{% include '_step_implement_code.md' %} {# Uses updated strict version #}
-{% include '_step_add_tests.md' %}    {# Uses updated strict version #}
+{% include '_step_implement_code.md' %} {% comment %} Uses updated strict version {% endcomment %}
+{% include '_step_add_tests.md' %}    {% comment %} Uses updated strict version {% endcomment %}
 {% comment %} No Push or PR steps included. Ends after the test commit. {% endcomment %}
-{% include '_footer.md' %}         {# Uses updated version #}
+{% include '_footer.md' %}         {% comment %} Uses updated version {% endcomment %}
 </instructions>
 
 <task>

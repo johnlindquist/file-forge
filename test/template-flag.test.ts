@@ -199,4 +199,40 @@ describe("CLI --template", () => {
       }
     }
   }, 20000); // Reduced timeout since direct execution is much faster
+
+  test("LiquidJS engine should remove comments", async () => {
+    // Dynamically import applyTemplate only within this test
+    const { applyTemplate } = await import('../src/templates.js');
+
+    // Only include the content that applyTemplate will actually render
+    const templateContentWithComment = `
+        Inside template tag.
+        {% comment %} Another comment {% endcomment %}
+        Still inside.
+    `;
+    // const expectedOutput = `
+    //   This is before the comment.
+    //   
+    //   This is after the comment.
+    //   
+    //     Inside template tag.
+    //     
+    //     Still inside.
+    //   
+    // `;\
+
+    // Use the same function ffg uses internally to process templates
+    const renderedOutput = await applyTemplate(templateContentWithComment, ''); // Pass empty code context
+
+    // Assert that the comments are NOT present
+    expect(renderedOutput).not.toContain("{% comment %}");
+    expect(renderedOutput).not.toContain("{% endcomment %}");
+    expect(renderedOutput).not.toContain("This is a Liquid comment");
+    expect(renderedOutput).not.toContain("Another comment");
+
+    // Assert that the surrounding text IS present (approximate check)
+    // Remove assertions for text outside the original <template> tags
+    expect(renderedOutput).toContain("Inside template tag.");
+    expect(renderedOutput).toContain("Still inside."); // Add assertion for the other line inside
+  });
 });
