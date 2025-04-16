@@ -1,22 +1,29 @@
 #!/bin/sh
+. "$(dirname "$0")/_/husky.sh"
 
-# Prevent direct pushes to main branch (skips check in CI environments)
-if [ -z "$CI" ]; then
-  protected_branch="main"
-  current_branch=$(git symbolic-ref --short HEAD)
+# Block direct pushes to main (optional but recommended)
+current_branch=$(git symbolic-ref --short HEAD)
+if [ "$current_branch" = "main" ]; then
+  echo "Direct pushes to the main branch are not allowed."
+  echo "Please submit a Pull Request."
+  exit 1
+fi
 
-  if [ "$current_branch" = "$protected_branch" ]; then
-    echo "❌ You can't push directly to the $protected_branch branch!"
-    echo "Please create a feature branch and use pull requests instead."
+echo "Running pre-push checks (tests)..."
+
+# Ensure pnpm is available
+if ! command -v pnpm &> /dev/null; then
+    echo "pnpm could not be found, please install it."
     exit 1
-  fi
+fi
 
-  while read local_ref local_sha remote_ref remote_sha
-  do
-    if [ "$remote_ref" = "refs/heads/$protected_branch" ]; then
-      echo "❌ You can't push directly to the $protected_branch branch!"
-      echo "Please create a feature branch and use pull requests instead."
-      exit 1
-    fi
-  done 
-fi 
+# Run tests
+pnpm test --passWithNoTests
+
+if [ $? -ne 0 ]; then
+  echo "Pre-push checks failed (tests)."
+  exit 1
+fi
+
+echo "Pre-push checks passed."
+exit 0 
