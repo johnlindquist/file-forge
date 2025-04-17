@@ -502,6 +502,11 @@ export async function main(): Promise<number> {
 
     // Set up paths
     const paths = envPaths(APP_SYSTEM_ID);
+    // --> Add Logging for Hook Debugging <--
+    if (process.env['VITEST']) {
+      console.log(`[HOOK_DEBUG] envPaths resolved config path in test: ${paths.config}`);
+    }
+    // --> End Logging <--
     const DEFAULT_CONFIG_DIR = paths.config;
     const DEFAULT_LOG_DIR = resolve(DEFAULT_CONFIG_DIR, "logs");
     const DEFAULT_SEARCHES_DIR = resolve(DEFAULT_CONFIG_DIR, "searches");

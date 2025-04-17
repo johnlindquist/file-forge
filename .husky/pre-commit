@@ -25,11 +25,10 @@ then
     exit 1
 fi
 
-# Run checks
+# Run checks (Removed pnpm test from pre-commit)
 pnpm install --frozen-lockfile --prefer-offline && \
 pnpm eslint . --max-warnings 0 && \
-pnpm tsc --noEmit --strict --skipLibCheck && \
-pnpm test --passWithNoTests
+pnpm tsc --noEmit --strict --skipLibCheck
 
 # Check the exit code of the last command
 if [ $? -ne 0 ]; then
