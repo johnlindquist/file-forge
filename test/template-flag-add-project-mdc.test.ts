@@ -15,23 +15,22 @@ describe("CLI --template project", () => {
 
         expect(exitCode).toBe(0);
 
-        // Check that the output contains the template instructions and key elements
+        // Check that the output contains the updated template instructions
         expect(stdout).toContain("<instructions>");
-        expect(stdout).toContain("Add a \"./cursor/rules/project.mdc\" file");
-        expect(stdout).toContain("1. Include a brief description of the project");
-        expect(stdout).toContain("2. List and describe key files and their purposes");
-        expect(stdout).toContain("3. Outline core features and functionality");
-        expect(stdout).toContain("4. Explain main components and their interactions");
-        expect(stdout).toContain("5. Describe any relevant development workflows or patterns");
+        // Updated assertion for the primary instruction
+        expect(stdout).toContain("Create \"./cursor/rules/project.mdc\" file following the style/structure");
+        // Keep other checks if they are still relevant based on the new template content
+        expect(stdout).toContain("Include: Brief project desc, key files/purpose");
         expect(stdout).toContain("</instructions>");
 
         // Check for example section
         expect(stdout).toContain("<example>");
         expect(stdout).toContain("</example>");
 
-        // Check for task tags
+        // Check for updated task tags
         expect(stdout).toContain("<task>");
-        expect(stdout).toContain("Generate the project.mdc content in a markdown codefence");
+        // Updated assertion for the task content
+        expect(stdout).toContain("Generate project.mdc content in markdown codefence:");
         expect(stdout).toContain("</task>");
     });
 }); 

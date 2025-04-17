@@ -1,13 +1,13 @@
 <instructions>
-- Write comprehensive unit tests for the provided code using the specified testing framework (e.g., Jest, Vitest, Pytest).
-- Cover edge cases, happy paths, and error handling.
-- Mock any external dependencies (APIs, databases, file system) appropriately.
-- Return the complete test suite code.
-- Base your tests **solely** on the provided code context and its apparent functionality. Do not infer external dependencies or behaviors not explicitly shown.
+- Write comprehensive unit tests (e.g., Jest, Vitest, Pytest) for the code provided in the `<task>` tag.
+- Cover edge cases, happy paths, errors.
+- Mock external dependencies (API, DB, FS).
+- Return complete test suite code.
+- Test based *only* on the provided code's apparent functionality in the `<task>` tag.
 </instructions>
 
-**(Generated on: {{ GENERATION_DATE }})**
+**(Generated: {{ GENERATION_DATE }})**
 
 <task>
-Write unit tests for the following code:
-</task> 
+Write unit tests for this code:
+</task>

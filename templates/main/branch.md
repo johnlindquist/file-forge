@@ -1,25 +1,23 @@
 ---
 name: branch
 category: generation
-description: Plan work on a new branch with MANDATORY commits per step (code & tests), no PR creation.
+description: Plan on NEW branch; MANDATORY commits/step (code/tests); no PR.
 variables:
   - TASK_DESCRIPTION
   - BRANCH_NAME
 ---
-<executive_summary>
-Generate a guide starting with creating a new branch, enforcing **strict commit-per-step verification** for code and test changes. Ends before push/PR creation. Includes returning to the main branch.
-</executive_summary>
+
+<goal>Execute the request in the `<task>` tag: Create branch `{{BRANCH_NAME}}`, implement+commit code & tests with strict verification per `<instructions>`, then return to main.</goal>
 
 <instructions>
 {% include '_header.md' %}
 {% include '_step_create_branch.md' %}
 {% include '_step_implement_code.md' %}
 {% include '_step_add_tests.md' %}
-{% comment %} No Push or PR steps included {% endcomment %}
 {% include '_step_return_to_main.md' %}
 {% include '_footer.md' %}
 </instructions>
 
 <task>
 {{TASK_DESCRIPTION}}
-</task> 
+</task>

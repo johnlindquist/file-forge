@@ -34,9 +34,9 @@ describe('Template File Loading', () => {
             // Check that the template renders correctly
             const rendered = await applyTemplate(explainTemplate.templateContent, 'test code');
             expect(rendered).toContain('<instructions>');
-            expect(rendered).toContain('- Describe what the code does and how it works.');
+            expect(rendered).toContain('- Explain what the code provided in the `<task>` tag does & how (plain language, concise).');
             expect(rendered).toContain('<task>');
-            expect(rendered).toContain('Provide a clear and concise explanation');
+            expect(rendered).toContain('Explain this code:');
 
             // Ensure code placeholder is replaced
             expect(rendered).not.toContain('{{ code }}');
@@ -56,7 +56,7 @@ describe('Template File Loading', () => {
             // Check rendering
             const rendered = await applyTemplate(projectTemplate.templateContent, 'test code');
             expect(rendered).toContain('<example>');
-            expect(rendered).toContain('# GHX - GitHub Code Search CLI');
+            expect(rendered).toContain('# Project Name');
             expect(rendered).toContain('## Key Files');
 
             // Check that the example is properly closed
@@ -70,7 +70,7 @@ describe('Template File Loading', () => {
         if (refactorTemplate) {
             const rendered = await applyTemplate(refactorTemplate.templateContent, 'test code');
             expect(rendered).toContain('<instructions>');
-            expect(rendered).toContain('- Analyze the code for readability and maintainability issues.');
+            expect(rendered).toContain('- Analyze the code provided in the `<task>` tag for readability/maintainability issues (simplicity, clarity).');
             expect(rendered).not.toContain('{{ code }}');
         }
     });
