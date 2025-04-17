@@ -1,4 +1,10 @@
 #!/bin/sh
+# Check if running in CI *and* likely during semantic-release (presence of GH_TOKEN)
+if [ -n "$CI" ] && [ -n "$GH_TOKEN" ]; then
+  echo "CI environment with GH_TOKEN detected (likely semantic-release). Skipping pre-push checks."
+  exit 0 # Exit successfully, bypassing tests
+fi
+
 # . "$(dirname "$0")/_/husky.sh" # DEPRECATED: Remove this line
 
 PNPM_CMD="pnpm" # Default command
