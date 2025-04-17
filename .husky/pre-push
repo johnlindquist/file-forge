@@ -3,6 +3,14 @@
 
 # If in CI, try to activate pnpm explicitly
 if [ -n "$CI" ]; then
+  # Add the pnpm bin directory (found in the previous error log) to the PATH
+  PNPM_BIN_DIR="/home/runner/setup-pnpm/node_modules/.bin"
+  if [ -d "$PNPM_BIN_DIR" ]; then
+    export PATH="$PNPM_BIN_DIR:$PATH"
+    echo "Added $PNPM_BIN_DIR to PATH"
+  else
+      echo "Warning: pnpm bin directory $PNPM_BIN_DIR not found."
+  fi
   # Attempt to source environment setup if possible, or add pnpm path if known
   # This path might need adjustment depending on the CI environment setup
   # For GitHub Actions with pnpm/action-setup, pnpm is often added to PATH automatically,
@@ -48,17 +56,18 @@ if ! command -v pnpm &> /dev/null
 then
     echo "pnpm could not be found, please install it."
     # Let's try to find it via setup-pnpm's typical location as a fallback in CI
-    if [ -n "$CI" ] && [ -x "/home/runner/setup-pnpm/node_modules/.bin/pnpm" ]; then
-        echo "Found pnpm via fallback path, attempting to use it."
-        alias pnpm='/home/runner/setup-pnpm/node_modules/.bin/pnpm'
-    else
-      exit 1
-    fi
+    # Removed fallback alias logic, relying on PATH modification above
+    # if [ -n "$CI" ] && [ -x "/home/runner/setup-pnpm/node_modules/.bin/pnpm" ]; then
+    #     echo "Found pnpm via fallback path, attempting to use it."
+    #     alias pnpm='/home/runner/setup-pnpm/node_modules/.bin/pnpm'
+    # else
+    exit 1
+    # fi
 fi
 
 # Run the full test suite before pushing
 echo "🧪 Running tests..."
-pnpm test --passWithNoTests # Use the same test command as before
+pnpm test # REMOVED --passWithNoTests flag
 
 # Check the exit code of the test command
 if [ $? -ne 0 ]; then
