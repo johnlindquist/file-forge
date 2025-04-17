@@ -1,27 +1,30 @@
 #!/bin/sh
 # . "$(dirname "$0")/_/husky.sh" # DEPRECATED: Remove this line
 
-# If in CI, try to activate pnpm explicitly
+PNPM_CMD="pnpm" # Default command
+
+# If in CI, try to find pnpm explicitly
 if [ -n "$CI" ]; then
-  # Add the pnpm bin directory (found in the previous error log) to the PATH
-  PNPM_BIN_DIR="/home/runner/setup-pnpm/node_modules/.bin"
-  if [ -d "$PNPM_BIN_DIR" ]; then
-    export PATH="$PNPM_BIN_DIR:$PATH"
-    echo "Added $PNPM_BIN_DIR to PATH"
+  # Try the standard PATH first
+  if ! command -v pnpm &> /dev/null; then
+      # If not found in PATH, try the known setup-pnpm location
+      PNPM_BIN_PATH="/home/runner/setup-pnpm/node_modules/.bin/pnpm"
+      if [ -x "$PNPM_BIN_PATH" ]; then
+          echo "Found pnpm via fallback path: $PNPM_BIN_PATH"
+          PNPM_CMD="$PNPM_BIN_PATH" # Use the full path
+      else
+          echo "Error: pnpm command not found in PATH or fallback location ($PNPM_BIN_PATH)."
+          exit 1
+      fi
   else
-      echo "Warning: pnpm bin directory $PNPM_BIN_DIR not found."
+      echo "Found pnpm in PATH."
   fi
-  # Attempt to source environment setup if possible, or add pnpm path if known
-  # This path might need adjustment depending on the CI environment setup
-  # For GitHub Actions with pnpm/action-setup, pnpm is often added to PATH automatically,
-  # but hooks might run in a different context. Let's try ensuring it's there.
-  if [ -f "$HOME/.bash_profile" ]; then
-    . "$HOME/.bash_profile"
-  elif [ -f "$HOME/.profile" ]; then
-     . "$HOME/.profile"
+else
+  # Check pnpm normally for local environments
+  if ! command -v pnpm &> /dev/null; then
+      echo "Error: pnpm command not found. Please install pnpm."
+      exit 1
   fi
-  # Explicitly add pnpm path if setup actions put it somewhere predictable
-  # Example: export PATH=$PNPM_HOME:$PATH
 fi
 
 # Prevent direct pushes to main branch (skips check in CI environments)
@@ -51,23 +54,17 @@ fi
 
 echo "🔍 Running pre-push checks..."
 
-# Ensure pnpm is available
-if ! command -v pnpm &> /dev/null
-then
-    echo "pnpm could not be found, please install it."
-    # Let's try to find it via setup-pnpm's typical location as a fallback in CI
-    # Removed fallback alias logic, relying on PATH modification above
-    # if [ -n "$CI" ] && [ -x "/home/runner/setup-pnpm/node_modules/.bin/pnpm" ]; then
-    #     echo "Found pnpm via fallback path, attempting to use it."
-    #     alias pnpm='/home/runner/setup-pnpm/node_modules/.bin/pnpm'
-    # else
-    exit 1
-    # fi
-fi
+# Ensure pnpm is available (check already performed above)
+# if ! command -v pnpm &> /dev/null
+# then
+#     echo "pnpm could not be found, please install it."
+#     exit 1
+# fi
 
-# Run the full test suite before pushing
-echo "🧪 Running tests..."
-pnpm test # REMOVED --passWithNoTests flag
+# Run the full test suite using the determined pnpm command
+echo "🧪 Running tests using command: $PNPM_CMD"
+# Execute the command stored in the variable
+"$PNPM_CMD" test
 
 # Check the exit code of the test command
 if [ $? -ne 0 ]; then
