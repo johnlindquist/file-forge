@@ -1,95 +1,105 @@
 **Step 1: Implement Core Code Changes**
 
-*   **Goal:** Modify the necessary code file(s) to implement the core logic for this part of "{{TASK_DESCRIPTION}}". This step focuses *only* on the primary code changes.
-*   **Action:** Edit the relevant file(s) (e.g., `src/feature.ts`, `lib/utils.js`). **Ensure you replace the entire relevant code block as shown.**
+- **Goal:** Modify the necessary code file(s) to implement the core logic for this part of "{{TASK_DESCRIPTION}}". Focus _only_ on primary code changes for this step.
+- **Action & Attempt Cycle:**
 
-    *Example for file `src/auth.ts`:*
-    ```typescript
-    // === BEFORE CHANGES in src/auth.ts ===
-    // Ensure you show the complete function or relevant block
+  1.  Announce **"Attempt 1"** for this step.
+  2.  Edit the relevant file(s) (e.g., `src/feature.ts`). **Show the complete relevant code blocks being changed (before/after).**
+      _Example for file `src/auth.ts`:_
 
-    // (Optional: Show surrounding code for context if needed)
-    // import { someDependency } from './dependency';
+      ```typescript
+      // === BEFORE CHANGES in src/auth.ts ===
+      // Show the complete function or relevant block
 
-    export function authenticate(username: string, password: string): boolean {
-      console.log('Attempting authentication...');
-      // Example existing logic:
-      const isValid = username === 'admin' && password === 'password123';
-      // ... potentially more complex logic ...
-      return isValid;
-    }
+      // import { someDependency } from './dependency';
 
-    // (Optional: Show other functions/code in the file if relevant context)
-    // export function otherAuthFunction() { ... }
-
-    // === AFTER CHANGES in src/auth.ts ===
-    // Replace the previous block with this complete, updated version
-
-    // (Optional: Show surrounding code for context if needed)
-    // import { someDependency } from './dependency';
-    // import { isAccountLocked } from './accountStatus'; // New dependency
-
-    export function authenticate(username: string, password: string): boolean {
-      console.log('Attempting authentication with new validation...'); // Updated log
-
-      // Added input validation
-      if (!username || !password) {
-        console.error('Authentication failed: Username or password missing.');
-        return false;
+      export function authenticate(
+        username: string,
+        password: string,
+      ): boolean {
+        // Existing logic...
+        const isValid = username === "admin" && password === "password123";
+        return isValid;
       }
 
-      // Example existing logic:
-      const isValidCredentials = username === 'admin' && password === 'password123';
+      // === AFTER CHANGES in src/auth.ts (Attempt 1) ===
+      // Replace the previous block with this complete, updated version
 
-      // Added check for locked account
-      if (isValidCredentials && isAccountLocked(username)) {
-         console.warn(`Authentication failed: Account '${username}' is locked.`);
-         return false;
+      // import { someDependency } from './dependency';
+      // import { isAccountLocked } from './accountStatus'; // New dependency
+
+      export function authenticate(
+        username: string,
+        password: string,
+      ): boolean {
+        console.log("Attempting authentication with validation..."); // Log change
+
+        if (!username || !password) {
+          // Added validation
+          console.error("Auth failed: Missing credentials.");
+          return false;
+        }
+        const isValidCredentials =
+          username === "admin" && password === "password123";
+        // if (isValidCredentials && isAccountLocked(username)) { // Added check
+        //   console.warn(`Auth failed: Account '${username}' locked.`);
+        //   return false;
+        // }
+        return isValidCredentials;
       }
+      ```
 
-      // ... potentially more complex logic ...
+      _Self-Correction Prompt: Does this change impact mocks needed for tests (e.g., `isAccountLocked`, network, `process.exit`)? Prepare for test updates._
 
-      return isValidCredentials; // Return based on combined checks
-    }
+  3.  Proceed immediately to **Verification (Mandatory)** below.
+  4.  **If Verification Fails:**
+      - Analyze the failure messages _thoroughly_.
+      - Announce **"Attempt 2"**.
+      - Modify the code again, showing the changes clearly (e.g., "=== AFTER CHANGES in src/auth.ts (Attempt 2) ===").
+      - Re-run **Verification**.
+  5.  **If Verification Fails Again:**
+      - Analyze the new failure messages.
+      - Announce **"Attempt 3"**.
+      - Make final modifications, showing changes.
+      - Re-run **Verification**.
+  6.  **If Verification Fails on Attempt 3:** **STOP.** Announce: "Verification failed after 3 attempts for Step 1 (Implement Code). Recommend plan revision." Do not proceed to commit.
 
-    // (Optional: Show other functions/code in the file if relevant context)
-    // export function otherAuthFunction() { ... }
-    ```
-    *Self-Correction Prompt: Did you consider how this change interacts with the test environment's mocking (e.g., for `isAccountLocked`, network requests, `process.exit`)? Ensure mocks are updated if necessary.*
+- **Impact Analysis (Mandatory!):** Before the _first_ commit attempt, consider how these changes might affect _other_ parts of the project. Updates here might require changes in tests, consuming components, types, or docs.
 
-*   **Impact Analysis (Mandatory!):** Carefully consider how these changes might affect *other* parts of the project *beyond the files directly edited*. Updates here might require changes in tests, consuming components, type definitions, or documentation.
-    *   *Agent Note: Based on the `TASK_DESCRIPTION` and your knowledge of the codebase, list specific files/modules likely impacted by *these specific code changes* and briefly explain *why*. Be explicit.*
-    *   **Files Potentially Impacted by *this step's* changes:**
-        *   `[File Path 1]` - Reason: [e.g., Imports the modified function, uses the affected type, handles related UI]
-        *   `[File Path 2]` - Reason: [e.g., Contains tests for this code, needs updated mocks]
-        *   *(Add more as needed)*
-    *   **Action Required:** Acknowledge this analysis. Subsequent steps will involve updating tests and potentially other impacted files.
+  - *Agent Note: List specific files/modules likely impacted by *these specific code changes* and *why*. Be explicit.*
+  - **Files Potentially Impacted by _this step's_ changes:**
+    - `[File Path 1]` - Reason: [e.g., Imports the modified function, uses the affected type]
+    - `[File Path 2]` - Reason: [e.g., Contains tests for this code, needs updated mocks]
+    - _(Add more as needed)_
+  - **Action Required:** Acknowledge this analysis in your commit message if you proceed.
 
-*   **Verification (Mandatory Before Commit):** **DO NOT COMMIT until all verification steps pass.**
-    1.  **Lint & Type Check:** Run linters and type checkers. Fix *all* reported issues.
-        ```bash
-        # Adapt to your project's scripts (e.g., pnpm lint, pnpm build:check)
-        pnpm lint && pnpm build:check
-        ```
-    2.  **Run Relevant Tests:** Execute the test suite(s) most relevant to the changes made. Analyze and fix any failures meticulously. **If tests fail:**
-        *   Read the error messages carefully.
-        *   Use debuggers (`debugger;` statements, IDE breakpoints) or add temporary logging (`console.log`) to trace the logic flow in your code and the affected tests.
-        *   Check the "Impact Analysis" above – did you forget something? Does a related file need an update you missed?
-        *   If a test *should* fail because the code's behavior changed correctly, update the test in the *next* step. For now, focus on fixing unexpected failures.
-        *   **Do not proceed if tests related to this code are unexpectedly failing.**
-        ```bash
-        # Adapt to run specific tests if possible, or the full suite:
-        # pnpm test
-        ```
-    3.  **(Optional) Manual Check:** If applicable, run the application or specific commands to manually verify the basic functionality behaves as expected *for this specific change*.
+- **Verification (Mandatory Before Commit):** **Run these checks after EACH attempt. DO NOT COMMIT until all verification steps pass.**
 
-*   **Commit (Only After Successful Verification):** Stage and commit *only* the code changes directly related to *this step's* implementation.
-    ```bash
-    # 1. Add only the files modified IN THIS STEP
-    git add <path/to/modified/code/files> # e.g., git add src/auth.ts
-    # 2. Use a clear, structured commit message (choose ONE type: feat/fix/refactor/...)
-    #    Example: git commit -m "feat: Implement core logic for {{TASK_DESCRIPTION}} (Step 1)" -m "Description: Added input validation and account lock check in authenticate function." -m "Verification: Passed lint, types, and relevant tests." -m "Impact Analysis: Acknowledged potential impact on test files." | cat
-    git commit -m "<type>: Implement core logic for {{TASK_DESCRIPTION}} (Step 1)" -m "Description: [Specific changes made]" -m "Verification: Passed lint, types, and relevant tests." -m "Impact Analysis: Acknowledged potential impact on listed files." | cat
-    ```
+  1.  **Lint & Type Check:** Run linters/type checkers. Fix _all_ reported issues.
+      ```bash
+      # Adapt to your project's scripts (e.g., pnpm lint, pnpm build:check)
+      pnpm lint && pnpm build:check
+      ```
+  2.  **Run Relevant Tests:** Execute tests most relevant to the changes. Analyze failures meticulously. **If tests fail unexpectedly:**
+      - Use debuggers (`debugger;`, IDE breakpoints) or logging (`console.log`) to trace logic in code and tests.
+      - Check the "Impact Analysis" – did you miss updating a related file?
+      - If a test _should_ fail due to intended behavior change, that's okay _for now_ – it will be fixed in the _next_ step (Add Tests). Focus on fixing _unexpected_ failures here.
+      - **If verification fails, return to the Action & Attempt Cycle above.**
+      ```bash
+      # Adapt to run specific tests if possible, or the full suite:
+      # pnpm test path/to/relevant/tests*
+      pnpm test
+      ```
+  3.  **(Optional) Manual Check:** Briefly run the app/command to manually verify the specific change behaves as expected.
+  4.  **Progress Check:** If all checks pass, state: "Verification successful for Step 1 on Attempt X."
 
---- 
+- **Commit (Only After Successful Verification on Attempt 1, 2, or 3):** Stage and commit _only_ the code changes directly related to _this step's_ implementation.
+  ```bash
+  # 1. Add only the files modified IN THIS STEP
+  git add <path/to/modified/code/files> # e.g., git add src/auth.ts
+  # 2. Use a clear, structured commit message (choose ONE type: feat/fix/refactor/...)
+  #    Example: git commit -m "feat: Implement core logic for {{TASK_DESCRIPTION}} (Step 1)" -m "Description: Added input validation in authenticate function." -m "Verification: Passed lint, types, relevant tests on Attempt X." -m "Impact Analysis: Acknowledged potential impact on test files." | cat
+  git commit -m "<type>: Implement core logic for {{TASK_DESCRIPTION}} (Step 1)" -m "Description: [Specific changes made]" -m "Verification: Passed lint, types, relevant tests on Attempt [1/2/3]." -m "Impact Analysis: Acknowledged potential impact on listed files." | cat
+  ```
+
+---
