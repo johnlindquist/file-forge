@@ -1,47 +1,41 @@
-**Step 4: Create a Pull Request**
+**Step 4: Create Pull Request**
 
-*   **Goal:** Request a code review for your implementation of "{{TASK_DESCRIPTION}}", highlighting the structured approach taken.
-*   **Action:** Create a Pull Request using the GitHub CLI or web interface.
+- **Goal:** Request review for "{{TASK_DESCRIPTION}}".
+- **Action:** Create PR.
 
-    1.  **Prepare Description File:**
-        *   Use the `edit_file` tool to create `./.temp/pr-description.md` with the following content:
-            ```markdown
-            ## Description
+  1.  **Prep Desc File:** Use `edit_file` tool for `./.temp/pr-description.md`:
 
-            Implemented {{TASK_DESCRIPTION}}.
+      ```markdown
+      ## Desc
 
-            This was implemented following a strict commit-per-step process:
-            - Commit 1: [Brief summary of Step 1 commit message]
-            - Commit 2: [Brief summary of Step 2 commit message]
-            - (Add more commits as applicable)
+      Implemented {{TASK_DESCRIPTION}}.
 
-            ## Key Changes Made
+      Structured commits:
 
-            - List the main functional changes here
-            - Another change here
+      - Commit 1: [Summary Step 1]
+      - Commit 2: [Summary Step 2]
+      - (Add more)
 
-            ## Testing
+      ## Changes
 
-            - Describe how the changes were tested (unit tests added/updated, manual checks performed). Mention that all tests pass.
-            ```
-            *(Agent Note: Execute the `edit_file` tool with path `./.temp/pr-description.md` and the content above. You should fill in the commit summaries based on the plan generated.)*
+      - Main change 1
+      - Main change 2
 
-    2.  **Create the PR:**
-        ```bash
-        # Option 1: Using GitHub CLI (if installed)
-        # Assumes ./temp/pr-description.md was created by the edit_file tool
-        gh pr create --title "{{TASK_DESCRIPTION}}" --body-file ./temp/pr-description.md --base main | cat
+      ## Testing
 
-        # Clean up the temporary file
-        rm ./temp/pr-description.md
-        ```
+      - How tested (unit, manual). All tests pass.
+      ```
 
-    3.  **Alternative: Use GitHub Web Interface:**
-        ```bash
-        # Option 2: Use the GitHub web interface
-        # Visit https://github.com/USERNAME/REPO/pull/new/{{BRANCH_NAME}}
-        # (Manually copy/paste the description content, including commit summaries)
-        ```
-*   **Verification:** Confirm the PR was created successfully via the output URL. Share this URL for review. Ensure the PR description accurately reflects the work done and the structured commits.
+      _(Agent: Fill commit summaries from plan.)_
 
---- 
+  2.  **Create PR:**
+      ```bash
+      # Option 1: GitHub CLI
+      gh pr create --title "{{TASK_DESCRIPTION}}" --body-file ./.temp/pr-description.md --base main
+      rm ./.temp/pr-description.md
+      ```
+  3.  **Alt: Web UI:** `https://github.com/USERNAME/REPO/pull/new/{{BRANCH_NAME}}` (Paste description).
+
+- **Verify:** Confirm PR created (URL). Check description accuracy.
+
+---

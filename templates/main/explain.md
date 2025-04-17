@@ -1,12 +1,11 @@
 <instructions>
-- Describe what the code does and how it works.
-- Keep the explanation concise and in plain language (no code output).
-- Do **not** modify or rewrite the code; only explain it.
-- Base your explanation **solely** on the provided code context. Do not infer external dependencies or behaviors not present in the code.
+- Explain what the code provided in the `<task>` tag does & how (plain language, concise).
+- **Do not** modify code or output code.
+- Explain based *only* on the provided code in the `<task>` tag.
 </instructions>
 
-**(Generated on: {{ GENERATION_DATE }})**
+**(Generated: {{ GENERATION_DATE }})**
 
 <task>
-Provide a clear and concise explanation of what this code does and how it works in plain language.
+Explain this code:
 </task>
