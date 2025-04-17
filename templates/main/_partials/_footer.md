@@ -1,2 +1,2 @@
 **Conclusion:**
-You have now completed the plan for "{{TASK_DESCRIPTION}}" by following a structured, step-by-step process with mandatory verification and commits. This approach ensures code quality, test coverage, and a clear history. 
+You have now completed the plan for "{{TASK_DESCRIPTION}}" by following a structured, iterative process with mandatory verification, attempt tracking, and commits at each stage. This approach ensures code quality, test coverage, clear history, and consistent forward momentum.
