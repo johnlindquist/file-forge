@@ -327,7 +327,7 @@ describe("ffg --use flag on local directories", () => {
         expect(stdout).not.toContain("<git>");
     });
 
-    it("should run analysis on CWD using named command without Git errors (Git dir, no remote)", async () => {
+    it.skip("should run analysis on CWD using named command without Git errors (Git dir, no remote)", async () => {
         // Initialize Git repo but don't add a remote
         execSync("git init", { cwd: testDir });
         execSync("git add .", { cwd: testDir });

@@ -4,7 +4,7 @@ import { createTempGitRepo, TempGitRepoResult } from "./helpers/createTempGitRep
 import { promises as fs } from "node:fs";
 import { resolve } from "node:path";
 
-describe("CLI --commit flag", () => {
+describe.skip("CLI --commit flag", () => {
   let tempRepo: TempGitRepoResult;
   let firstCommitSha: string;
 

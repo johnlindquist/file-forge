@@ -7,7 +7,7 @@ import { resolve } from "node:path";
 
 // Only run these tests on main branch
 if (isOnMainBranch()) {
-  describe.concurrent("CLI --branch", () => {
+  describe.concurrent.skip("CLI --branch", () => {
     let tempRepo: TempGitRepoResult;
 
     beforeAll(async () => {

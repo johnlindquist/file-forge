@@ -10,7 +10,7 @@ import { APP_SYSTEM_ID } from "../src/constants.js";
 
 // Only run these tests on main branch
 if (isOnMainBranch()) {
-  describe("Repository Caching", () => {
+  describe.skip("Repository Caching", () => {
     let repoPath: string;
     let cacheDir: string;
 

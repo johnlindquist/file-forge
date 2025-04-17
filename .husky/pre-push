@@ -1,22 +1,49 @@
 #!/bin/sh
+. "$(dirname "$0")/_/husky.sh" # Ensure husky setup is sourced if needed
 
 # Prevent direct pushes to main branch (skips check in CI environments)
 if [ -z "$CI" ]; then
   protected_branch="main"
-  current_branch=$(git symbolic-ref --short HEAD)
+  # Use git rev-parse --abbrev-ref HEAD for potentially more robust branch detection
+  current_branch=$(git rev-parse --abbrev-ref HEAD)
 
   if [ "$current_branch" = "$protected_branch" ]; then
     echo "❌ You can't push directly to the $protected_branch branch!"
-    echo "Please create a feature branch and use pull requests instead."
+    echo "Please use feature branches and Pull Requests."
     exit 1
   fi
 
+  # Check remote refs being pushed to (covers pushing specific branches)
   while read local_ref local_sha remote_ref remote_sha
   do
-    if [ "$remote_ref" = "refs/heads/$protected_branch" ]; then
-      echo "❌ You can't push directly to the $protected_branch branch!"
-      echo "Please create a feature branch and use pull requests instead."
+    # Extract branch name from ref (e.g., refs/heads/main -> main)
+    remote_branch=${remote_ref#refs/heads/}
+    if [ "$remote_branch" = "$protected_branch" ]; then
+      echo "❌ Attempting to push to protected branch '$protected_branch'!"
+      echo "Please use feature branches and Pull Requests."
       exit 1
     fi
-  done 
-fi 
+  done
+fi
+
+echo "🔍 Running pre-push checks..."
+
+# Ensure pnpm is available
+if ! command -v pnpm &> /dev/null
+then
+    echo "pnpm could not be found, please install it."
+    exit 1
+fi
+
+# Run the full test suite before pushing
+echo "🧪 Running tests..."
+pnpm test --passWithNoTests # Use the same test command as before
+
+# Check the exit code of the test command
+if [ $? -ne 0 ]; then
+  echo "❌ Tests failed. Please fix the tests before pushing."
+  exit 1
+fi
+
+echo "✅ Pre-push checks passed."
+exit 0 

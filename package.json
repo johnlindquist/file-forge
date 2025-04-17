@@ -33,7 +33,7 @@
     "test:ignore-flag": "pnpm build && vitest run test/ignore-flag.test.ts",
     "dev": "node --experimental-strip-types src/index.ts",
     "build": "tsc",
-    "build:check": "tsc --noEmit",
+    "build:check": "tsc --noEmit --skipLibCheck -p tsconfig.json",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "verify:bin": "pnpm build && [ -f dist/index.js ] || (echo 'dist/index.js not found' && exit 1)",
@@ -180,6 +180,7 @@
     "execa": "^9.5.2",
     "globals": "^16.0.0",
     "husky": "^9.1.7",
+    "lint-staged": "^15.5.1",
     "semantic-release": "^24.2.3",
     "typescript": "^5.8.3",
     "vitest": "^3.1.1"
@@ -209,5 +210,14 @@
     "tiktoken": "^1.0.20",
     "yargs": "^17.7.2",
     "zx": "^8.5.2"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,jsx}": [
+      "pnpm eslint --fix --max-warnings 0 --no-warn-ignored",
+      "bash -c 'pnpm build:check'"
+    ],
+    "*.{json,md,yml,yaml}": [
+      "prettier --write"
+    ]
   }
 }

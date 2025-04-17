@@ -10,32 +10,21 @@ fi
 # Block direct commits to main
 current_branch=$(git symbolic-ref --short HEAD)
 if [ "$current_branch" = "main" ]; then
-  echo "Direct commits to the main branch are not allowed."
+  echo "🚫 Direct commits to the main branch are not allowed."
   echo "Please create a feature/fix branch and submit a Pull Request."
   exit 1
 fi
 
-echo "Running pre-commit checks..."
+echo "🔍 Running pre-commit checks on staged files..."
 
-# Stash unstaged changes, apply hooks, unstash
-# Ensure pnpm is available
-if ! command -v pnpm &> /dev/null
-then
-    echo "pnpm could not be found, please install it."
-    exit 1
-fi
+# Run lint-staged
+npx lint-staged
 
-# Run checks
-pnpm install --frozen-lockfile --prefer-offline && \
-pnpm eslint . --max-warnings 0 && \
-pnpm tsc --noEmit --strict --skipLibCheck && \
-pnpm test --passWithNoTests
-
-# Check the exit code of the last command
+# Check the exit code of lint-staged
 if [ $? -ne 0 ]; then
-  echo "Pre-commit checks failed."
+  echo "❌ Pre-commit checks failed. Please fix the issues and try committing again."
   exit 1
 fi
 
-echo "Pre-commit checks passed."
+echo "✅ Pre-commit checks passed."
 exit 0
