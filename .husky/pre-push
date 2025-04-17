@@ -1,5 +1,20 @@
 #!/bin/sh
-. "$(dirname "$0")/_/husky.sh" # Ensure husky setup is sourced if needed
+# . "$(dirname "$0")/_/husky.sh" # DEPRECATED: Remove this line
+
+# If in CI, try to activate pnpm explicitly
+if [ -n "$CI" ]; then
+  # Attempt to source environment setup if possible, or add pnpm path if known
+  # This path might need adjustment depending on the CI environment setup
+  # For GitHub Actions with pnpm/action-setup, pnpm is often added to PATH automatically,
+  # but hooks might run in a different context. Let's try ensuring it's there.
+  if [ -f "$HOME/.bash_profile" ]; then
+    . "$HOME/.bash_profile"
+  elif [ -f "$HOME/.profile" ]; then
+     . "$HOME/.profile"
+  fi
+  # Explicitly add pnpm path if setup actions put it somewhere predictable
+  # Example: export PATH=$PNPM_HOME:$PATH
+fi
 
 # Prevent direct pushes to main branch (skips check in CI environments)
 if [ -z "$CI" ]; then
@@ -32,7 +47,13 @@ echo "🔍 Running pre-push checks..."
 if ! command -v pnpm &> /dev/null
 then
     echo "pnpm could not be found, please install it."
-    exit 1
+    # Let's try to find it via setup-pnpm's typical location as a fallback in CI
+    if [ -n "$CI" ] && [ -x "/home/runner/setup-pnpm/node_modules/.bin/pnpm" ]; then
+        echo "Found pnpm via fallback path, attempting to use it."
+        alias pnpm='/home/runner/setup-pnpm/node_modules/.bin/pnpm'
+    else
+      exit 1
+    fi
 fi
 
 # Run the full test suite before pushing
