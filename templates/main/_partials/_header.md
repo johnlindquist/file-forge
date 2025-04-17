@@ -1,24 +1,15 @@
-# Guide: {{TASK_DESCRIPTION}}
+# Guide: {{TASK_DESCRIPTION}} ({{ GENERATION_DATE }})
 
-**(Generated on: {{ GENERATION_DATE }})**
+**Summary:** Mandatory steps for "{{TASK_DESCRIPTION}}". Follow precisely. Iterate quickly, verify constantly.
 
-**High-Level Summary:**
-This guide provides the **exact, mandatory steps** to implement "{{TASK_DESCRIPTION}}". You are an agent executing this plan. The process emphasizes **rapid iteration, constant verification, and forward momentum.**
+**Principles:**
 
-**Core Principles:**
+- **Strict Order:** Follow steps exactly.
+- **Attempt Limit (Code/Test Steps):** Max 3 attempts. Announce attempt #. If verify fails on Attempt 3, STOP & report failure. Don't proceed.
+- **Mandatory Verify:** Verify _as instructed_ at each stage. DON'T proceed if verification fails (respect 3 attempts). Success = progress.
+- **Commit Discipline:** Commit _only_ when instructed, post-success, using specified format.
+- **Complete All:** Finish the entire sequence.
 
-- **Strict Order:** Follow steps precisely. No deviations.
-- **Attempt Tracking (for Code/Test Steps):**
-  - Announce **"Attempt 1"** when starting a code implementation or testing step.
-  - If verification fails, announce **"Attempt 2"**, analyze the failure, make corrections, and re-verify.
-  - If verification fails again, announce **"Attempt 3"**, make final corrections, and re-verify.
-  - **If verification fails on Attempt 3, STOP.** Announce the persistent failure (e.g., "Verification failed after 3 attempts. The current approach may be flawed.") and recommend reconsidering the plan. **Do not proceed with the failed step.**
-- **Mandatory Verification:** Meticulously verify at each stage _as instructed_. **Do NOT proceed to the next action (especially commit) if verification fails** (respecting the 3-attempt limit). Successful verification signals forward progress.
-- **Commit Discipline:** Commit _only_ when instructed, using the specified format, and _only after successful verification_.
-- **Complete All Steps:** Finish the entire sequence as laid out.
+**Goal:** Execute plan efficiently, proving progress via verification. Strict adherence is key.
 
-**Your Goal:** Execute this plan efficiently, demonstrating progress through successful verification at each step. Strict adherence is crucial for quality and traceability.
-
-_(Note: Adapt package manager commands like `pnpm run ...` or `npm test` to match your project's setup: `npm`, `yarn`, or `pnpm`.)_
-
----
+## _(Note: Adapt `pnpm`/`npm`/`yarn` commands to project.)_

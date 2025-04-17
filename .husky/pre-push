@@ -1,5 +1,37 @@
 #!/bin/sh
-. "$(dirname "$0")/_/husky.sh" # Ensure husky setup is sourced if needed
+# Check if running in CI *and* likely during semantic-release (presence of GH_TOKEN)
+if [ -n "$CI" ] && [ -n "$GH_TOKEN" ]; then
+  echo "CI environment with GH_TOKEN detected (likely semantic-release). Skipping pre-push checks."
+  exit 0 # Exit successfully, bypassing tests
+fi
+
+# . "$(dirname "$0")/_/husky.sh" # DEPRECATED: Remove this line
+
+PNPM_CMD="pnpm" # Default command
+
+# If in CI, try to find pnpm explicitly
+if [ -n "$CI" ]; then
+  # Try the standard PATH first
+  if ! command -v pnpm &> /dev/null; then
+      # If not found in PATH, try the known setup-pnpm location
+      PNPM_BIN_PATH="/home/runner/setup-pnpm/node_modules/.bin/pnpm"
+      if [ -x "$PNPM_BIN_PATH" ]; then
+          echo "Found pnpm via fallback path: $PNPM_BIN_PATH"
+          PNPM_CMD="$PNPM_BIN_PATH" # Use the full path
+      else
+          echo "Error: pnpm command not found in PATH or fallback location ($PNPM_BIN_PATH)."
+          exit 1
+      fi
+  else
+      echo "Found pnpm in PATH."
+  fi
+else
+  # Check pnpm normally for local environments
+  if ! command -v pnpm &> /dev/null; then
+      echo "Error: pnpm command not found. Please install pnpm."
+      exit 1
+  fi
+fi
 
 # Prevent direct pushes to main branch (skips check in CI environments)
 if [ -z "$CI" ]; then
@@ -28,16 +60,17 @@ fi
 
 echo "🔍 Running pre-push checks..."
 
-# Ensure pnpm is available
-if ! command -v pnpm &> /dev/null
-then
-    echo "pnpm could not be found, please install it."
-    exit 1
-fi
+# Ensure pnpm is available (check already performed above)
+# if ! command -v pnpm &> /dev/null
+# then
+#     echo "pnpm could not be found, please install it."
+#     exit 1
+# fi
 
-# Run the full test suite before pushing
-echo "🧪 Running tests..."
-pnpm test --passWithNoTests # Use the same test command as before
+# Run the full test suite using the determined pnpm command
+echo "🧪 Running tests using command: $PNPM_CMD"
+# Execute the command stored in the variable
+"$PNPM_CMD" test
 
 # Check the exit code of the test command
 if [ $? -ne 0 ]; then
