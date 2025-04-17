@@ -301,9 +301,9 @@ export async function applyTemplate(templateContent: string, code: string): Prom
     // Add timeout for template rendering to prevent hangs
     const timeoutMs = process.env['NODE_ENV'] === 'test' ? 5000 : 30000;
 
-    // Extract task description from code if it contains a task tag
-    const taskDescriptionMatch = code.match(/<task>([\s\S]*?)<\/task>/i);
-    const taskDescription = taskDescriptionMatch && taskDescriptionMatch[1] ? taskDescriptionMatch[1].trim() : code.trim();
+    // TASK_DESCRIPTION should come from CLI args or config, not code parsing.
+    // Hardcode a placeholder for now.
+    const taskDescription = "Describe the task via CLI/config";
 
     // Generate a branch name from the task description
     // This is a simple implementation - can be made more robust as needed

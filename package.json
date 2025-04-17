@@ -55,6 +55,7 @@
     "check:template:document": "pnpm build && pnpm exec node dist/index.js -i src/templates.ts --template document",
     "check:template:refactor": "pnpm build && pnpm exec node dist/index.js -i src/index.ts --template refactor",
     "check:template:optimize": "pnpm build && pnpm exec node dist/index.js -i src/graph.ts --template optimize",
+    "check:template:worktree": "pnpm build && pnpm exec node dist/index.js -i src/graph.ts --template worktree --pipe",
     "check:template:render:worktree": "pnpm build && pnpm exec node dist/index.js -i src/graph.ts --render-template worktree --pipe",
     "check:template:test": "pnpm build && pnpm exec node dist/index.js -i src/cli.ts --template test",
     "check:template:fix": "pnpm build && pnpm exec node dist/index.js -i src/outputFormatter.ts --template fix",
