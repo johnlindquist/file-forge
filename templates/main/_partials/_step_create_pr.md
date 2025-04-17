@@ -3,7 +3,7 @@
 - **Goal:** Request review for "{{TASK_DESCRIPTION}}".
 - **Action:** Create PR.
 
-  1.  **Prep Desc File:** Use `edit_file` tool for `./.temp/pr-description.md`:
+  1.  **Prep Desc File:** Use `edit_file` tool for `/tmp/pr_project_timestamp.md`:
 
       ```markdown
       ## Desc
@@ -31,8 +31,7 @@
   2.  **Create PR:**
       ```bash
       # Option 1: GitHub CLI
-      gh pr create --title "{{TASK_DESCRIPTION}}" --body-file ./.temp/pr-description.md --base main
-      rm ./.temp/pr-description.md
+      gh pr create --title "{{TASK_DESCRIPTION}}" --body-file /tmp/pr_project_timestamp.md --base main
       ```
   3.  **Alt: Web UI:** `https://github.com/USERNAME/REPO/pull/new/{{BRANCH_NAME}}` (Paste description).
 
