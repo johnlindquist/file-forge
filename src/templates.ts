@@ -288,16 +288,6 @@ export async function applyTemplate(templateContent: string, code: string): Prom
       code = String(code || '');  // Convert to string or empty string
     }
 
-    // Extract the template content from within <template> tags if present
-    let contentToRender = templateContent;
-    const templateMatch = templateContent.match(/<template>([\s\S]*?)<\/template>/);
-    if (templateMatch && templateMatch[1]) {
-      contentToRender = templateMatch[1];
-      if (process.env['DEBUG']) {
-        console.log(`[DEBUG] Extracted template content from <template> tags`);
-      }
-    }
-
     // Add timeout for template rendering to prevent hangs
     const timeoutMs = process.env['NODE_ENV'] === 'test' ? 5000 : 30000;
 
@@ -337,7 +327,7 @@ export async function applyTemplate(templateContent: string, code: string): Prom
     }
 
     // Create a promise that times out if rendering takes too long
-    const renderPromise = engine.parseAndRender(contentToRender, renderContext);
+    const renderPromise = engine.parseAndRender(templateContent, renderContext);
 
     // For test environments, add a timeout
     if (process.env['NODE_ENV'] === 'test') {
@@ -574,10 +564,8 @@ export async function findTemplateFile(templateName: string, templatesDir: strin
       }
       return mdPath;
     } catch (error) {
-      // Maintain the original error message format for test compatibility
-      console.log(`No template file found for '${templateName}'`);
-
-      // Add additional debug info only in test mode (after the expected message)
+      // Update: Ensure the error message includes 'not found' for test compatibility
+      console.log(`Template file not found for '${templateName}'`);
       if (process.env['NODE_ENV'] === 'test') {
         console.log(`Additional debug info: Template file not found at: ${mdPath}, error: ${error}`);
       }

@@ -1,5 +1,5 @@
 <instructions>
-- Write comprehensive unit tests (e.g., Jest, Vitest, Pytest) for the code provided in the `<task>` tag.
+- Write comprehensive unit tests (e.g., Jest, Vitest, Pytest) for the code provided in the `<task>` tag. Ensure the unit tests cover all relevant cases.
 - Cover edge cases, happy paths, errors.
 - Mock external dependencies (API, DB, FS).
 - Return complete test suite code.

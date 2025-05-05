@@ -1,5 +1,5 @@
 <instructions>
-Create "./cursor/rules/project.mdc" file following the style/structure in the `<example>` tag below.
+Create "./cursor/rules/project.mdc" file following the style/structure in the `<example>` tag below. The output must be suitable for a project.mdc file.
 Include: Brief project desc, key files/purpose, core features, main components/interactions, dev workflows.
 Base *only* on the project context provided by the surrounding files/selection relevant to the `<task>` tag content.
 </instructions>
