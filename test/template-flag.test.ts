@@ -41,9 +41,12 @@ describe("CLI --template", () => {
     ]);
 
     expect(exitCode).toBe(0);
-    // The template should include some content like instructions
+    // The context should be present
+    expect(stdout).toContain('<summary>');
+    expect(stdout).toContain('<directoryTree>');
+    // The template output should be appended after the context
     expect(stdout).toContain("instructions");
-    // Should not contain any XML or CDATA wrappers
+    // Should not contain any XML or CDATA wrappers for the template output
     expect(stdout).not.toContain('<templateOutput');
     expect(stdout).not.toContain('<![CDATA[');
     expect(stdout).not.toContain('</templateOutput>');
@@ -60,8 +63,11 @@ describe("CLI --template", () => {
     ]);
 
     expect(exitCode).toBe(0);
-    // Should show the plain error message
-    expect(stdout).toBe('Template not found. Use --list-templates to see available templates.');
+    // The context should be present
+    expect(stdout).toContain('<summary>');
+    expect(stdout).toContain('<directoryTree>');
+    // Should show the plain error message appended after the context
+    expect(stdout).toContain('Template not found. Use --list-templates to see available templates.');
   });
 
   test("should apply plan template with instruction and task tags", async () => {
@@ -75,9 +81,9 @@ describe("CLI --template", () => {
     ]);
 
     expect(exitCode).toBe(0);
-    // The template should include content
+    expect(stdout).toContain('<summary>');
+    expect(stdout).toContain('<directoryTree>');
     expect(stdout).toContain("Guide");
-    // Should not contain any XML or CDATA wrappers
     expect(stdout).not.toContain('<templateOutput');
     expect(stdout).not.toContain('<![CDATA[');
     expect(stdout).not.toContain('</templateOutput>');
@@ -104,7 +110,8 @@ describe("CLI --template", () => {
         "--no-token-count"
       ]);
       expect(exitCode, `Exit code should be 0 for template ${name}`).toBe(0);
-      // Should not contain any XML or CDATA wrappers
+      expect(stdout, `stdout for ${name} should contain <summary>`).toContain('<summary>');
+      expect(stdout, `stdout for ${name} should contain <directoryTree>`).toContain('<directoryTree>');
       expect(stdout, `stdout for ${name} should not contain <templateOutput>`).not.toContain('<templateOutput');
       expect(stdout, `stdout for ${name} should not contain <![CDATA[`).not.toContain('<![CDATA[');
       expect(stdout, `stdout for ${name} should not contain </templateOutput>`).not.toContain('</templateOutput>');
@@ -127,6 +134,8 @@ describe("CLI --template", () => {
     ]);
 
     expect(exitCode).toBe(0);
+    expect(stdout).toContain('<summary>');
+    expect(stdout).toContain('<directoryTree>');
     expect(stdout).toContain("# Guide:");
     expect(stdout).not.toContain('<templateOutput');
     expect(stdout).not.toContain('<![CDATA[');
@@ -153,6 +162,8 @@ describe("CLI --template", () => {
         "--verbose",
       ]);
       expect(exitCode, `Exit code should be 0 for template ${name}`).toBe(0);
+      expect(stdout, `stdout for ${name} should contain <summary>`).toContain('<summary>');
+      expect(stdout, `stdout for ${name} should contain <directoryTree>`).toContain('<directoryTree>');
       expect(stdout, `stdout for ${name} should not contain <templateOutput>`).not.toContain('<templateOutput');
       expect(stdout, `stdout for ${name} should not contain <![CDATA[`).not.toContain('<![CDATA[');
       expect(stdout, `stdout for ${name} should not contain </templateOutput>`).not.toContain('</templateOutput>');

@@ -175,18 +175,20 @@ export async function buildXMLOutput(
     // Template section if specified
     if (options.template) {
         const template = getTemplateByName(options.template);
+        let templateResult = '';
         if (template) {
             try {
                 // Ensure digestContent is passed and is a string
                 const contentToApply = typeof options.digestContent === 'string' ? options.digestContent : '';
-                const appliedTemplate = await applyTemplate(template.templateContent, contentToApply);
-                return appliedTemplate;
+                templateResult = await applyTemplate(template.templateContent, contentToApply);
             } catch (error) {
-                return `Error applying template: ${error instanceof Error ? error.message : String(error)}`;
+                templateResult = `Error applying template: ${error instanceof Error ? error.message : String(error)}`;
             }
         } else {
-            return 'Template not found. Use --list-templates to see available templates.';
+            templateResult = 'Template not found. Use --list-templates to see available templates.';
         }
+        // Append the template result (raw, no wrappers) to the XML output
+        xml += `\n${templateResult}`;
     }
 
     // xml += `</analysis>`;
