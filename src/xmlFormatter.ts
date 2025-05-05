@@ -176,26 +176,16 @@ export async function buildXMLOutput(
     if (options.template) {
         const template = getTemplateByName(options.template);
         if (template) {
-            xml += `\n${indent}<templateOutput name="${escapeXML(options.template)}">\n`; // Add opening tag
-
             try {
                 // Ensure digestContent is passed and is a string
                 const contentToApply = typeof options.digestContent === 'string' ? options.digestContent : '';
                 const appliedTemplate = await applyTemplate(template.templateContent, contentToApply);
-
-                // Wrap the applied template content in CDATA to handle potential special characters
-                xml += `${childIndent}<![CDATA[\n${appliedTemplate}\n${childIndent}]]>\n`;
-
+                return appliedTemplate;
             } catch (error) {
-                // Use escapeXML for the error message content as well
-                xml += `${childIndent}<error>Error applying template: ${escapeXML(error instanceof Error ? error.message : String(error))}</error>\n`;
+                return `Error applying template: ${error instanceof Error ? error.message : String(error)}`;
             }
-            xml += `${indent}</templateOutput>\n`; // Add closing tag
         } else {
-            // Also wrap the "not found" error for consistency
-            xml += `\n${indent}<templateOutput name="${escapeXML(options.template)}">\n`;
-            xml += `${childIndent}<error>Template not found. Use --list-templates to see available templates.</error>\n`;
-            xml += `${indent}</templateOutput>\n`;
+            return 'Template not found. Use --list-templates to see available templates.';
         }
     }
 
