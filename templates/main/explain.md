@@ -1,5 +1,5 @@
 <instructions>
-- Explain what the code provided in the `<task>` tag does & how (plain language, concise).
+- Provide a clear explanation of what the code provided in the `<task>` tag does & how (plain language, concise).
 - **Do not** modify code or output code.
 - Explain based *only* on the provided code in the `<task>` tag.
 </instructions>
