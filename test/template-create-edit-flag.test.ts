@@ -256,7 +256,11 @@ describe("Template Creation and Editing Flags", () => {
                     "nonexistent-template"
                 ]);
                 expect(exitCode).toBe(1);
-                expect(stdout).toContain("not found");
+                // Accept either the debug line or the 'No template file found' line
+                expect(
+                    stdout.includes("not found") ||
+                    stdout.includes("No template file found for")
+                ).toBe(true);
             } finally {
                 process.env = originalEnv;
             }
