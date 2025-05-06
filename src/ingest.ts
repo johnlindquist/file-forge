@@ -21,6 +21,7 @@ import {
   DEFAULT_MAX_TOKEN_ESTIMATE,
 } from "./constants.js";
 import { existsSync as fsExistsSync, lstatSync as fsLstatSync } from "fs";
+import * as fsSync from 'node:fs';
 
 /** Converts Windows backslashes to POSIX forward slashes */
 const toPosixPath = (p: string): string => p.replace(/\\/g, "/");
@@ -819,6 +820,19 @@ export async function gatherFiles(
     console.log("[DEBUG] gatherFiles: SVG files marked:", svgFiles.size);
     console.log("[DEBUG] gatherFiles: Files ignored (errors/size):", ignoredFiles.size);
   }
+
+  // DEBUG: Print and write the ingested file list
+  const fileList = files.map(f => f.path).join('\n');
+  const marker = '[INGEST_DEBUG]';
+  if (process.env['INGEST_DEBUG']) {
+    console.error(`${marker} Ingested files for basePath: ${basePath}\n${fileList}`);
+    try {
+      fsSync.writeFileSync('/tmp/ingested-files.log', `${marker} Ingested files for basePath: ${basePath}\n${fileList}`);
+    } catch (e) {
+      console.error(`${marker} Failed to write ingested files log:`, e);
+    }
+  }
+
   return files;
 }
 
@@ -885,6 +899,11 @@ async function processFiles(basePath: string, flags: IngestFlags, externalPaths:
 
   // Pass externalPaths to gatherFiles so it knows which files to skip content generation for
   const files = await gatherFiles(rootNode, flags, basePath, externalPaths);
+  // Log all file paths being ingested for debugging
+  if (flags.debug) {
+    console.log(`[DEBUG] Ingested files for basePath: ${basePath}`);
+    files.forEach(f => console.log(`[DEBUG] Ingested file: ${f.path}`));
+  }
   // Create tree string *after* gatherFiles might have updated node flags (like isBinary)
   const tree = createTree(rootNode, "", true, flags);
 
